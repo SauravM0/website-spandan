@@ -2,13 +2,14 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as packageController from '../controllers/packageController';
 import { authenticate } from '../middleware/auth';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { validate } from '../middleware/validate';
 
 const router = Router();
 
-router.get('/', packageController.list);
-router.get('/featured', packageController.featured);
-router.get('/:slug', packageController.getBySlug);
+router.get('/', asyncHandler(packageController.list));
+router.get('/featured', asyncHandler(packageController.featured));
+router.get('/:slug', asyncHandler(packageController.getBySlug));
 
 router.post(
   '/',
@@ -19,10 +20,10 @@ router.post(
     body('base_price').isNumeric().withMessage('Price must be a number'),
   ],
   validate,
-  packageController.create
+  asyncHandler(packageController.create)
 );
 
-router.put('/:id', authenticate, packageController.update);
-router.delete('/:id', authenticate, packageController.remove);
+router.put('/:id', authenticate, asyncHandler(packageController.update));
+router.delete('/:id', authenticate, asyncHandler(packageController.remove));
 
 export default router;

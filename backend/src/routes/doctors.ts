@@ -2,12 +2,13 @@ import { Router } from 'express';
 import { body } from 'express-validator';
 import * as doctorController from '../controllers/doctorController';
 import { authenticate } from '../middleware/auth';
+import { asyncHandler } from '../middleware/asyncHandler';
 import { validate } from '../middleware/validate';
 
 const router = Router();
 
-router.get('/', doctorController.list);
-router.get('/:slug', doctorController.getBySlug);
+router.get('/', asyncHandler(doctorController.list));
+router.get('/:slug', asyncHandler(doctorController.getBySlug));
 
 router.post(
   '/',
@@ -18,10 +19,10 @@ router.post(
     body('speciality').notEmpty().withMessage('Speciality is required'),
   ],
   validate,
-  doctorController.create
+  asyncHandler(doctorController.create)
 );
 
-router.put('/:id', authenticate, doctorController.update);
-router.delete('/:id', authenticate, doctorController.remove);
+router.put('/:id', authenticate, asyncHandler(doctorController.update));
+router.delete('/:id', authenticate, asyncHandler(doctorController.remove));
 
 export default router;
