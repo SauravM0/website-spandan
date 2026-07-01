@@ -20,7 +20,17 @@ import { validateCsrfToken, getCsrfToken } from './middleware/csrf';
 const app = express();
 
 app.use(helmet());
-app.use(cors({ origin: config.corsOrigin }));
+app.use(cors({
+  origin(origin, callback) {
+    if (!origin) {
+      callback(null, true);
+      return;
+    }
+
+    const normalizedOrigin = origin.replace(/\/+$/, '');
+    callback(null, config.corsOrigins.includes(normalizedOrigin));
+  },
+}));
 app.use(express.json({ limit: '1mb' }));
 
 // Global rate limit for all /api routes (backstop)
