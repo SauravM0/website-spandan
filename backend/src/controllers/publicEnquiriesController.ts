@@ -1,7 +1,7 @@
 import { Request, Response } from 'express';
 import { enquirySchema } from '../utils/validation';
 import {
-  isPackageActive, getPrimaryDoctorByPackageId,
+  isPackageActive, getPrimaryDoctorByPackageId, getDoctorById,
   createPublicEnquiryWithInitialHistory,
 } from '../models';
 import { sendEnquiryNotification } from '../services/email';
@@ -18,20 +18,31 @@ export async function submitEnquiry(req: Request, res: Response): Promise<void> 
 
   const data = parsed.data;
 
-  // Step 2: Verify package exists and is active
-  const packageActive = await isPackageActive(data.package_id);
-  if (!packageActive) {
-    badRequest(res, 'Invalid package selected');
-    return;
+  let doctorId = data.doctor_id || null;
+
+  // Step 2: Verify selected package/doctor exists and is active.
+  if (data.package_id) {
+    const packageActive = await isPackageActive(data.package_id);
+    if (!packageActive) {
+      badRequest(res, 'Invalid package selected');
+      return;
+    }
+
+    const primaryDoctor = await getPrimaryDoctorByPackageId(data.package_id);
+    doctorId = doctorId || primaryDoctor?.id || null;
   }
 
-  // Step 3: Look up package's primary doctor
-  const primaryDoctor = await getPrimaryDoctorByPackageId(data.package_id);
-  const doctorId = primaryDoctor?.id || null;
+  if (doctorId) {
+    const doctor = await getDoctorById(doctorId);
+    if (!doctor || !doctor.is_active) {
+      badRequest(res, 'Invalid doctor selected');
+      return;
+    }
+  }
 
   try {
     const enquiry = await createPublicEnquiryWithInitialHistory({
-      package_id: data.package_id,
+      package_id: data.package_id || null,
       doctor_id: doctorId,
       patient_name: data.patient_name,
       phone: data.phone,
@@ -40,7 +51,8 @@ export async function submitEnquiry(req: Request, res: Response): Promise<void> 
       referring_doctor_phone: data.referring_doctor_phone || null,
       preferred_date: data.preferred_date || null,
       preferred_time_window: data.preferred_time_window || null,
-      source_language: data.language,
+      message: data.message || null,
+      source_language: data.source_language || data.language || 'en',
     });
 
     // Step 5: Trigger notification asynchronously - response does NOT wait

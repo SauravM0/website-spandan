@@ -18,6 +18,13 @@ export default function PackageEditor({ pkg, onSave }: PackageEditorProps) {
     prep_instructions: pkg?.prep_instructions || '',
     is_active: pkg?.is_active ?? true,
     is_featured: pkg?.is_featured ?? false,
+    tax_applicable: pkg?.tax_applicable ?? false,
+    tax_rate: pkg?.tax_rate?.toString() || '0',
+    convenience_fee: pkg?.convenience_fee?.toString() || '0',
+    purchase_status: pkg?.purchase_status || 'available',
+    badge_text: pkg?.badge_text || '',
+    available_days: Array.isArray(pkg?.available_days) ? pkg.available_days.join(', ') : '',
+    terms_text: pkg?.terms_text || '',
   });
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
@@ -30,7 +37,13 @@ export default function PackageEditor({ pkg, onSave }: PackageEditorProps) {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSave?.(form);
+    onSave?.({
+      ...form,
+      available_days: form.available_days
+        .split(',')
+        .map((day: string) => day.trim())
+        .filter(Boolean),
+    });
   };
 
   return (
@@ -65,6 +78,38 @@ export default function PackageEditor({ pkg, onSave }: PackageEditorProps) {
         <label>Prep Instructions</label>
         <textarea name="prep_instructions" value={form.prep_instructions} onChange={handleChange} />
       </div>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="form-group">
+          <label>Purchase Status</label>
+          <select name="purchase_status" value={form.purchase_status} onChange={handleChange}>
+            <option value="available">Available</option>
+            <option value="temporarily_unavailable">Temporarily unavailable</option>
+            <option value="hidden">Hidden from purchase</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Tax Rate (%)</label>
+          <input name="tax_rate" type="number" min="0" step="0.01" value={form.tax_rate} onChange={handleChange} />
+        </div>
+        <div className="form-group">
+          <label>Convenience Fee</label>
+          <input name="convenience_fee" type="number" min="0" step="0.01" value={form.convenience_fee} onChange={handleChange} />
+        </div>
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="form-group">
+          <label>Display Badge</label>
+          <input name="badge_text" value={form.badge_text} onChange={handleChange} />
+        </div>
+        <div className="form-group">
+          <label>Available Days</label>
+          <input name="available_days" value={form.available_days} onChange={handleChange} placeholder="Monday, Tuesday" />
+        </div>
+      </div>
+      <div className="form-group">
+        <label>Terms / No-refund Acknowledgement</label>
+        <textarea name="terms_text" value={form.terms_text} onChange={handleChange} />
+      </div>
       <div className="flex gap-6">
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange} />
@@ -73,6 +118,10 @@ export default function PackageEditor({ pkg, onSave }: PackageEditorProps) {
         <label className="flex items-center gap-2 cursor-pointer">
           <input type="checkbox" name="is_featured" checked={form.is_featured} onChange={handleChange} />
           Featured
+        </label>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="tax_applicable" checked={form.tax_applicable} onChange={handleChange} />
+          Tax Applicable
         </label>
       </div>
       <button type="submit" className="btn bg-navy text-white hover:bg-navy-light">

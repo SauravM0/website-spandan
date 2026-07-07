@@ -22,9 +22,9 @@ export async function getDoctorById(id: string): Promise<Doctor | null> {
 
 export async function getDoctorBriefById(
   id: string
-): Promise<{ name: string; speciality: string; slug: string } | null> {
+): Promise<{ id: string; name: string; speciality: string; slug: string } | null> {
   const result = await query(
-    'SELECT name, speciality, slug FROM doctors WHERE id = $1 AND is_active = true',
+    'SELECT id, name, speciality, slug FROM doctors WHERE id = $1 AND is_active = true',
     [id]
   );
   return result.rows[0] || null;

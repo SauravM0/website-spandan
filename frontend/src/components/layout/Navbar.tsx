@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, Globe2, Menu, X } from 'lucide-react';
+import { CalendarCheck, ChevronDown, Globe2, Menu, X } from 'lucide-react';
 import '../../lib/i18n';
 
 const languages = [
@@ -24,17 +24,17 @@ export default function Navbar() {
   };
 
   const navLinks = [
-    { href: '/', label: 'nav_home' },
-    { href: '/packages', label: 'nav_packages' },
     { href: '/doctors', label: 'nav_doctors' },
-    { href: '/tools', label: 'nav_tools' },
+    { href: '/packages', label: 'nav_packages' },
+    { href: '/facilities', label: 'nav_facilities' },
     { href: '/health-resources', label: 'nav_articles' },
+    { href: '/contact', label: 'nav_contact' },
   ];
 
   const clinicLinks = [
+    { href: '/', label: 'nav_home' },
     { href: '/about', label: 'nav_about' },
-    { href: '/facilities', label: 'nav_facilities' },
-    { href: '/contact', label: 'nav_contact' },
+    { href: '/tools', label: 'nav_tools' },
   ];
 
   const closeMenus = () => {
@@ -150,19 +150,21 @@ export default function Navbar() {
           </div>
 
           <Link
-            href="/contact"
+            href="/book-appointment"
             className="md:hidden mt-2 btn btn-accent justify-center"
             onClick={closeMenus}
           >
-            {t('enquire_now')}
+            <CalendarCheck size={18} />
+            Book Appointment
           </Link>
         </nav>
 
         <Link
-          href="/contact"
+          href="/book-appointment"
           className="hidden md:inline-flex btn btn-accent text-xs px-4 py-2"
         >
-          {t('enquire_now')}
+          <CalendarCheck size={16} />
+          Book Appointment
         </Link>
       </div>
 

@@ -4,7 +4,7 @@ import { motion } from 'framer-motion';
 
 export function ECGLine({
   width = 200,
-  color = '#D6336C',
+  color = '#0F766E',
   strokeWidth = 2,
 }: {
   width?: number;

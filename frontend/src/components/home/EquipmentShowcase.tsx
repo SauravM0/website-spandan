@@ -10,19 +10,19 @@ import CardioBackground from '../animations/CardioBackground';
 const iconMap: Record<string, React.ReactNode> = {
   InBody: <Activity size={24} />,
   CGMS: <DropletIcon size={24} color="#2E86C1" />,
-  ABPM: <HeartIcon size={24} color="#D6336C" />,
+  ABPM: <HeartIcon size={24} color="#0F766E" />,
   Holter: <Monitor size={24} />,
   'Sleep Study': <Moon size={24} />,
   'Insulin Pump': <DropletIcon size={24} color="#2E86C1" />,
 };
 
 const equipment = [
-  { name: 'InBody', description: 'Body Composition Analyzer' },
-  { name: 'CGMS', description: 'Continuous Glucose Monitoring' },
-  { name: 'ABPM', description: 'Ambulatory BP Monitoring' },
-  { name: 'Holter', description: 'Holter Monitor' },
-  { name: 'Sleep Study', description: 'Sleep Diagnostics' },
-  { name: 'Insulin Pump', description: 'Insulin Therapy' },
+  { name: 'InBody', description: 'Body Composition Analyzer', why: 'Useful for body composition and metabolic risk review.' },
+  { name: 'CGMS', description: 'Continuous Glucose Monitoring', why: 'Useful for understanding glucose patterns across daily activity.' },
+  { name: 'ABPM', description: 'Ambulatory BP Monitoring', why: 'Useful when clinic and home blood pressure readings differ.' },
+  { name: 'Holter', description: 'Holter Monitor', why: 'Useful for rhythm symptoms that may not appear during a short ECG.' },
+  { name: 'Sleep Study', description: 'Sleep Diagnostics', why: 'Useful when snoring, fatigue, or sleep breathing issues are suspected.' },
+  { name: 'Insulin Pump', description: 'Insulin Therapy', why: 'Useful for selected patients needing advanced insulin delivery planning.' },
 ];
 
 const containerVariants = {
@@ -56,7 +56,7 @@ export default function EquipmentShowcase() {
             <path
               d="M0,20 L50,20 L70,4 L100,36 L120,4 L150,36 L180,20 L800,20"
               fill="none"
-              stroke="#D6336C"
+              stroke="#0F766E"
               strokeWidth="2"
             />
           </svg>
@@ -84,7 +84,7 @@ export default function EquipmentShowcase() {
               <motion.div
                 key={item.name}
                 variants={cardVariants}
-                className="flex-shrink-0 w-[220px] md:w-[260px] snap-start bg-white rounded-xl p-6 shadow hover:shadow-lg transition-shadow"
+                className="flex-shrink-0 w-[240px] md:w-[280px] snap-start bg-white rounded-lg p-6 shadow hover:shadow-lg transition-shadow"
               >
                 <motion.div
                   variants={iconVariants}
@@ -99,6 +99,10 @@ export default function EquipmentShowcase() {
                 </motion.div>
                 <h3 className="font-bold text-navy mb-1">{item.name}</h3>
                 <p className="text-sm text-text-light">{item.description}</p>
+                <p className="mt-3 text-sm leading-relaxed text-text-light">{item.why}</p>
+                <span className="mt-4 inline-flex rounded-md bg-teal-50 px-2.5 py-1 text-xs font-semibold text-teal-800">
+                  Available at Spandan
+                </span>
                 <div className="mt-3 h-1 w-full bg-bg-alt rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
@@ -120,7 +124,7 @@ export default function EquipmentShowcase() {
           transition={{ duration: 0.5, delay: 0.6 }}
           className="text-center text-sm text-text-light mt-8"
         >
-          Real clinic photos coming soon &mdash; visit us to see our equipment in person
+          Ask our team which diagnostics are suitable for your symptoms, reports, or health package.
         </motion.p>
       </div>
     </section>

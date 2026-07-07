@@ -22,10 +22,11 @@ services:
     ports:
       - '4000:4000'
     environment:
-      NODE_ENV: production
+      NODE_ENV: development
       DATABASE_URL: postgresql://spandan:spandan_secret_dev@db:5432/spandan_clinic
-      JWT_SECRET: ${JWT_SECRET:-change-this-in-production}
-      CORS_ORIGIN: https://spandanclinic.com
+      JWT_SECRET: ${JWT_SECRET:-dev-only-secret-replace-before-production-12345}
+      CORS_ORIGIN: http://localhost:3000,http://localhost
+      FRONTEND_URL: http://localhost
     depends_on:
       db:
         condition: service_healthy

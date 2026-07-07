@@ -7,8 +7,7 @@ import {
 import { AuthenticatedRequest } from '../middleware/auth';
 
 export async function list(req: Request, res: Response): Promise<void> {
-  const activeOnly = req.query.all !== 'true';
-  const packages = activeOnly ? await getPackagesPublic() : await getPackages(false);
+  const packages = await getPackagesPublic();
   res.json({ packages });
 }
 

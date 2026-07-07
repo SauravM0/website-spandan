@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { CalendarCheck, HeartPulse, MessageCircle, Phone } from 'lucide-react';
 
 export default function StickyCTA() {
   const [visible, setVisible] = useState(false);
@@ -28,19 +29,28 @@ export default function StickyCTA() {
       }`}
       style={{ transform: visible ? 'translateY(0)' : 'translateY(100%)' }}
     >
-      <div className="flex gap-3">
-        <Link
-          href="/contact"
-          className="btn btn-accent flex-1 justify-center text-sm"
-        >
-          Enquire Now
+      <div className="grid grid-cols-4 gap-2">
+        <Link href="/book-appointment" className="btn btn-accent justify-center px-2 text-xs">
+          <CalendarCheck size={16} />
+          Appointment
         </Link>
-        <Link
-          href="/packages"
-          className="btn btn-outline flex-1 justify-center text-sm"
-        >
-          View Packages
+        <Link href="/book-package" className="btn btn-outline justify-center px-2 text-xs">
+          <HeartPulse size={16} />
+          Packages
         </Link>
+        <a href="tel:+917798095795" className="btn btn-outline justify-center px-2 text-xs">
+          <Phone size={16} />
+          Call
+        </a>
+        <a
+          href="https://wa.me/917798095795"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="btn btn-outline justify-center px-2 text-xs"
+        >
+          <MessageCircle size={16} />
+          WhatsApp
+        </a>
       </div>
     </div>
   );

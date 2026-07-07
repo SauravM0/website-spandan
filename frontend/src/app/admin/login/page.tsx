@@ -13,7 +13,7 @@ export default function AdminLoginPage() {
     setError('');
     try {
       const data = await login(email, password);
-      localStorage.setItem('admin_token', data.token);
+      localStorage.setItem('admin_token', 'cookie-session');
       localStorage.setItem('admin_user', JSON.stringify(data.user));
       window.location.href = '/admin/leads';
     } catch {

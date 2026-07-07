@@ -15,7 +15,7 @@ export default function CardioBackground() {
         amplitude={14}
         className="absolute -top-8 -right-8 opacity-[0.06]"
       >
-        <HeartIcon size={180} color="#D6336C" />
+        <HeartIcon size={180} color="#0F766E" />
       </AmbientIcon>
 
       <AmbientIcon
@@ -24,7 +24,7 @@ export default function CardioBackground() {
         amplitude={10}
         className="absolute bottom-12 left-8 opacity-[0.07]"
       >
-        <HeartIcon size={60} color="#D6336C" />
+        <HeartIcon size={60} color="#0F766E" />
       </AmbientIcon>
 
       <AmbientIcon
@@ -33,7 +33,7 @@ export default function CardioBackground() {
         amplitude={8}
         className="absolute top-1/2 right-16 opacity-[0.05]"
       >
-        <HeartIcon size={90} color="#1B3A57" />
+        <HeartIcon size={90} color="#12324A" />
       </AmbientIcon>
     </div>
   );

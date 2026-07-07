@@ -55,7 +55,7 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 export default async function PackageDetail({ params }: { params: { slug: string } }) {
   const data = await getPackage(params.slug);
   const pkg = data.package;
-  const tests = data.tests || [];
+  const tests = data.tests || pkg?.tests || [];
 
   if (!pkg) {
     return (
@@ -115,7 +115,7 @@ export default async function PackageDetail({ params }: { params: { slug: string
           </div>
         )}
         <div className="container relative z-10">
-          <div className="grid-2 gap-12">
+          <div className="max-w-3xl mx-auto">
             <div>
               {pkg.description && (
                 <p className="text-lg leading-relaxed text-text-light mb-8">{pkg.description}</p>
@@ -138,18 +138,28 @@ export default async function PackageDetail({ params }: { params: { slug: string
               </div>
             </div>
 
-            <div id="enquire" className="scroll-mt-20">
-              <h3 className="text-xl font-bold mb-6 text-center">Enquire About This Package</h3>
-              <EnquiryForm packageId={params.slug} />
+            <div id="book" className="scroll-mt-24 mt-16">
+              <div className="mb-8 text-center">
+                <h3 className="text-xl font-bold">Book This Package</h3>
+                <Link href={`/book-package?package=${pkg.id}`} className="btn btn-accent mt-4">Book Health Package</Link>
+              </div>
+              <h3 className="text-xl font-bold mb-6 text-center">Need Help Before Booking?</h3>
+              <EnquiryForm
+                packageId={pkg.id}
+                packageName={pkg.name}
+                doctorId={pkg.primary_doctor?.id}
+                doctorName={pkg.primary_doctor?.name}
+                enquiryType="package"
+              />
             </div>
           </div>
 
           <div className="fixed bottom-6 right-6 z-40 md:hidden">
             <a
-              href="#enquire"
+              href={`/book-package?package=${pkg.id}`}
               className="btn bg-accent text-white hover:bg-accent-light shadow-lg rounded-full px-6"
             >
-              Enquire Now
+              Book Package
             </a>
           </div>
         </div>

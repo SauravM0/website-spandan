@@ -34,6 +34,18 @@ export async function getAppointmentRequestById(id: string): Promise<any | null>
   return result.rows[0] || null;
 }
 
+export async function getLeadNotes(requestId: string): Promise<any[]> {
+  const result = await query(
+    `SELECT ln.*, su.full_name AS created_by_name
+     FROM lead_notes ln
+     LEFT JOIN staff_users su ON su.id = ln.created_by_staff_id
+     WHERE ln.appointment_request_id = $1
+     ORDER BY ln.created_at DESC`,
+    [requestId]
+  );
+  return result.rows;
+}
+
 export async function createAppointmentRequest(
   data: Partial<AppointmentRequest>
 ): Promise<AppointmentRequest> {
@@ -43,7 +55,7 @@ export async function createAppointmentRequest(
 }
 
 export async function createPublicEnquiryWithInitialHistory(data: {
-  package_id: string;
+  package_id: string | null;
   doctor_id: string | null;
   patient_name: string;
   phone: string;
@@ -52,6 +64,7 @@ export async function createPublicEnquiryWithInitialHistory(data: {
   referring_doctor_phone: string | null;
   preferred_date: string | null;
   preferred_time_window: string | null;
+  message: string | null;
   source_language: string;
 }): Promise<AppointmentRequest> {
   const client = await getClient();
@@ -62,9 +75,9 @@ export async function createPublicEnquiryWithInitialHistory(data: {
       `INSERT INTO appointment_requests
        (package_id, doctor_id, patient_name, phone, email,
         referring_doctor_name, referring_doctor_phone,
-        preferred_date, preferred_time_window,
+        preferred_date, preferred_time_window, message,
         source_language, status, consent_given_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'new', NOW())
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, COALESCE($10, ''), $11, 'new', NOW())
        RETURNING *`,
       [
         data.package_id,
@@ -76,6 +89,7 @@ export async function createPublicEnquiryWithInitialHistory(data: {
         data.referring_doctor_phone,
         data.preferred_date,
         data.preferred_time_window,
+        data.message,
         data.source_language,
       ]
     );
@@ -175,7 +189,8 @@ export async function getAppointmentRequestsFiltered(
     params.push(filters.to + 'T23:59:59Z');
   }
 
-  const whereClause = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+  conditions.push('COALESCE(ar.is_archived, false) = false');
+  const whereClause = 'WHERE ' + conditions.join(' AND ');
   const countResult = await query(`SELECT COUNT(*) FROM appointment_requests ar ${whereClause}`, params);
   const total = parseInt(countResult.rows[0].count, 10);
   const offset = (filters.page - 1) * filters.pageSize;
@@ -203,7 +218,8 @@ export async function getAppointmentRequestsFiltered(
 export async function updateAppointmentRequestStatusWithHistory(
   id: string,
   newStatus: string,
-  changedByStaffId: string | null
+  changedByStaffId: string | null,
+  notes?: string
 ): Promise<AppointmentRequest | null> {
   const client = await getClient();
   try {
@@ -219,10 +235,19 @@ export async function updateAppointmentRequestStatusWithHistory(
     }
 
     const oldStatus = currentResult.rows[0].status;
+    const trimmedNotes = notes?.trim();
     const updateResult = await client.query(
       'UPDATE appointment_requests SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *',
       [id, newStatus]
     );
+
+    if (trimmedNotes) {
+      await client.query(
+        `INSERT INTO lead_notes (appointment_request_id, note, created_by_staff_id)
+         VALUES ($1, $2, $3)`,
+        [id, trimmedNotes, changedByStaffId]
+      );
+    }
 
     await client.query(
       `INSERT INTO lead_status_history (appointment_request_id, old_status, new_status, changed_by_staff_id)

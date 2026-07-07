@@ -7,8 +7,8 @@ import '../../lib/i18n';
 
 const languages = [
   { code: 'en', label: 'English' },
-  { code: 'hi', label: 'हिन्दी' },
-  { code: 'mr', label: 'मराठी' },
+  { code: 'hi', label: 'Hindi' },
+  { code: 'mr', label: 'Marathi' },
 ];
 
 export default function Footer() {
@@ -19,44 +19,63 @@ export default function Footer() {
   };
 
   return (
-    <footer className="bg-navy text-slate-400 py-12 pb-6">
+    <footer className="bg-navy pb-6 pt-12 text-slate-300">
       <div className="container">
-        <div className="grid-4 mb-8">
+        <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr_1.2fr_0.8fr]">
           <div>
-            <h4 className="text-white mb-4 text-lg font-semibold">{t('site_name')}</h4>
-            <p className="text-sm leading-relaxed">{t('hero_subtitle')}</p>
+            <h4 className="mb-4 text-lg font-semibold text-white">{t('site_name')}</h4>
+            <p className="text-sm leading-relaxed">
+              Specialist heart, hormone, diabetes, thyroid, and diagnostic care in Garkheda.
+            </p>
             <p className="mt-4 text-sm font-semibold text-warm">
-              {t('footer_emergency')} +91 7798095795
+              For emergencies, call local emergency services first.
             </p>
           </div>
+
           <div>
-            <h4 className="text-white mb-4 text-lg font-semibold">Quick Links</h4>
+            <h4 className="mb-4 text-lg font-semibold text-white">Quick Links</h4>
             <div className="flex flex-col gap-2 text-sm">
-              <Link href="/packages" className="hover:text-white transition-colors">{t('nav_packages')}</Link>
-              <Link href="/doctors" className="hover:text-white transition-colors">{t('nav_doctors')}</Link>
-              <Link href="/health-resources" className="hover:text-white transition-colors">{t('nav_articles')}</Link>
-              <Link href="/about" className="hover:text-white transition-colors">{t('nav_about')}</Link>
-              <Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link>
-              <Link href="/terms" className="hover:text-white transition-colors">Terms of Use</Link>
-              <Link href="/contact" className="hover:text-white transition-colors">{t('nav_contact')}</Link>
+              <Link href="/doctors" className="transition-colors hover:text-white">{t('nav_doctors')}</Link>
+              <Link href="/packages" className="transition-colors hover:text-white">{t('nav_packages')}</Link>
+              <Link href="/facilities" className="transition-colors hover:text-white">{t('nav_facilities')}</Link>
+              <Link href="/health-resources" className="transition-colors hover:text-white">{t('nav_articles')}</Link>
+              <Link href="/privacy" className="transition-colors hover:text-white">Privacy Policy</Link>
+              <Link href="/terms" className="transition-colors hover:text-white">Terms of Use</Link>
+              <Link href="/terms#refunds" className="transition-colors hover:text-white">Refund Policy</Link>
+              <Link href="/terms#payments" className="transition-colors hover:text-white">Payment Policy</Link>
             </div>
           </div>
+
           <div>
-            <h4 className="text-white mb-4 text-lg font-semibold">{t('contact_title')}</h4>
+            <h4 className="mb-4 text-lg font-semibold text-white">{t('contact_title')}</h4>
             <div className="flex flex-col gap-2 text-sm">
-              <p>{t('contact_address')}: Plot No. 63, Alankar Housing Society, Garkheda, Chhatrapati Sambhajinagar</p>
+              <p>
+                {t('contact_address')}: Plot No. 63, Alankar Housing Society, Beside Essar Petrol Pump,
+                Gajanan Maharaj Mandir Rd, Pundlik Nagar, Garkheda, Chhatrapati Sambhajinagar,
+                Maharashtra 431009
+              </p>
               <p>{t('contact_phone')}: +91 7798095795</p>
               <p>{t('contact_email')}: info@spandanclinic.com</p>
+              <p>Timings: Monday to Saturday, 7:00 AM to 8:00 PM</p>
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=Spandan%20Super%20Speciality%20Clinic%20Garkheda%20Chhatrapati%20Sambhajinagar"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="transition-colors hover:text-white"
+              >
+                Open map
+              </a>
             </div>
           </div>
+
           <div>
-            <h4 className="text-white mb-4 text-lg font-semibold">{t('language_en')}</h4>
+            <h4 className="mb-4 text-lg font-semibold text-white">Language</h4>
             <div className="flex flex-col gap-2">
               {languages.map((lang) => (
                 <button
                   key={lang.code}
                   onClick={() => changeLanguage(lang.code)}
-                  className="bg-transparent border-none text-slate-400 text-sm text-left p-0 hover:text-white transition-colors min-h-[44px]"
+                  className="min-h-[44px] border-none bg-transparent p-0 text-left text-sm text-slate-300 transition-colors hover:text-white"
                 >
                   {lang.label}
                 </button>
@@ -64,7 +83,8 @@ export default function Footer() {
             </div>
           </div>
         </div>
-        <div className="border-t border-navy-light pt-6 text-center text-xs">
+
+        <div className="mt-8 border-t border-navy-light pt-6 text-center text-xs">
           &copy; {new Date().getFullYear()} {t('site_name')}. {t('footer_rights')}
         </div>
       </div>

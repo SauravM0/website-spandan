@@ -12,10 +12,39 @@ const ADMIN_PACKAGE_FIELDS = [
   'show_price_publicly',
   'prep_instructions',
   'image_url',
+  'gallery_urls',
   'category',
+  'test_category',
   'primary_doctor_id',
   'display_order',
   'is_active',
+  'is_featured',
+  'tax_applicable',
+  'tax_name',
+  'tax_rate',
+  'convenience_fee',
+  'gateway_fee_policy',
+  'purchase_status',
+  'purchase_enabled',
+  'badge_text',
+  'discount_label',
+  'available_days',
+  'blackout_dates',
+  'max_bookings_per_day',
+  'preferred_date_required',
+  'effective_start',
+  'effective_end',
+  'publication_status',
+  'terms_text',
+  'no_refund_text',
+  'consultation_included',
+  'fasting_required',
+  'fasting_duration',
+  'age_sex_applicability',
+  'exclusions',
+  'report_turnaround',
+  'medical_disclaimer',
+  'translations',
 ] as const;
 
 export async function getPackages(activeOnly = true): Promise<Package[]> {
@@ -43,13 +72,36 @@ export async function getPackageById(id: string): Promise<Package | null> {
 
 export async function getFeaturedPackages(): Promise<Package[]> {
   const result = await query(
-    'SELECT * FROM packages WHERE is_active = true ORDER BY display_order ASC LIMIT 6'
+    'SELECT * FROM packages WHERE is_active = true AND is_featured = true ORDER BY display_order ASC LIMIT 6'
   );
   return result.rows;
 }
 
 export async function getFeaturedPackagesPublic(): Promise<any[]> {
   const result = await query('SELECT * FROM packages_public ORDER BY display_order ASC LIMIT 6');
+  return result.rows;
+}
+
+export async function getPackageCommerceCatalog(): Promise<any[]> {
+  const result = await query(
+    `SELECT
+       id, slug, name, short_description, description, prep_instructions,
+       image_url, category, test_category, base_price, discounted_price,
+       discount_label, tax_applicable, tax_name, tax_rate, convenience_fee,
+       gateway_fee_policy, purchase_status, purchase_enabled, badge_text,
+       available_days, blackout_dates, max_bookings_per_day,
+       preferred_date_required, terms_text, no_refund_text,
+       consultation_included, fasting_required, fasting_duration,
+       age_sex_applicability, exclusions, report_turnaround, medical_disclaimer
+     FROM packages
+     WHERE is_active = true
+       AND publication_status = 'published'
+       AND purchase_enabled = true
+       AND purchase_status = 'available'
+       AND (effective_start IS NULL OR effective_start <= CURRENT_DATE)
+       AND (effective_end IS NULL OR effective_end >= CURRENT_DATE)
+     ORDER BY display_order ASC, name ASC`
+  );
   return result.rows;
 }
 

@@ -67,7 +67,7 @@ export default async function VideosPage() {
           ) : (
             <div className="text-center py-12">
               <YoutubeIcon size={48} className="mx-auto text-text-light mb-4" />
-              <p className="text-text-light mb-4">Videos coming soon. Check back later or visit our YouTube channel.</p>
+              <p className="text-text-light mb-4">Health education videos are available through our clinic channel.</p>
               {data.channel && (
                 <a
                   href={data.channel.channelUrl}

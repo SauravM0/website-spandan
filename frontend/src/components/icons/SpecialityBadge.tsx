@@ -13,10 +13,10 @@ const configs: Record<BadgeType, {
   text: string;
 }> = {
   cardiology: {
-    icons: [<HeartIcon key="h" size={14} color="#D6336C" />],
+    icons: [<HeartIcon key="h" size={14} color="#0F766E" />],
     label: 'Cardiology',
-    bg: 'bg-pink-50',
-    text: 'text-pink-700',
+    bg: 'bg-teal-50',
+    text: 'text-teal-800',
   },
   endocrinology: {
     icons: [<DropletIcon key="d" size={14} color="#2E86C1" />],
@@ -26,7 +26,7 @@ const configs: Record<BadgeType, {
   },
   both: {
     icons: [
-      <HeartIcon key="h" size={14} color="#D6336C" />,
+      <HeartIcon key="h" size={14} color="#0F766E" />,
       <DropletIcon key="d" size={14} color="#2E86C1" />,
     ],
     label: 'Cardiology & Endocrinology',

@@ -1,4 +1,5 @@
 import express from 'express';
+import type { Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -14,12 +15,18 @@ import youtubeRoutes from './routes/youtube';
 import adminAuthRoutes from './routes/adminAuth';
 import adminLeadsRoutes from './routes/adminLeads';
 import adminPackagesRoutes from './routes/adminPackages';
+import operationsRoutes from './routes/operations';
+import adminOperationsRoutes from './routes/adminOperations';
 import { startBackgroundJobs } from './services/background';
 import { validateCsrfToken, getCsrfToken } from './middleware/csrf';
+import { requestId } from './middleware/requestId';
+import { query } from './config/database';
+import { logger } from './utils/logger';
 
 const app = express();
 
 app.set('trust proxy', 1);
+app.use(requestId);
 app.use(helmet());
 app.use(cors({
   origin(origin, callback) {
@@ -31,6 +38,7 @@ app.use(cors({
     const normalizedOrigin = origin.replace(/\/+$/, '');
     callback(null, config.corsOrigins.includes(normalizedOrigin));
   },
+  credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
 
@@ -38,6 +46,14 @@ app.use(express.json({ limit: '1mb' }));
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 200,
+  message: (_req: Request, res: Response) => ({
+    error: {
+      code: 'RATE_LIMITED',
+      message: 'Too many requests. Please slow down.',
+      fieldErrors: {},
+    },
+    requestId: res.locals.requestId,
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -47,7 +63,14 @@ app.use('/api', globalLimiter);
 const publicGetLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 100,
-  message: { error: 'Too many requests. Please slow down.' },
+  message: (_req: Request, res: Response) => ({
+    error: {
+      code: 'RATE_LIMITED',
+      message: 'Too many requests. Please slow down.',
+      fieldErrors: {},
+    },
+    requestId: res.locals.requestId,
+  }),
   standardHeaders: true,
   legacyHeaders: false,
 });
@@ -55,6 +78,16 @@ const publicGetLimiter = rateLimit({
 // Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.get('/api/ready', async (_req, res) => {
+  try {
+    await query('SELECT 1');
+    res.json({ status: 'ready', timestamp: new Date().toISOString() });
+  } catch (err) {
+    logger.error('Readiness check failed', { error: (err as Error).message });
+    res.status(503).json({ status: 'not_ready' });
+  }
 });
 
 // CSRF token endpoint
@@ -71,12 +104,14 @@ app.use('/api/articles', publicGetLimiter, publicArticlesRoutes);
 app.use('/api/public/enquiries', validateCsrfToken, publicEnquiriesRoutes);
 app.use('/api/enquiries', validateCsrfToken, publicEnquiriesRoutes);
 app.use('/api/youtube', publicGetLimiter, youtubeRoutes);
+app.use('/api', operationsRoutes);
 
 // === Admin Routes (auth required) ===
 app.use('/api/admin', adminAuthRoutes);
 app.use('/api/auth', adminAuthRoutes);
 app.use('/api/admin/leads', adminLeadsRoutes);
 app.use('/api/admin/packages', adminPackagesRoutes);
+app.use('/api/admin/operations', adminOperationsRoutes);
 
 // Error handler
 app.use(errorHandler);
@@ -87,7 +122,7 @@ if (config.env !== 'test') {
 }
 
 app.listen(config.port, () => {
-  console.log(`Server running on port ${config.port} in ${config.env} mode`);
+  logger.info('Server started', { port: config.port, env: config.env });
 });
 
 export default app;

@@ -7,17 +7,17 @@ import { Pill, ClipboardList, HeartHandshake } from 'lucide-react';
 const teamRoles = [
   {
     role: 'Pharmacist',
-    placeholder: true,
+    description: 'Medication guidance and patient support',
     icon: <Pill size={28} />,
   },
   {
     role: 'Administrator',
-    placeholder: true,
+    description: 'Appointments, reports, and enquiry coordination',
     icon: <ClipboardList size={28} />,
   },
   {
     role: 'Our Care Team',
-    placeholder: true,
+    description: 'Support staff helping patients through each visit',
     icon: <HeartHandshake size={28} />,
     grouped: true,
   },
@@ -60,25 +60,12 @@ export default function TeamCardsSection() {
                   {member.icon}
                 </div>
                 <h3 className="text-lg font-bold text-navy mb-1">{member.role}</h3>
-                {member.placeholder && (
-                  <p className="text-xs text-text-light italic mt-2">
-                    Details coming soon
-                  </p>
-                )}
-                {member.grouped && (
-                  <p className="text-xs text-text-light mt-2">
-                    Our dedicated support staff working behind the scenes
-                  </p>
-                )}
+                <p className="text-xs text-text-light mt-2">{member.description}</p>
                 <div className="mt-4 w-8 h-1 bg-accent/30 mx-auto rounded-full" />
               </div>
             </motion.div>
           ))}
         </motion.div>
-
-        <p className="text-center text-xs text-text-light mt-6 italic">
-          Team member profiles being finalised &mdash; check back soon
-        </p>
       </div>
     </section>
   );

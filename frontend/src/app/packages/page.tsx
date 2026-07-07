@@ -24,8 +24,6 @@ export default async function PackagesPage() {
   const data = await getPackages();
   const packages = data.packages || [];
 
-  const categories = [...new Set(packages.map((p: any) => p.category))];
-
   return (
     <>
       <section className="bg-navy text-white py-16 text-center">
@@ -46,9 +44,14 @@ export default async function PackagesPage() {
                     <span className="badge badge-featured capitalize">{pkg.category}</span>
                   </div>
                   <p className="text-sm text-text-light mb-4 flex-1">{pkg.short_description}</p>
+                  <div className="mb-5 grid gap-2 text-xs text-text-light">
+                    <div className="rounded-md bg-bg-alt px-3 py-2">Fasting guidance included where required</div>
+                    <div className="rounded-md bg-bg-alt px-3 py-2">Clinic callback for date and preparation</div>
+                    <div className="rounded-md bg-bg-alt px-3 py-2">Suitable tests explained before confirmation</div>
+                  </div>
                   <div className="flex gap-2">
                     <Link href={`/packages/${pkg.slug}`} className="btn btn-outline btn-sm flex-1 justify-center">View Details</Link>
-                    <Link href={`/packages/${pkg.slug}?enquire=true`} className="btn bg-accent text-white btn-sm flex-1 justify-center hover:bg-accent-light">Enquire Now</Link>
+                    <Link href={`/book-package?package=${pkg.id}`} className="btn bg-accent text-white btn-sm flex-1 justify-center hover:bg-accent-light">Book Package</Link>
                   </div>
                 </div>
               ))}

@@ -63,7 +63,7 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
 
       <section className="section">
         <div className="container">
-          <div className="grid-2 gap-12">
+          <div className="max-w-3xl mx-auto">
             <div>
               {doc.qualifications && (
                 <div className="mb-8">
@@ -107,9 +107,22 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
                 </div>
               )}
             </div>
-            <div>
-              <h3 className="text-xl font-bold mb-6 text-center">Enquire Now</h3>
-              <EnquiryForm doctorId={params.slug} />
+            <div className="mt-10 flex flex-wrap gap-3">
+              <a href="#doctor-enquiry" className="btn bg-accent text-white hover:bg-accent-light">
+                Consult This Doctor
+              </a>
+              <Link href="/contact" className="btn btn-outline">
+                General Enquiry
+              </Link>
+            </div>
+
+            <div id="doctor-enquiry" className="scroll-mt-24 mt-16">
+              <h3 className="text-xl font-bold mb-6 text-center">Consult {doc.name}</h3>
+              <EnquiryForm
+                doctorId={doc.id}
+                doctorName={doc.name}
+                enquiryType="doctor"
+              />
             </div>
           </div>
         </div>

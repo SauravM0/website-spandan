@@ -2,6 +2,7 @@ import { Response } from 'express';
 import {
   getAppointmentRequestsFiltered,
   getAppointmentRequestById,
+  getLeadNotes,
   getLeadStatusHistoryWithStaffName,
   updateAppointmentRequestStatusWithHistory,
 } from '../models';
@@ -50,7 +51,8 @@ export async function getLeadById(req: AuthenticatedRequest, res: Response): Pro
       return;
     }
     const history = await getLeadStatusHistoryWithStaffName(req.params.id);
-    res.json({ lead, history });
+    const notes = await getLeadNotes(req.params.id);
+    res.json({ lead, history, notes });
   } catch (err) {
     console.error('Failed to fetch lead:', err);
     serverError(res);
@@ -58,7 +60,7 @@ export async function getLeadById(req: AuthenticatedRequest, res: Response): Pro
 }
 
 export async function updateLeadStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const { new_status } = req.body;
+  const { new_status, notes } = req.body;
   const staffId = req.user?.id;
 
   if (!new_status) {
@@ -76,7 +78,8 @@ export async function updateLeadStatus(req: AuthenticatedRequest, res: Response)
     const lead = await updateAppointmentRequestStatusWithHistory(
       req.params.id,
       new_status,
-      staffId || null
+      staffId || null,
+      typeof notes === 'string' ? notes.trim() : undefined
     );
 
     if (!lead) {

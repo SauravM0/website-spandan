@@ -82,7 +82,7 @@ export default function ContactPage() {
 
             <div>
               <h3 className="text-xl font-bold mb-6 text-center">Send us a message</h3>
-              <EnquiryForm />
+              <EnquiryForm enquiryType="general" />
             </div>
           </div>
         </div>

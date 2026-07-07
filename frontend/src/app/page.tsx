@@ -12,6 +12,7 @@ export const metadata: Metadata = {
 };
 import TrustStrip from '../components/home/TrustStrip';
 import ServiceCards from '../components/home/ServiceCards';
+import FeaturedPackages from '../components/home/FeaturedPackages';
 import EquipmentShowcase from '../components/home/EquipmentShowcase';
 import DoctorCardsSection from '../components/home/DoctorCards';
 import TeamCardsSection from '../components/home/TeamCards';
@@ -23,6 +24,7 @@ export default function HomePage() {
       <HeroSection />
       <TrustStrip />
       <ServiceCards />
+      <FeaturedPackages />
       <DoctorCardsSection />
       <ButterflyDivider />
       <EquipmentShowcase />

@@ -7,9 +7,22 @@
     "frontend:dev": "cd frontend && npm run dev",
     "backend:build": "cd backend && npm run build",
     "frontend:build": "cd frontend && npm run build",
+    "backend:test": "cd backend && npm test",
+    "backend:typecheck": "cd backend && npm run typecheck",
+    "frontend:test": "cd frontend && npm test",
     "backend:start": "cd backend && npm start",
     "frontend:start": "cd frontend && npm start",
+    "test": "npm run backend:test",
+    "typecheck": "npm run backend:typecheck && npm run frontend:build",
+    "build": "npm run backend:build && npm run frontend:build",
+    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml,css}\"",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml,css}\"",
+    "migrations:validate": "cd backend && npm run migrations:validate",
+    "audit": "npm audit --audit-level=high --workspaces=false && cd backend && npm audit --audit-level=high && cd ../frontend && npm audit --audit-level=high",
     "migrate": "cd backend && npm run migrate",
     "seed": "cd backend && npm run seed"
+  },
+  "devDependencies": {
+    "prettier": "^3.9.4"
   }
 }

@@ -2,8 +2,11 @@ import cron from 'node-cron';
 import { query } from '../config/database';
 import { config } from '../config';
 import { isWhatsAppConfigured, sendWhatsAppEnquiryNotification } from './whatsapp';
+import { processNotificationOutbox } from './notifications';
+import { logger } from '../utils/logger';
 
 let whatsappNotificationJobRunning = false;
+let notificationOutboxJobRunning = false;
 
 async function sendPendingWhatsAppNotifications(): Promise<void> {
   if (!isWhatsAppConfigured() || whatsappNotificationJobRunning) {
@@ -50,7 +53,7 @@ async function sendPendingWhatsAppNotifications(): Promise<void> {
           [lead.id]
         ).catch(() => {});
       } catch (err) {
-        console.error('WhatsApp notification failed:', err);
+        logger.error('WhatsApp notification failed', { error: (err as Error).message });
         await query(
           `INSERT INTO notification_log (appointment_request_id, channel, status, attempt, error_message)
            VALUES ($1, 'whatsapp', 'failed', 1, $2)`,
@@ -59,44 +62,78 @@ async function sendPendingWhatsAppNotifications(): Promise<void> {
       }
     }
   } catch (err) {
-    console.error('[Cron] WhatsApp notification scan failed:', err);
+    logger.error('WhatsApp notification scan failed', { error: (err as Error).message });
   } finally {
     whatsappNotificationJobRunning = false;
   }
 }
 
 export function startBackgroundJobs(): void {
+  cron.schedule('* * * * *', async () => {
+    if (notificationOutboxJobRunning) return;
+    notificationOutboxJobRunning = true;
+    try {
+      const processed = await processNotificationOutbox();
+      if (processed > 0) {
+        logger.info('Processed notification outbox', { count: processed });
+      }
+    } catch (err) {
+      logger.error('Notification outbox processing failed', { error: (err as Error).message });
+    } finally {
+      notificationOutboxJobRunning = false;
+    }
+  });
+  processNotificationOutbox().catch((err) => logger.error('Initial notification outbox processing failed', { error: err.message }));
+
   if (isWhatsAppConfigured()) {
     cron.schedule('* * * * *', sendPendingWhatsAppNotifications);
-    sendPendingWhatsAppNotifications().catch((err) => console.error('Initial WhatsApp notification scan failed:', err));
+    sendPendingWhatsAppNotifications().catch((err) => logger.error('Initial WhatsApp notification scan failed', { error: err.message }));
   }
 
+  cron.schedule('* * * * *', async () => {
+    try {
+      const result = await query(
+        `UPDATE appointment_holds
+         SET status = 'expired', released_at = COALESCE(released_at, NOW())
+         WHERE status = 'active' AND expires_at <= NOW()`
+      );
+      if (result.rowCount) {
+        logger.info('Expired appointment holds released', { count: result.rowCount });
+      }
+    } catch (err) {
+      logger.error('Appointment hold cleanup failed', { error: (err as Error).message });
+    }
+  });
+
   cron.schedule('0 2 * * *', async () => {
-    console.log('[Cron] Running daily maintenance...');
+    logger.info('Running daily maintenance');
     try {
       await query('CHECKPOINT');
-      console.log('[Cron] Checkpoint complete');
+      logger.info('Checkpoint complete');
     } catch (err) {
-      console.error('[Cron] Checkpoint failed:', err);
+      logger.error('Checkpoint failed', { error: (err as Error).message });
     }
   });
 
   cron.schedule('0 3 * * *', async () => {
-    console.log('[Cron] Archiving old leads...');
+    logger.info('Archiving old leads');
     try {
       const result = await query(
         `UPDATE appointment_requests
-         SET message = COALESCE(message || '', '') || ' [Auto-archived after 90 days]'
+         SET is_archived = true,
+             archived_at = COALESCE(archived_at, NOW()),
+             updated_at = NOW()
          WHERE status IN ('completed', 'closed_no_response')
-         AND created_at < NOW() - INTERVAL '90 days'`
+         AND created_at < NOW() - INTERVAL '90 days'
+         AND COALESCE(is_archived, false) = false`
       );
-      console.log(`[Cron] Archived ${result.rowCount} old leads`);
+      logger.info('Old leads archived', { count: result.rowCount || 0 });
     } catch (err) {
-      console.error('[Cron] Cleanup failed:', err);
+      logger.error('Lead archive cleanup failed', { error: (err as Error).message });
     }
   });
 
   if (config.env === 'development') {
-    console.log('Background jobs registered (daily schedule)');
+    logger.info('Background jobs registered', { schedule: 'daily' });
   }
 }
