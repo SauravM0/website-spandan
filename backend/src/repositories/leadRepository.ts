@@ -171,37 +171,89 @@ export async function getLeadStatusHistoryWithStaffName(requestId: string): Prom
 
 export async function getAppointmentRequestsFiltered(
   filters: LeadFilters
-): Promise<PaginatedResult<AppointmentRequest>> {
+): Promise<PaginatedResult<any>> {
   const conditions: string[] = [];
-  const params: string[] = [];
+  const params: any[] = [];
   let paramIndex = 1;
 
   if (filters.status) {
     conditions.push(`ar.status = $${paramIndex++}`);
     params.push(filters.status);
   }
+  if (filters.type === 'package') {
+    conditions.push('ar.package_id IS NOT NULL');
+  }
+  if (filters.type === 'doctor') {
+    conditions.push('ar.doctor_id IS NOT NULL');
+  }
+  if (filters.type === 'general') {
+    conditions.push('ar.package_id IS NULL AND ar.doctor_id IS NULL');
+  }
   if (filters.from) {
-    conditions.push(`ar.created_at >= $${paramIndex++}`);
+    conditions.push(`ar.created_at::date >= $${paramIndex++}`);
     params.push(filters.from);
   }
   if (filters.to) {
-    conditions.push(`ar.created_at <= $${paramIndex++}`);
-    params.push(filters.to + 'T23:59:59Z');
+    conditions.push(`ar.created_at::date <= $${paramIndex++}`);
+    params.push(filters.to);
+  }
+  if (filters.search) {
+    params.push(`%${filters.search.trim()}%`);
+    conditions.push(
+      `(ar.patient_name ILIKE $${paramIndex}
+        OR ar.phone ILIKE $${paramIndex}
+        OR ar.email ILIKE $${paramIndex}
+        OR p.name ILIKE $${paramIndex}
+        OR d.name ILIKE $${paramIndex})`
+    );
+    paramIndex += 1;
   }
 
   conditions.push('COALESCE(ar.is_archived, false) = false');
   const whereClause = 'WHERE ' + conditions.join(' AND ');
-  const countResult = await query(`SELECT COUNT(*) FROM appointment_requests ar ${whereClause}`, params);
+  const joins = `
+    LEFT JOIN packages p ON ar.package_id = p.id
+    LEFT JOIN doctors d ON ar.doctor_id = d.id
+  `;
+  const countResult = await query(`SELECT COUNT(*) FROM appointment_requests ar ${joins} ${whereClause}`, params);
   const total = parseInt(countResult.rows[0].count, 10);
   const offset = (filters.page - 1) * filters.pageSize;
+  const orderBy =
+    filters.sort === 'date_asc'
+      ? 'ar.created_at ASC, ar.id ASC'
+      : filters.sort === 'updated_desc'
+        ? 'ar.updated_at DESC, ar.id DESC'
+        : filters.sort === 'updated_asc'
+          ? 'ar.updated_at ASC, ar.id ASC'
+          : 'ar.created_at DESC, ar.id DESC';
 
   const dataResult = await query(
-    `SELECT ar.*, p.name as package_name, d.name as doctor_name
+    `SELECT
+       ar.id,
+       ar.package_id,
+       ar.doctor_id,
+       ar.patient_name,
+       CASE
+         WHEN length(regexp_replace(COALESCE(ar.phone, ''), '\\D', '', 'g')) <= 4 THEN '****'
+         ELSE repeat('*', greatest(length(regexp_replace(COALESCE(ar.phone, ''), '\\D', '', 'g')) - 4, 0))
+              || right(regexp_replace(COALESCE(ar.phone, ''), '\\D', '', 'g'), 4)
+       END AS phone_masked,
+       CASE
+         WHEN ar.email IS NULL OR ar.email = '' THEN NULL
+         ELSE regexp_replace(ar.email, '(^.{1,2}).*(@.*$)', '\\1***\\2')
+       END AS email_masked,
+       ar.preferred_date,
+       ar.preferred_time_window,
+       ar.status,
+       ar.source_language,
+       ar.created_at,
+       ar.updated_at,
+       p.name as package_name,
+       d.name as doctor_name
      FROM appointment_requests ar
-     LEFT JOIN packages p ON ar.package_id = p.id
-     LEFT JOIN doctors d ON ar.doctor_id = d.id
+     ${joins}
      ${whereClause}
-     ORDER BY ar.created_at DESC
+     ORDER BY ${orderBy}
      LIMIT $${paramIndex++} OFFSET $${paramIndex++}`,
     [...params, filters.pageSize, offset]
   );
@@ -219,14 +271,15 @@ export async function updateAppointmentRequestStatusWithHistory(
   id: string,
   newStatus: string,
   changedByStaffId: string | null,
-  notes?: string
+  notes?: string,
+  expectedVersion?: number
 ): Promise<AppointmentRequest | null> {
   const client = await getClient();
   try {
     await client.query('BEGIN');
 
     const currentResult = await client.query(
-      'SELECT status FROM appointment_requests WHERE id = $1 FOR UPDATE',
+      'SELECT status, version FROM appointment_requests WHERE id = $1 FOR UPDATE',
       [id]
     );
     if (currentResult.rows.length === 0) {
@@ -234,10 +287,16 @@ export async function updateAppointmentRequestStatusWithHistory(
       return null;
     }
 
-    const oldStatus = currentResult.rows[0].status;
+    const current = currentResult.rows[0];
+    if (expectedVersion !== undefined && current.version !== expectedVersion) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+
+    const oldStatus = current.status;
     const trimmedNotes = notes?.trim();
     const updateResult = await client.query(
-      'UPDATE appointment_requests SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *',
+      'UPDATE appointment_requests SET status = $2, version = version + 1, updated_at = NOW() WHERE id = $1 RETURNING *',
       [id, newStatus]
     );
 
@@ -254,6 +313,16 @@ export async function updateAppointmentRequestStatusWithHistory(
        VALUES ($1, $2, $3, $4)`,
       [id, oldStatus, newStatus, changedByStaffId]
     );
+
+    if (changedByStaffId) {
+      await client.query(
+        `INSERT INTO audit_events (actor_staff_id, action, entity_type, entity_id, before_redacted, after_redacted)
+         VALUES ($1, 'lead_status_change', 'appointment_request', $2,
+           jsonb_build_object('status', $3, 'version', $5),
+           jsonb_build_object('status', $4, 'version', $6))`,
+        [changedByStaffId, id, oldStatus, newStatus, current.version, current.version + 1]
+      );
+    }
 
     await client.query('COMMIT');
     return updateResult.rows[0];

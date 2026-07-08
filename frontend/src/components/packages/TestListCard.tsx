@@ -1,31 +1,63 @@
-'use client';
-
 import React from 'react';
-import { useTranslation } from 'react-i18next';
-import '../../lib/i18n';
+import { CheckCircle2 } from 'lucide-react';
+
+export type PackageTestItem = {
+  id?: string;
+  test_name: string;
+  test_category?: string | null;
+  description?: string | null;
+  sort_order?: number | null;
+};
 
 interface TestListCardProps {
-  tests: any[];
+  tests: PackageTestItem[];
+}
+
+function groupLabel(value: string | null | undefined) {
+  return (value || 'Included tests').replace(/[-_]/g, ' ');
 }
 
 export default function TestListCard({ tests }: TestListCardProps) {
-  const { t } = useTranslation('common');
+  if (!tests || tests.length === 0) {
+    return (
+      <div className="soft-card p-6">
+        <h3 className="text-lg font-bold text-navy">Included services/tests</h3>
+        <p className="mt-2 text-sm leading-relaxed text-text-light">
+          Included tests are confirmed by the clinic before booking.
+        </p>
+      </div>
+    );
+  }
 
-  if (!tests || tests.length === 0) return null;
+  const groups = Array.from(
+    tests.reduce((map, test) => {
+      const key = groupLabel(test.test_category);
+      map.set(key, [...(map.get(key) || []), test]);
+      return map;
+    }, new Map<string, PackageTestItem[]>())
+  );
 
   return (
-    <div className="mb-8">
-      <h3 className="text-lg font-bold mb-3">{t('includes_tests')}</h3>
-      <ul className="grid grid-cols-1 md:grid-cols-2 gap-2">
-        {tests.map((test: any) => (
-          <li key={test.id} className="flex items-center gap-2 text-sm text-text-light">
-            <svg className="w-5 h-5 text-accent flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-            </svg>
-            {test.test_name}
-          </li>
+    <div className="soft-card p-6">
+      <h3 className="text-lg font-bold text-navy">Included services/tests</h3>
+      <div className="mt-5 grid gap-5">
+        {groups.map(([category, items]) => (
+          <section key={category}>
+            <h4 className="text-sm font-bold uppercase capitalize text-text-light">{category}</h4>
+            <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+              {items.map((test) => (
+                <li key={test.id || test.test_name} className="flex items-start gap-2 rounded-2xl bg-blue-50/70 px-3 py-2 text-sm text-text-light">
+                  <CheckCircle2 className="mt-0.5 shrink-0 text-accent" size={16} aria-hidden="true" />
+                  <span>
+                    <span className="font-semibold text-navy">{test.test_name}</span>
+                    {test.description && <span className="mt-1 block text-xs">{test.description}</span>}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </section>
         ))}
-      </ul>
+      </div>
     </div>
   );
 }

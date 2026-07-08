@@ -1,115 +1,104 @@
-'use client';
-
 import React from 'react';
 import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { CalendarCheck, HeartPulse, MapPin, ShieldCheck, Stethoscope } from 'lucide-react';
-import HeroBackground from '../animations/HeroBackground';
+import { Activity, CalendarCheck, HeartPulse, Microscope, Phone, Stethoscope, Syringe, UsersRound } from 'lucide-react';
+import type { ClinicSettings } from '@/lib/settings';
+import type { PublicDoctorSummary } from '@/lib/home';
+import HeroVideo from './HeroVideo';
 
-export default function HeroSection() {
+type HeroSectionProps = {
+  settings: ClinicSettings;
+  doctors: PublicDoctorSummary[];
+};
+
+export default function HeroSection({ settings, doctors }: HeroSectionProps) {
   return (
-    <section className="relative overflow-hidden bg-navy text-white">
-      <HeroBackground />
-      <div className="absolute inset-0 bg-[linear-gradient(115deg,rgba(18,50,74,0.98),rgba(18,50,74,0.86)_48%,rgba(15,118,110,0.58))]" />
-
-      <div className="container relative z-10 grid min-h-[640px] items-center gap-10 py-16 md:grid-cols-[1.05fr_0.95fr] md:py-20">
+    <section className="soft-page-hero text-navy">
+      <div className="container grid min-h-[620px] items-center gap-10 py-12 sm:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:py-20">
         <div className="max-w-3xl">
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut' }}
-            className="mb-4 inline-flex items-center gap-2 rounded-md border border-white/15 bg-white/10 px-3 py-2 text-sm font-semibold text-teal-100"
-          >
-            <MapPin size={16} />
-            Chhatrapati Sambhajinagar
-          </motion.p>
+          <p className="soft-card trust-card mb-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-accent">
+            <Stethoscope size={16} aria-hidden="true" />
+            Cardiology, endocrinology, diabetes, thyroid, and diagnostics
+          </p>
 
-          <motion.h1
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.1 }}
-            className="heading-display mb-5 max-w-[720px] text-white"
-          >
-            Specialist Heart and Hormone Care at Spandan Clinic
-          </motion.h1>
+          <h1 className="heading-display mb-5 max-w-[720px] text-navy">
+            Find the right specialist path at Spandan Clinic
+          </h1>
 
-          <motion.p
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.2 }}
-            className="mb-7 max-w-[590px] text-lg leading-relaxed text-white/85"
-          >
-            Book a confirmed appointment or purchase a health package online with clear fees,
-            clinic location, and next steps before you pay.
-          </motion.p>
+          <p className="mb-7 max-w-[620px] text-base leading-relaxed text-text-light sm:text-lg">
+            Book a consultation, compare health packages, or call the clinic with clear location,
+            timings, and payment steps before you visit.
+          </p>
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.25 }}
-            className="mb-8 flex flex-wrap gap-2 text-sm font-semibold text-white/90"
-          >
-            {['Cardiology', 'Endocrinology', 'Diabetes', 'Thyroid', 'Diagnostics'].map((item) => (
-              <span key={item} className="rounded-md border border-white/15 bg-white/10 px-3 py-2">
-                {item}
-              </span>
-            ))}
-          </motion.div>
+          <div className="mb-7 flex flex-wrap gap-2">
+            <span className="clinical-pill">
+              <HeartPulse size={15} aria-hidden="true" />
+              ECG, BP and cardiac review
+            </span>
+            <span className="clinical-pill">
+              <Activity size={15} aria-hidden="true" />
+              Diabetes and CGMS
+            </span>
+            <span className="clinical-pill">
+              <Syringe size={15} aria-hidden="true" />
+              Insulin therapy support
+            </span>
+            <span className="clinical-pill">
+              <Microscope size={15} aria-hidden="true" />
+              Diagnostics
+            </span>
+          </div>
 
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6, ease: 'easeOut', delay: 0.3 }}
-            className="flex flex-wrap gap-3"
-          >
-            <Link href="/book-appointment" className="btn bg-accent text-white hover:bg-accent-light">
-              <CalendarCheck size={18} />
+          <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:flex-wrap">
+            <Link href="/book-appointment" className="btn btn-accent">
+              <CalendarCheck size={18} aria-hidden="true" />
               Book Appointment
             </Link>
-            <Link href="/book-package" className="btn border border-white/40 bg-white text-navy hover:bg-teal-50">
-              <HeartPulse size={18} />
-              Book Health Package
+            <Link href="/doctors" className="btn btn-outline">
+              <UsersRound size={18} aria-hidden="true" />
+              View Doctors
             </Link>
-          </motion.div>
+            <a href={`tel:${settings.phone}`} className="btn btn-outline">
+              <Phone size={18} aria-hidden="true" />
+              Call Clinic
+            </a>
+          </div>
+
+          <div className="mt-8 grid gap-3 text-sm text-text-light sm:grid-cols-3">
+            <p className="soft-card trust-card p-4">
+              <span className="block font-semibold text-navy">Location</span>
+              {settings.city}
+            </p>
+            <p className="soft-card trust-card p-4">
+              <span className="block font-semibold text-navy">Timings</span>
+              {settings.timings}
+            </p>
+            <p className="soft-card trust-card p-4">
+              <span className="block font-semibold text-navy">Emergency note</span>
+              {settings.emergencyNote}
+            </p>
+          </div>
         </div>
 
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, ease: 'easeOut', delay: 0.2 }}
-          className="relative"
-        >
-          <div className="rounded-lg border border-white/15 bg-white p-5 text-navy shadow-2xl">
-            <div className="mb-4 flex items-center gap-4 border-b border-border pb-4">
-              <div className="flex h-16 w-16 items-center justify-center rounded-lg bg-bg-alt p-2">
-                <img src="/logo.png" alt="Spandan Super Speciality Clinic logo" className="h-full w-full object-contain" />
-              </div>
-              <div>
-                <p className="text-sm font-semibold text-accent">Spandan Super Speciality Clinic</p>
-                <p className="text-xs text-text-light">Garkheda, Chhatrapati Sambhajinagar</p>
-              </div>
+        <div>
+          <div className="soft-card trust-card relative overflow-hidden p-4 sm:p-5">
+            <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-bg-alt">
+              <HeroVideo />
             </div>
-            <div className="grid gap-3">
-              <div className="flex gap-3 rounded-md bg-bg-alt p-3">
-                <Stethoscope className="shrink-0 text-accent" size={22} />
-                <div>
-                  <p className="font-semibold">Specialist consultations</p>
-                  <p className="text-sm text-text-light">Cardiology, endocrinology, diabetes, and thyroid care.</p>
+            <div className="grid gap-3 p-5 text-navy sm:grid-cols-2">
+              {doctors.length ? doctors.map((doctor) => (
+                <Link key={doctor.slug} href={`/doctors/${doctor.slug}`} className="rounded-2xl border border-primary/10 bg-blue-50/70 p-3 shadow-[0_8px_22px_rgba(43,138,198,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-pink-300/40 hover:bg-white hover:shadow-[0_12px_28px_rgba(43,138,198,0.12)]">
+                  <span className="block text-sm font-bold">{doctor.name}</span>
+                  <span className="mt-1 block text-xs text-text-light">{doctor.speciality}</span>
+                </Link>
+              )) : (
+                <div className="rounded-2xl border border-primary/10 bg-blue-50/70 p-3 shadow-[0_8px_22px_rgba(43,138,198,0.07)] sm:col-span-2">
+                  <span className="block text-sm font-bold">{settings.name}</span>
+                  <span className="mt-1 block text-xs text-text-light">{settings.address}</span>
                 </div>
-              </div>
-              <div className="flex gap-3 rounded-md bg-bg-alt p-3">
-                <ShieldCheck className="shrink-0 text-success" size={22} />
-                <div>
-                  <p className="font-semibold">Payment-aware booking</p>
-                  <p className="text-sm text-text-light">Fees are shown before payment and the form is preserved after errors.</p>
-                </div>
-              </div>
-              <div className="rounded-md border border-teal-200 bg-teal-50 p-3 text-sm text-teal-900">
-                Open Monday to Saturday, 7:00 AM to 8:00 PM. For emergencies, call local emergency services first.
-              </div>
+              )}
             </div>
           </div>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

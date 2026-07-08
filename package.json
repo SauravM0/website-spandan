@@ -18,6 +18,10 @@
     "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml,css}\"",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml,css}\"",
     "migrations:validate": "cd backend && npm run migrations:validate",
+    "release:check": "node scripts/release-check.mjs",
+    "release:check:full": "node scripts/release-check.mjs",
+    "roadmap:status": "node scripts/roadmap-status.mjs",
+    "audit:findings": "node scripts/audit-findings-status.mjs",
     "audit": "npm audit --audit-level=high --workspaces=false && cd backend && npm audit --audit-level=high && cd ../frontend && npm audit --audit-level=high",
     "migrate": "cd backend && npm run migrate",
     "seed": "cd backend && npm run seed"

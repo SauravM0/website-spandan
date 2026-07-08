@@ -1,0 +1,271 @@
+{
+  "markdown_count": 38,
+  "files": [
+    {
+      "file": "README.md",
+      "title": "Spandan Website and Admin Portal \u2014 End-to-End Restructuring Plan",
+      "route": "",
+      "complexity": "",
+      "bytes": 4241
+    },
+    {
+      "file": "admin-pages/01_LOGIN.md",
+      "title": "Admin Login Plan",
+      "route": "/admin/login",
+      "complexity": "M",
+      "bytes": 2860
+    },
+    {
+      "file": "admin-pages/02_ADMIN_SHELL.md",
+      "title": "Admin Shell and Navigation Plan",
+      "route": "all protected ",
+      "complexity": "L",
+      "bytes": 3245
+    },
+    {
+      "file": "admin-pages/03_DASHBOARD.md",
+      "title": "Admin Dashboard Plan",
+      "route": "/admin",
+      "complexity": "L",
+      "bytes": 2956
+    },
+    {
+      "file": "admin-pages/04_CALENDAR.md",
+      "title": "Admin Calendar and Availability Plan",
+      "route": "/admin/calendar",
+      "complexity": "L",
+      "bytes": 3733
+    },
+    {
+      "file": "admin-pages/05_APPOINTMENTS.md",
+      "title": "Admin Appointments Plan",
+      "route": "/admin/appointments",
+      "complexity": "L",
+      "bytes": 3170
+    },
+    {
+      "file": "admin-pages/06_PACKAGE_ORDERS.md",
+      "title": "Admin Package Orders Plan",
+      "route": "/admin/package-orders",
+      "complexity": "L",
+      "bytes": 3009
+    },
+    {
+      "file": "admin-pages/07_PAYMENTS.md",
+      "title": "Admin Payments Plan",
+      "route": "/admin/payments",
+      "complexity": "L",
+      "bytes": 3110
+    },
+    {
+      "file": "admin-pages/08_NOTIFICATIONS.md",
+      "title": "Admin Notifications Plan",
+      "route": "/admin/notifications",
+      "complexity": "M",
+      "bytes": 2853
+    },
+    {
+      "file": "admin-pages/09_LEADS_LIST.md",
+      "title": "Admin Leads List Plan",
+      "route": "/admin/leads",
+      "complexity": "M",
+      "bytes": 3126
+    },
+    {
+      "file": "admin-pages/10_LEAD_DETAIL.md",
+      "title": "Admin Lead Detail Plan",
+      "route": "/admin/leads/[id]",
+      "complexity": "M",
+      "bytes": 3025
+    },
+    {
+      "file": "admin-pages/11_PACKAGES.md",
+      "title": "Admin Package Management Plan",
+      "route": "/admin/packages",
+      "complexity": "L",
+      "bytes": 3262
+    },
+    {
+      "file": "admin-pages/12_OPERATIONS_DEPRECATION.md",
+      "title": "Admin Operations Page Deprecation Plan",
+      "route": "/admin/operations",
+      "complexity": "S",
+      "bytes": 2388
+    },
+    {
+      "file": "platform/00_ARCHITECTURE_DECISIONS.md",
+      "title": "Architecture Decisions",
+      "route": "",
+      "complexity": "",
+      "bytes": 4246
+    },
+    {
+      "file": "platform/01_REFACTOR_MAP.md",
+      "title": "Route and Component Refactor Map",
+      "route": "",
+      "complexity": "",
+      "bytes": 3684
+    },
+    {
+      "file": "platform/02_RESPONSIVE_SYSTEM.md",
+      "title": "Responsive Design System",
+      "route": "",
+      "complexity": "",
+      "bytes": 2833
+    },
+    {
+      "file": "platform/03_API_SECURITY_PERFORMANCE.md",
+      "title": "API, Security, Data, and Performance",
+      "route": "",
+      "complexity": "",
+      "bytes": 3494
+    },
+    {
+      "file": "platform/04_TESTING_RELEASE.md",
+      "title": "Testing, Observability, and Release",
+      "route": "",
+      "complexity": "",
+      "bytes": 2550
+    },
+    {
+      "file": "platform/05_DELIVERY_ROADMAP.md",
+      "title": "Delivery Roadmap",
+      "route": "",
+      "complexity": "",
+      "bytes": 1786
+    },
+    {
+      "file": "platform/06_AUDIT_FINDINGS.md",
+      "title": "Audit Findings",
+      "route": "",
+      "complexity": "",
+      "bytes": 2127
+    },
+    {
+      "file": "public-pages/01_HOME.md",
+      "title": "Home Page Plan",
+      "route": "/",
+      "complexity": "L",
+      "bytes": 4814
+    },
+    {
+      "file": "public-pages/02_ABOUT.md",
+      "title": "About Page Plan",
+      "route": "/about",
+      "complexity": "M",
+      "bytes": 3391
+    },
+    {
+      "file": "public-pages/03_DOCTORS_LIST.md",
+      "title": "Doctors List Page Plan",
+      "route": "/doctors",
+      "complexity": "M",
+      "bytes": 3274
+    },
+    {
+      "file": "public-pages/04_DOCTOR_DETAIL.md",
+      "title": "Doctor Detail Page Plan",
+      "route": "/doctors/[slug]",
+      "complexity": "L",
+      "bytes": 3514
+    },
+    {
+      "file": "public-pages/05_FACILITIES.md",
+      "title": "Facilities Page Plan",
+      "route": "/facilities",
+      "complexity": "M",
+      "bytes": 3198
+    },
+    {
+      "file": "public-pages/06_PACKAGES_LIST.md",
+      "title": "Packages List Page Plan",
+      "route": "/packages",
+      "complexity": "M",
+      "bytes": 3237
+    },
+    {
+      "file": "public-pages/07_PACKAGE_DETAIL.md",
+      "title": "Package Detail Page Plan",
+      "route": "/packages/[slug]",
+      "complexity": "L",
+      "bytes": 3527
+    },
+    {
+      "file": "public-pages/08_BOOK_APPOINTMENT.md",
+      "title": "Appointment Booking Plan",
+      "route": "/book-appointment",
+      "complexity": "L",
+      "bytes": 4420
+    },
+    {
+      "file": "public-pages/09_BOOK_PACKAGE.md",
+      "title": "Package Booking Plan",
+      "route": "/book-package",
+      "complexity": "L",
+      "bytes": 3566
+    },
+    {
+      "file": "public-pages/10_PAYMENT_CONFIRMATION.md",
+      "title": "Payment Confirmation and Recovery Plan",
+      "route": "/payment/confirmation",
+      "complexity": "L",
+      "bytes": 3922
+    },
+    {
+      "file": "public-pages/11_RESOURCES_LIST.md",
+      "title": "Health Resources List Plan",
+      "route": "/health-resources",
+      "complexity": "M",
+      "bytes": 3414
+    },
+    {
+      "file": "public-pages/12_RESOURCE_DETAIL.md",
+      "title": "Health Resource Detail Plan",
+      "route": "/health-resources/[slug]",
+      "complexity": "L",
+      "bytes": 3362
+    },
+    {
+      "file": "public-pages/13_VIDEOS.md",
+      "title": "Videos Page Plan",
+      "route": "/videos",
+      "complexity": "M",
+      "bytes": 3206
+    },
+    {
+      "file": "public-pages/14_TOOLS.md",
+      "title": "Health Tools Page Plan",
+      "route": "/tools",
+      "complexity": "M",
+      "bytes": 3312
+    },
+    {
+      "file": "public-pages/15_CONTACT.md",
+      "title": "Contact Page Plan",
+      "route": "/contact",
+      "complexity": "M",
+      "bytes": 3177
+    },
+    {
+      "file": "public-pages/16_PRIVACY.md",
+      "title": "Privacy Page Plan",
+      "route": "/privacy",
+      "complexity": "L",
+      "bytes": 3237
+    },
+    {
+      "file": "public-pages/17_TERMS.md",
+      "title": "Terms, Payment, Cancellation, and Refund Plan",
+      "route": "/terms",
+      "complexity": "L",
+      "bytes": 3183
+    },
+    {
+      "file": "public-pages/18_NOT_FOUND.md",
+      "title": "Not-Found and Route Recovery Plan",
+      "route": "global not-found",
+      "complexity": "S",
+      "bytes": 2722
+    }
+  ]
+}

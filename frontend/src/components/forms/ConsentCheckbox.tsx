@@ -1,5 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
+import { clinicSettings, PRIVACY_POLICY_VERSION } from '@/lib/settings';
 
 interface ConsentCheckboxProps {
   checked: boolean;
@@ -16,16 +17,18 @@ export default function ConsentCheckbox({ checked, onChange }: ConsentCheckboxPr
           onChange={(e) => onChange(e.target.checked)}
           className="w-5 h-5 accent-accent mt-0.5"
           required
+          aria-required="true"
         />
         <span>
           I consent to{' '}
           <Link href="/privacy" className="underline hover:text-accent">
-            Spandan Super Speciality Clinic
+            {clinicSettings.name}
           </Link>{' '}
           contacting me regarding my enquiry in accordance with the{' '}
           <Link href="/privacy" className="underline hover:text-accent">
             Privacy Policy
           </Link>
+          {' '}({PRIVACY_POLICY_VERSION})
         </span>
       </label>
     </div>

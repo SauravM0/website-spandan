@@ -620,6 +620,7 @@ export async function createAppointment(input: {
   doctor_id: string;
   appointment_date: string;
   start_time: string;
+  appointment_type?: string;
   patient: PatientInput;
   source?: string;
   status?: string;
@@ -684,8 +685,8 @@ export async function createAppointment(input: {
 
     const appointment = await client.query(
       `INSERT INTO appointments
-       (patient_id, doctor_id, hold_id, appointment_date, start_time, end_time, slot_minutes, status, source, reception_notes, created_by_staff_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       (patient_id, doctor_id, hold_id, appointment_date, start_time, end_time, slot_minutes, appointment_type, status, source, reception_notes, created_by_staff_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [
         patientId,
@@ -695,6 +696,7 @@ export async function createAppointment(input: {
         input.start_time,
         endTime,
         slotMinutes,
+        input.appointment_type || 'new',
         input.status || (input.source === 'admin' ? 'confirmed' : 'awaiting_payment'),
         input.source || 'public',
         input.reception_notes || null,
@@ -880,6 +882,98 @@ export async function createPackageOrder(input: {
   }
 }
 
+export async function quotePackageOrder(input: {
+  preferred_date?: string;
+  items: Array<{
+    package_id: string;
+    quantity?: number;
+    preferred_date?: string;
+  }>;
+}) {
+  let subtotal = 0;
+  let tax = 0;
+  let fee = 0;
+  const quotedItems: any[] = [];
+
+  for (const item of input.items) {
+    const quantity = Math.max(1, Math.min(20, Number(item.quantity || 1)));
+    const pkg = await query(
+      `SELECT id, name, short_description, prep_instructions,
+              base_price, discounted_price, is_active, publication_status,
+              tax_applicable, tax_name, tax_rate, convenience_fee,
+              purchase_status, purchase_enabled, terms_text, no_refund_text,
+              effective_start, effective_end, preferred_date_required
+       FROM packages WHERE id = $1`,
+      [item.package_id]
+    );
+    const selected = pkg.rows[0];
+    if (
+      !selected ||
+      !selected.is_active ||
+      selected.publication_status !== 'published' ||
+      !selected.purchase_enabled ||
+      selected.purchase_status !== 'available'
+    ) {
+      const error = new Error('Selected package is unavailable') as Error & { status?: number; code?: string };
+      error.status = 409;
+      error.code = 'PACKAGE_UNAVAILABLE';
+      throw error;
+    }
+    const today = clinicNow().date;
+    const starts = selected.effective_start ? String(selected.effective_start).slice(0, 10) : null;
+    const ends = selected.effective_end ? String(selected.effective_end).slice(0, 10) : null;
+    if ((starts && starts > today) || (ends && ends < today)) {
+      const error = new Error('Selected package is not available for purchase today') as Error & { status?: number; code?: string };
+      error.status = 409;
+      error.code = 'PACKAGE_WINDOW_CHANGED';
+      throw error;
+    }
+    if (selected.preferred_date_required && !(item.preferred_date || input.preferred_date)) {
+      const error = new Error('Preferred date is required for this package') as Error & { status?: number; code?: string };
+      error.status = 400;
+      error.code = 'PREFERRED_DATE_REQUIRED';
+      throw error;
+    }
+
+    const unitPrice = Number(selected.discounted_price || selected.base_price);
+    const lineSubtotal = Number((unitPrice * quantity).toFixed(2));
+    const taxRate = selected.tax_applicable ? Number(selected.tax_rate || 0) : 0;
+    const itemTax = Number(((lineSubtotal * taxRate) / 100).toFixed(2));
+    const itemFee = Number((Number(selected.convenience_fee || 0) * quantity).toFixed(2));
+    const lineTotal = Number((lineSubtotal + itemTax + itemFee).toFixed(2));
+
+    subtotal += lineSubtotal;
+    tax += itemTax;
+    fee += itemFee;
+    quotedItems.push({
+      package_id: selected.id,
+      package_name: selected.name,
+      quantity,
+      unit_price: unitPrice,
+      base_price: Number(selected.base_price),
+      discounted_price: selected.discounted_price === null ? null : Number(selected.discounted_price),
+      tax_amount: itemTax,
+      fee_amount: itemFee,
+      line_total: lineTotal,
+      prep_instructions: selected.prep_instructions || null,
+      terms_text: selected.terms_text || null,
+      no_refund_text: selected.no_refund_text || null,
+      preferred_date_required: Boolean(selected.preferred_date_required),
+    });
+  }
+
+  return {
+    policy_version: 'package-policy-2026-07-07',
+    currency: 'INR',
+    item_limit: 20,
+    items: quotedItems,
+    subtotal: Number(subtotal.toFixed(2)),
+    tax_total: Number(tax.toFixed(2)),
+    fee_total: Number(fee.toFixed(2)),
+    total: Number((subtotal + tax + fee).toFixed(2)),
+  };
+}
+
 export async function listPackageCommerceCatalog() {
   return getPackageCommerceCatalog();
 }
@@ -920,7 +1014,7 @@ export async function createPayment(input: { order_id?: string; appointment_id?:
   const merchantTransactionId = orderNumber('SPP');
   const returnUrl = `${config.frontendUrl}/payment/confirmation?transaction=${merchantTransactionId}`;
   const amountPaisa = amountToPaisa(amount);
-  const purchaserPhone = order.rows[0]?.phone || appointment.rows[0]?.phone || undefined;
+  const paymentPhone = '9172027838';
 
   const result = await query(
     `INSERT INTO payments
@@ -949,7 +1043,7 @@ export async function createPayment(input: { order_id?: string; appointment_id?:
       merchantOrderId: merchantTransactionId,
       amountPaisa,
       redirectUrl: returnUrl,
-      phone: purchaserPhone,
+      phone: paymentPhone,
       metaInfo: {
         udf1: input.order_id || input.appointment_id || '',
         udf2: input.order_id ? 'package_order' : 'appointment',
@@ -1212,20 +1306,223 @@ export async function getPaymentStatus(merchantTransactionId: string) {
   return refreshedResult.rows[0] || refreshed;
 }
 
-export async function getAdminDashboard() {
-  const result = await query(`
-    SELECT
-      (SELECT COUNT(*) FROM appointments WHERE appointment_date = CURRENT_DATE) AS appointments_today,
-      (SELECT COUNT(*) FROM package_orders WHERE created_at::date = CURRENT_DATE) AS orders_today,
-      (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE status = 'success' AND created_at::date = CURRENT_DATE) AS collections_today,
-      (SELECT COUNT(*) FROM appointment_holds WHERE status = 'active' AND expires_at < NOW()) AS expired_holds
-  `);
-  return result.rows[0];
+function maskPhone(value: unknown): string {
+  const digits = String(value || '').replace(/\D/g, '');
+  if (digits.length <= 4) return '****';
+  return `${'*'.repeat(Math.max(0, digits.length - 4))}${digits.slice(-4)}`;
 }
 
-export async function listAppointments(
-  filters: { doctorId?: string; status?: string; from?: string; to?: string; search?: string } = {}
-) {
+function toNumber(value: unknown): number {
+  return Number(value || 0);
+}
+
+export async function getAdminDashboard(options: { doctorId?: string } = {}) {
+  const values = options.doctorId ? [options.doctorId] : [];
+  const doctorAppointmentFilter = options.doctorId ? 'AND a.doctor_id = $1' : '';
+  const doctorHoldFilter = options.doctorId ? 'AND ah.doctor_id = $1' : '';
+  const doctorPaymentJoin = options.doctorId ? 'LEFT JOIN appointments ap_scope ON ap_scope.id = p.appointment_id' : '';
+  const doctorPaymentFilter = options.doctorId ? 'AND ap_scope.doctor_id = $1' : '';
+  const doctorNotificationJoin = options.doctorId ? 'LEFT JOIN appointments an_scope ON an_scope.id = no.appointment_id' : '';
+  const doctorNotificationFilter = options.doctorId ? 'AND an_scope.doctor_id = $1' : '';
+
+  const [context, metrics, todayAppointments, paymentIssues, notificationFailures] = await Promise.all([
+    query(
+      `SELECT
+         (NOW() AT TIME ZONE 'Asia/Kolkata')::date AS clinic_date,
+         NOW() AS generated_at`
+    ),
+    query(
+      `WITH clinic AS (
+         SELECT (NOW() AT TIME ZONE 'Asia/Kolkata')::date AS clinic_date
+       )
+       SELECT
+         (SELECT COUNT(*) FROM appointments a, clinic c
+          WHERE a.appointment_date = c.clinic_date ${doctorAppointmentFilter}) AS appointments_today,
+         (SELECT COUNT(*) FROM appointments a, clinic c
+          WHERE a.appointment_date = c.clinic_date AND a.status = 'confirmed' ${doctorAppointmentFilter}) AS confirmed_appointments,
+         (SELECT COUNT(*) FROM appointments a, clinic c
+          WHERE a.appointment_date = c.clinic_date AND a.status IN ('awaiting_payment', 'payment_pending') ${doctorAppointmentFilter}) AS awaiting_payment,
+         (SELECT COUNT(*) FROM appointments a, clinic c
+          WHERE a.appointment_date = c.clinic_date AND a.status = 'checked_in' ${doctorAppointmentFilter}) AS checked_in,
+         (SELECT COUNT(*) FROM appointments a, clinic c
+          WHERE a.appointment_date = c.clinic_date AND a.status = 'completed' ${doctorAppointmentFilter}) AS completed,
+         (SELECT COUNT(*) FROM package_orders po, clinic c
+          WHERE ${options.doctorId ? 'false' : "(po.created_at AT TIME ZONE 'Asia/Kolkata')::date = c.clinic_date"}) AS orders_today,
+         (SELECT COALESCE(SUM(p.amount), 0) FROM payments p
+          ${doctorPaymentJoin}, clinic c
+          WHERE p.status = 'success'
+            AND (p.created_at AT TIME ZONE 'Asia/Kolkata')::date = c.clinic_date
+            ${doctorPaymentFilter}) AS collections_today,
+         (SELECT COUNT(*) FROM payments p
+          ${doctorPaymentJoin}, clinic c
+          WHERE p.status IN ('failed', 'verification_required', 'pending')
+            AND (p.created_at AT TIME ZONE 'Asia/Kolkata')::date >= c.clinic_date - INTERVAL '7 days'
+            ${doctorPaymentFilter}) AS payment_issues,
+         (SELECT COUNT(*) FROM notification_outbox no
+          ${doctorNotificationJoin}
+          WHERE no.status IN ('failed', 'retrying', 'skipped_no_destination')
+            ${doctorNotificationFilter}) AS notification_failures,
+         (SELECT COUNT(*) FROM appointment_holds ah
+          WHERE ah.status = 'active' AND ah.expires_at < NOW() ${doctorHoldFilter}) AS expired_holds`,
+      values
+    ),
+    query(
+      `WITH clinic AS (
+         SELECT (NOW() AT TIME ZONE 'Asia/Kolkata')::date AS clinic_date
+       )
+       SELECT a.id, a.appointment_number, a.appointment_date, a.start_time, a.end_time,
+              a.status, a.payment_status, a.amount_snapshot,
+              p.full_name AS patient_name, p.phone, d.name AS doctor_name
+       FROM appointments a
+       JOIN patients p ON p.id = a.patient_id
+       JOIN doctors d ON d.id = a.doctor_id
+       JOIN clinic c ON a.appointment_date = c.clinic_date
+       WHERE true ${doctorAppointmentFilter}
+       ORDER BY a.start_time ASC
+       LIMIT 8`,
+      values
+    ),
+    query(
+      `SELECT p.id, p.merchant_transaction_id, p.amount, p.status, p.created_at, p.updated_at,
+              po.order_number, a.appointment_number, patient.full_name AS patient_name, patient.phone
+       FROM payments p
+       LEFT JOIN package_orders po ON po.id = p.order_id
+       LEFT JOIN appointments a ON a.id = p.appointment_id
+       LEFT JOIN patients patient ON patient.id = a.patient_id
+       ${doctorPaymentJoin}
+       WHERE p.status IN ('failed', 'verification_required', 'pending')
+         ${doctorPaymentFilter}
+       ORDER BY p.updated_at DESC
+       LIMIT 5`,
+      values
+    ),
+    query(
+      `SELECT no.id, no.channel, no.template, no.destination, no.status, no.error,
+              no.attempt_count, no.created_at, r.receipt_number, po.order_number, a.appointment_number
+       FROM notification_outbox no
+       LEFT JOIN receipts r ON r.payment_id = no.payment_id
+       LEFT JOIN package_orders po ON po.id = no.order_id
+       LEFT JOIN appointments a ON a.id = no.appointment_id
+       ${doctorNotificationJoin}
+       WHERE no.status IN ('failed', 'retrying', 'skipped_no_destination')
+         ${doctorNotificationFilter}
+       ORDER BY no.created_at DESC
+       LIMIT 5`,
+      values
+    ),
+  ]);
+
+  const metricRow = metrics.rows[0] || {};
+  const actionItems = [
+    {
+      id: 'awaiting-payment',
+      label: 'Appointments awaiting payment',
+      count: toNumber(metricRow.awaiting_payment),
+      href: '/admin/appointments',
+      priority: toNumber(metricRow.awaiting_payment) > 0 ? 'high' : 'normal',
+    },
+    {
+      id: 'payment-issues',
+      label: 'Payment issues',
+      count: toNumber(metricRow.payment_issues),
+      href: '/admin/payments',
+      priority: toNumber(metricRow.payment_issues) > 0 ? 'high' : 'normal',
+    },
+    {
+      id: 'notification-failures',
+      label: 'Notification failures',
+      count: toNumber(metricRow.notification_failures),
+      href: '/admin/notifications',
+      priority: toNumber(metricRow.notification_failures) > 0 ? 'medium' : 'normal',
+    },
+    {
+      id: 'expired-holds',
+      label: 'Expired active holds',
+      count: toNumber(metricRow.expired_holds),
+      href: '/admin/calendar',
+      priority: toNumber(metricRow.expired_holds) > 0 ? 'medium' : 'normal',
+    },
+  ];
+
+  return {
+    clinicDate: formatClinicDate(context.rows[0]?.clinic_date),
+    generatedAt: context.rows[0]?.generated_at,
+    timezone: 'Asia/Kolkata',
+    metrics: {
+      appointmentsToday: toNumber(metricRow.appointments_today),
+      confirmedAppointments: toNumber(metricRow.confirmed_appointments),
+      awaitingPayment: toNumber(metricRow.awaiting_payment),
+      checkedIn: toNumber(metricRow.checked_in),
+      completed: toNumber(metricRow.completed),
+      packagePurchases: toNumber(metricRow.orders_today),
+      collectionsToday: toNumber(metricRow.collections_today),
+      paymentIssues: toNumber(metricRow.payment_issues),
+      notificationFailures: toNumber(metricRow.notification_failures),
+      expiredHolds: toNumber(metricRow.expired_holds),
+    },
+    actionItems,
+    todayAppointments: todayAppointments.rows.map((row) => ({
+      ...row,
+      phone_masked: maskPhone(row.phone),
+      phone: undefined,
+    })),
+    paymentIssues: paymentIssues.rows.map((row) => ({
+      ...row,
+      phone_masked: row.phone ? maskPhone(row.phone) : null,
+      phone: undefined,
+    })),
+    notificationFailures: notificationFailures.rows.map((row) => ({
+      ...row,
+      destination_masked: row.destination ? maskPhone(row.destination) : null,
+      destination: undefined,
+    })),
+    warnings: [
+      ...(toNumber(metricRow.expired_holds) > 0
+        ? ['Some active holds are already expired and may need cleanup.']
+        : []),
+    ],
+  };
+}
+
+type AppointmentFilters = {
+  doctorId?: string;
+  status?: string;
+  source?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+  sort?: string;
+};
+
+function appointmentAllowedActions(status: string): string[] {
+  const transitions: Record<string, string[]> = {
+    awaiting_payment: ['confirmed', 'cancelled'],
+    payment_pending: ['confirmed', 'payment_failed', 'cancelled'],
+    confirmed: ['checked_in', 'completed', 'no_show', 'cancelled'],
+    checked_in: ['completed', 'no_show'],
+    completed: [],
+    cancelled: [],
+    no_show: [],
+    payment_failed: ['cancelled'],
+  };
+  return transitions[status] || [];
+}
+
+function appointmentOrderBy(sort?: string): string {
+  switch (sort) {
+    case 'date_asc':
+      return 'a.appointment_date ASC, a.start_time ASC';
+    case 'created_desc':
+      return 'a.created_at DESC';
+    case 'created_asc':
+      return 'a.created_at ASC';
+    case 'date_desc':
+    default:
+      return 'a.appointment_date DESC, a.start_time DESC';
+  }
+}
+
+function buildAppointmentFilterSql(filters: AppointmentFilters = {}) {
   const values: any[] = [];
   const conditions: string[] = [];
   if (filters.doctorId) {
@@ -1235,6 +1532,10 @@ export async function listAppointments(
   if (filters.status) {
     values.push(filters.status);
     conditions.push(`a.status = $${values.length}`);
+  }
+  if (filters.source) {
+    values.push(filters.source);
+    conditions.push(`a.source = $${values.length}`);
   }
   if (filters.from) {
     values.push(filters.from);
@@ -1247,26 +1548,94 @@ export async function listAppointments(
   if (filters.search) {
     values.push(`%${filters.search}%`);
     conditions.push(
-      `(p.full_name ILIKE $${values.length} OR p.phone ILIKE $${values.length} OR d.name ILIKE $${values.length})`
+      `(p.full_name ILIKE $${values.length}
+        OR p.phone ILIKE $${values.length}
+        OR d.name ILIKE $${values.length}
+        OR a.appointment_number ILIKE $${values.length})`
     );
   }
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  return {
+    values,
+    where: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '',
+  };
+}
+
+function decorateAppointmentRows(rows: any[]) {
+  return rows.map((row) => ({
+    ...row,
+    allowed_actions: appointmentAllowedActions(row.status),
+    phone_masked: maskPhone(row.phone),
+  }));
+}
+
+export async function listAppointments(filters: AppointmentFilters = {}) {
+  const { values, where } = buildAppointmentFilterSql(filters);
   const result = await query(
     `SELECT a.*, p.full_name AS patient_name, p.phone, d.name AS doctor_name
      FROM appointments a
      JOIN patients p ON p.id = a.patient_id
      JOIN doctors d ON d.id = a.doctor_id
      ${where}
-     ORDER BY a.appointment_date DESC, a.start_time DESC
+     ORDER BY ${appointmentOrderBy(filters.sort)}
      LIMIT 100`,
     values
   );
-  return result.rows;
+  return decorateAppointmentRows(result.rows);
+}
+
+export async function listAppointmentsPage(
+  filters: AppointmentFilters & { page?: number; pageSize?: number } = {}
+) {
+  const page = Math.max(1, Number(filters.page || 1));
+  const pageSize = Math.min(50, Math.max(1, Number(filters.pageSize || 25)));
+  const offset = (page - 1) * pageSize;
+  const { values, where } = buildAppointmentFilterSql(filters);
+
+  const countResult = await query(
+    `SELECT COUNT(*)::int AS total
+     FROM appointments a
+     JOIN patients p ON p.id = a.patient_id
+     JOIN doctors d ON d.id = a.doctor_id
+     ${where}`,
+    values
+  );
+  const total = Number(countResult.rows[0]?.total || 0);
+  const result = await query(
+    `SELECT a.*, p.full_name AS patient_name, p.phone, d.name AS doctor_name
+     FROM appointments a
+     JOIN patients p ON p.id = a.patient_id
+     JOIN doctors d ON d.id = a.doctor_id
+     ${where}
+     ORDER BY ${appointmentOrderBy(filters.sort)}
+     LIMIT $${values.length + 1}
+     OFFSET $${values.length + 2}`,
+    [...values, pageSize, offset]
+  );
+
+  return {
+    data: decorateAppointmentRows(result.rows),
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+    filters: {
+      doctor_id: filters.doctorId || '',
+      status: filters.status || '',
+      source: filters.source || '',
+      from: filters.from || '',
+      to: filters.to || '',
+      search: filters.search || '',
+      sort: filters.sort || 'date_desc',
+    },
+  };
 }
 
 export function csvCell(value: unknown): string {
   if (value === null || value === undefined) return '';
-  const text = String(value);
+  const raw = String(value);
+  const text = /^[=+\-@]/.test(raw) ? `'${raw}` : raw;
   return /[",\r\n]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 }
 
@@ -1293,7 +1662,7 @@ function csvLine(values: unknown[]): string {
 }
 
 export async function exportAppointmentsCsv(
-  filters: { doctorId?: string; status?: string; from?: string; to?: string; search?: string } = {}
+  filters: AppointmentFilters = {}
 ): Promise<string> {
   const rows = await listAppointments(filters);
   const header = [
@@ -1392,6 +1761,111 @@ export async function listCalendarOverrides(
   return result.rows;
 }
 
+function summarizeAvailability(slots: Slot[]) {
+  return {
+    total: slots.length,
+    available: slots.filter((slot) => slot.available).length,
+    blocked: slots.filter((slot) => !slot.available).length,
+  };
+}
+
+function effectiveCalendarStatus(input: {
+  date: string;
+  slots: Slot[];
+  overrides: any[];
+  appointmentCount: number;
+}) {
+  const weekday = new Date(`${input.date}T00:00:00`).getDay();
+  const hasWholeDayBlock = input.overrides.some((item) => item.override_type === 'unavailable_whole_day');
+  const hasCustomHours = input.overrides.some((item) => ['custom_hours', 'add_extra_hours'].includes(item.override_type));
+  const hasPartialBlock = input.overrides.some((item) => item.override_type === 'block_time_range');
+  const summary = summarizeAvailability(input.slots);
+
+  if (hasWholeDayBlock) return 'unavailable';
+  if (weekday === 0 && !hasCustomHours) return 'sunday_closed';
+  if (summary.total === 0) return 'no_hours';
+  if (summary.available === 0) return 'full';
+  if (hasPartialBlock || summary.blocked > 0) return 'partial';
+  if (input.appointmentCount > 0) return 'booked';
+  return 'available';
+}
+
+export async function getAdminCalendarView(input: {
+  doctorId: string;
+  from: string;
+  to: string;
+}) {
+  const dates = datesBetween(input.from, input.to);
+  const [settings, availability, rules, overrides, appointments] = await Promise.all([
+    getAppointmentConfig(),
+    listDoctorAvailability(input.doctorId, input.from, input.to),
+    listAvailabilityRules(input.doctorId),
+    listCalendarOverrides({ doctorId: input.doctorId, from: input.from, to: input.to }),
+    listAppointments({ doctorId: input.doctorId, from: input.from, to: input.to }),
+  ]);
+
+  const appointmentsByDate = appointments.reduce<Record<string, any[]>>((map, item) => {
+    const key = formatClinicDate(item.appointment_date);
+    if (!map[key]) map[key] = [];
+    map[key].push({
+      id: item.id,
+      appointment_number: item.appointment_number,
+      appointment_date: key,
+      start_time: item.start_time,
+      end_time: item.end_time,
+      status: item.status,
+      payment_status: item.payment_status,
+      patient_name: item.patient_name,
+      phone_masked: maskPhone(item.phone),
+      doctor_name: item.doctor_name,
+    });
+    return map;
+  }, {});
+
+  const overridesByDate = overrides.reduce<Record<string, any[]>>((map, item) => {
+    const key = formatClinicDate(item.exception_date);
+    if (!map[key]) map[key] = [];
+    map[key].push(item);
+    return map;
+  }, {});
+
+  const days = dates.map((date) => {
+    const slots = availability[date] || [];
+    const dayOverrides = overridesByDate[date] || [];
+    const dayAppointments = appointmentsByDate[date] || [];
+    return {
+      date,
+      status: effectiveCalendarStatus({
+        date,
+        slots,
+        overrides: dayOverrides,
+        appointmentCount: dayAppointments.length,
+      }),
+      slotSummary: summarizeAvailability(slots),
+      appointmentCount: dayAppointments.length,
+      overrideCount: dayOverrides.length,
+      slots,
+      appointments: dayAppointments,
+      overrides: dayOverrides,
+    };
+  });
+
+  return {
+    doctorId: input.doctorId,
+    from: input.from,
+    to: input.to,
+    generatedAt: new Date().toISOString(),
+    timezone: 'Asia/Kolkata',
+    settings,
+    warnings: appointmentConfigWarnings(settings),
+    rules,
+    overrides,
+    appointments,
+    availability,
+    days,
+  };
+}
+
 export async function createCalendarOverride(input: {
   doctor_id?: string;
   exception_date: string;
@@ -1424,6 +1898,126 @@ export async function createCalendarOverride(input: {
   return result.rows[0];
 }
 
+export async function createCalendarOverridesBatch(input: {
+  doctor_id: string;
+  dates: string[];
+  override_type: 'unavailable_whole_day' | 'custom_hours' | 'block_time_range' | 'add_extra_hours';
+  start_time?: string;
+  end_time?: string;
+  reason?: string;
+  public_note?: string;
+  internal_note?: string;
+  allow_conflicts?: boolean;
+  actor_staff_id?: string;
+}) {
+  const uniqueDates = Array.from(new Set(input.dates)).sort();
+  if (uniqueDates.length === 0) {
+    const error = new Error('At least one date is required') as Error & { status?: number; code?: string };
+    error.status = 400;
+    error.code = 'DATES_REQUIRED';
+    throw error;
+  }
+  if (uniqueDates.length > 31) {
+    const error = new Error('Batch calendar changes cannot exceed 31 dates') as Error & { status?: number; code?: string };
+    error.status = 400;
+    error.code = 'DATE_RANGE_TOO_LARGE';
+    throw error;
+  }
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`calendar:${input.doctor_id}`]);
+
+    const conflictResult = await client.query(
+      `SELECT appointment_date, COUNT(*)::int AS appointment_count
+       FROM appointments
+       WHERE doctor_id = $1
+         AND appointment_date = ANY($2::date[])
+         AND status IN ('awaiting_payment', 'payment_pending', 'confirmed', 'checked_in')
+       GROUP BY appointment_date
+       ORDER BY appointment_date ASC`,
+      [input.doctor_id, uniqueDates]
+    );
+    const conflicted = conflictResult.rows.map((row) => ({
+      date: formatClinicDate(row.appointment_date),
+      appointment_count: Number(row.appointment_count || 0),
+    }));
+
+    if (conflicted.length > 0 && input.override_type === 'unavailable_whole_day' && !input.allow_conflicts) {
+      await client.query('ROLLBACK');
+      return {
+        created: [],
+        skipped: [],
+        conflicted,
+        requiresConfirmation: true,
+      };
+    }
+
+    const available =
+      input.override_type === 'custom_hours' || input.override_type === 'add_extra_hours';
+    const created: any[] = [];
+    const skipped: any[] = [];
+
+    for (const date of uniqueDates) {
+      const weekday = new Date(`${date}T00:00:00`).getDay();
+      if (weekday === 0 && input.override_type === 'unavailable_whole_day') {
+        skipped.push({ date, reason: 'Sunday is already closed' });
+        continue;
+      }
+
+      const result = await client.query(
+        `INSERT INTO calendar_exceptions
+         (doctor_id, exception_date, override_type, start_time, end_time, reason, public_note, internal_note, is_available)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         RETURNING *`,
+        [
+          input.doctor_id,
+          date,
+          input.override_type,
+          input.override_type === 'unavailable_whole_day' ? null : input.start_time || null,
+          input.override_type === 'unavailable_whole_day' ? null : input.end_time || null,
+          input.reason || null,
+          input.public_note || null,
+          input.internal_note || null,
+          available,
+        ]
+      );
+      created.push(result.rows[0]);
+    }
+
+    await client.query(
+      `INSERT INTO audit_log (actor_staff_id, action, entity_type, entity_id, metadata)
+       VALUES ($1, 'calendar.batch_override_created', 'calendar_exception', $2, $3)`,
+      [
+        input.actor_staff_id || null,
+        input.doctor_id,
+        JSON.stringify({
+          doctor_id: input.doctor_id,
+          dates: uniqueDates,
+          override_type: input.override_type,
+          created: created.length,
+          skipped,
+          conflicted,
+        }),
+      ]
+    );
+
+    await client.query('COMMIT');
+    return {
+      created,
+      skipped,
+      conflicted,
+      requiresConfirmation: false,
+    };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function deleteCalendarOverride(id: string) {
   const result = await query('DELETE FROM calendar_exceptions WHERE id = $1 RETURNING *', [id]);
   if (!result.rows[0]) {
@@ -1436,15 +2030,32 @@ export async function deleteCalendarOverride(id: string) {
 
 export async function updateAppointmentStatus(input: {
   appointmentId: string;
-  status: 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show';
+  status: 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show' | 'payment_failed';
   actorStaffId?: string;
 }) {
+  const current = await query('SELECT status FROM appointments WHERE id = $1', [input.appointmentId]);
+  if (!current.rows[0]) {
+    const error = new Error('Appointment not found') as Error & { status?: number; code?: string };
+    error.status = 404;
+    error.code = 'APPOINTMENT_NOT_FOUND';
+    throw error;
+  }
+  if (!appointmentAllowedActions(current.rows[0].status).includes(input.status)) {
+    const error = new Error('This appointment status change is not allowed') as Error & {
+      status?: number;
+      code?: string;
+    };
+    error.status = 409;
+    error.code = 'INVALID_STATUS_TRANSITION';
+    throw error;
+  }
   const timestampColumn = {
     checked_in: 'checked_in_at',
     completed: 'completed_at',
     cancelled: 'cancelled_at',
     no_show: 'no_show_at',
     confirmed: null,
+    payment_failed: null,
   }[input.status];
   const result = await query(
     `UPDATE appointments
@@ -1476,9 +2087,19 @@ export async function listPackageOrders() {
   return result.rows;
 }
 
-export async function listPayments(
-  filters: { status?: string; from?: string; to?: string; search?: string } = {}
-) {
+type PaymentFilters = {
+  status?: string;
+  from?: string;
+  to?: string;
+  search?: string;
+  provider?: string;
+  entity?: 'appointment' | 'package_order';
+  sort?: 'date_desc' | 'date_asc' | 'updated_desc' | 'updated_asc' | 'amount_desc' | 'amount_asc';
+  page?: number;
+  pageSize?: number;
+};
+
+function buildPaymentFilters(filters: PaymentFilters = {}) {
   const values: any[] = [];
   const conditions: string[] = [];
   if (filters.status) {
@@ -1494,18 +2115,69 @@ export async function listPayments(
     conditions.push(`p.created_at::date <= $${values.length}`);
   }
   if (filters.search) {
-    values.push(`%${filters.search}%`);
+    values.push(`%${filters.search.trim()}%`);
     conditions.push(
-      `(p.merchant_transaction_id ILIKE $${values.length} OR p.provider_reference ILIKE $${values.length} OR po.order_number ILIKE $${values.length})`
+      `(p.merchant_transaction_id ILIKE $${values.length}
+        OR p.provider_reference ILIKE $${values.length}
+        OR p.provider_order_id ILIKE $${values.length}
+        OR po.order_number ILIKE $${values.length}
+        OR a.appointment_number ILIKE $${values.length})`
     );
   }
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
-  const result = await query(
-    `SELECT p.*, po.order_number, r.id AS receipt_id, r.receipt_number, r.pdf_url,
+  if (filters.provider) {
+    values.push(filters.provider);
+    conditions.push(`p.provider = $${values.length}`);
+  }
+  if (filters.entity === 'appointment') {
+    conditions.push('p.appointment_id IS NOT NULL');
+  }
+  if (filters.entity === 'package_order') {
+    conditions.push('p.order_id IS NOT NULL');
+  }
+  return {
+    values,
+    where: conditions.length ? `WHERE ${conditions.join(' AND ')}` : '',
+  };
+}
+
+function paymentOrderBy(sort: PaymentFilters['sort']) {
+  switch (sort) {
+    case 'date_asc':
+      return 'p.created_at ASC, p.id ASC';
+    case 'updated_desc':
+      return 'p.updated_at DESC, p.id DESC';
+    case 'updated_asc':
+      return 'p.updated_at ASC, p.id ASC';
+    case 'amount_desc':
+      return 'p.amount DESC, p.created_at DESC';
+    case 'amount_asc':
+      return 'p.amount ASC, p.created_at DESC';
+    case 'date_desc':
+    default:
+      return 'p.created_at DESC, p.id DESC';
+  }
+}
+
+export async function listPayments(filters: PaymentFilters = {}) {
+  const page = Math.max(1, Number(filters.page || 1));
+  const pageSize = Math.min(50, Math.max(1, Number(filters.pageSize || 25)));
+  const offset = (page - 1) * pageSize;
+  const { values, where } = buildPaymentFilters(filters);
+  const countValues = [...values];
+  const summaryValues = [...values];
+  const pageValues = [...values, pageSize, offset];
+  const [result, countResult, summaryResult] = await Promise.all([
+    query(
+      `SELECT p.id, p.order_id, p.appointment_id, p.provider, p.merchant_transaction_id,
+              p.amount, p.status, p.payment_method, p.provider_reference, p.provider_order_id,
+              p.created_at, p.updated_at, p.verified_at, p.failed_at, p.expires_at,
+              po.order_number, a.appointment_number,
+              r.id AS receipt_id, r.receipt_number, r.pdf_url,
             latest_notification.status AS notification_status,
             latest_notification.error AS notification_error
      FROM payments p
      LEFT JOIN package_orders po ON po.id = p.order_id
+     LEFT JOIN appointments a ON a.id = p.appointment_id
      LEFT JOIN receipts r ON r.payment_id = p.id
      LEFT JOIN LATERAL (
        SELECT status, error
@@ -1515,17 +2187,62 @@ export async function listPayments(
        LIMIT 1
      ) latest_notification ON true
      ${where}
-     ORDER BY p.created_at DESC
-     LIMIT 100`,
-    values
-  );
-  return result.rows;
+     ORDER BY ${paymentOrderBy(filters.sort)}
+     LIMIT $${pageValues.length - 1} OFFSET $${pageValues.length}`,
+      pageValues
+    ),
+    query(
+      `SELECT COUNT(*)::int AS total
+       FROM payments p
+       LEFT JOIN package_orders po ON po.id = p.order_id
+       LEFT JOIN appointments a ON a.id = p.appointment_id
+       ${where}`,
+      countValues
+    ),
+    query(
+      `SELECT
+         COUNT(*)::int AS total,
+         COUNT(*) FILTER (WHERE p.status = 'success')::int AS success,
+         COUNT(*) FILTER (WHERE p.status IN ('created', 'pending', 'verification_required'))::int AS pending,
+         COUNT(*) FILTER (WHERE p.status IN ('failed', 'expired', 'disputed'))::int AS issues,
+         COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'success'), 0) AS success_amount
+       FROM payments p
+       LEFT JOIN package_orders po ON po.id = p.order_id
+       LEFT JOIN appointments a ON a.id = p.appointment_id
+       ${where}`,
+      summaryValues
+    ),
+  ]);
+  const total = Number(countResult.rows[0]?.total || 0);
+  return {
+    payments: result.rows,
+    pagination: {
+      page,
+      pageSize,
+      total,
+      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+    },
+    summary: summaryResult.rows[0] || {
+      total: 0,
+      success: 0,
+      pending: 0,
+      issues: 0,
+      success_amount: 0,
+    },
+  };
 }
 
 export async function exportPaymentsCsv(
-  filters: { status?: string; from?: string; to?: string; search?: string } = {}
+  filters: PaymentFilters = {}
 ): Promise<string> {
-  const rows = await listPayments(filters);
+  const rows: any[] = [];
+  let page = 1;
+  for (;;) {
+    const result = await listPayments({ ...filters, page, pageSize: 50 });
+    rows.push(...result.payments);
+    if (page >= result.pagination.totalPages) break;
+    page += 1;
+  }
   const header = [
     'Payment Date',
     'Transaction',
@@ -1553,4 +2270,124 @@ export async function exportPaymentsCsv(
     ])
   );
   return [csvLine(header), ...body].join('\n');
+}
+
+export async function getAdminPaymentDetail(paymentId: string) {
+  const paymentResult = await query(
+    `SELECT p.id, p.order_id, p.appointment_id, p.provider, p.merchant_transaction_id,
+            p.amount, p.status, p.payment_method, p.provider_reference, p.provider_order_id,
+            p.created_at, p.updated_at, p.verified_at, p.failed_at, p.expires_at,
+            po.order_number, po.status AS order_status,
+            a.appointment_number, a.status AS appointment_status,
+            r.id AS receipt_id, r.receipt_number, r.pdf_url, r.issued_at, r.voided_at,
+            latest_notification.status AS notification_status,
+            latest_notification.error AS notification_error
+     FROM payments p
+     LEFT JOIN package_orders po ON po.id = p.order_id
+     LEFT JOIN appointments a ON a.id = p.appointment_id
+     LEFT JOIN receipts r ON r.payment_id = p.id
+     LEFT JOIN LATERAL (
+       SELECT status, error
+       FROM notification_outbox no
+       WHERE no.payment_id = p.id
+       ORDER BY no.created_at DESC
+       LIMIT 1
+     ) latest_notification ON true
+     WHERE p.id = $1`,
+    [paymentId]
+  );
+  const payment = paymentResult.rows[0] || null;
+  if (!payment) return null;
+
+  const [webhooks, attempts, notifications, audits] = await Promise.all([
+    query(
+      `SELECT id, 'provider_event' AS type, event_name, provider, status,
+              merchant_order_id, provider_order_id, provider_transaction_id, created_at
+       FROM payment_webhook_events
+       WHERE payment_id = $1
+       ORDER BY created_at DESC
+       LIMIT 25`,
+      [paymentId]
+    ),
+    query(
+      `SELECT id, 'status_attempt' AS type, status, created_at
+       FROM payment_attempts
+       WHERE payment_id = $1
+       ORDER BY created_at DESC
+       LIMIT 25`,
+      [paymentId]
+    ),
+    query(
+      `SELECT id, 'notification' AS type, channel, template, status, attempt_count,
+              sent_at, error, created_at
+       FROM notification_outbox
+       WHERE payment_id = $1
+       ORDER BY created_at DESC
+       LIMIT 25`,
+      [paymentId]
+    ),
+    query(
+      `SELECT id, 'audit' AS type, action, metadata, created_at
+       FROM audit_log
+       WHERE entity_type = 'payment' AND entity_id = $1
+       ORDER BY created_at DESC
+       LIMIT 25`,
+      [paymentId]
+    ),
+  ]);
+
+  const receiptEvents = payment.receipt_id
+    ? [
+        {
+          id: payment.receipt_id,
+          type: 'receipt',
+          status: payment.voided_at ? 'voided' : 'issued',
+          receipt_number: payment.receipt_number,
+          created_at: payment.issued_at || payment.updated_at,
+        },
+      ]
+    : [];
+
+  const events = [
+    ...webhooks.rows,
+    ...attempts.rows,
+    ...notifications.rows,
+    ...audits.rows.map((event) => ({
+      id: event.id,
+      type: event.type,
+      action: event.action,
+      status: event.metadata?.status || event.metadata?.result_status || '',
+      created_at: event.created_at,
+    })),
+    ...receiptEvents,
+  ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+  return { payment, events };
+}
+
+export async function recheckAdminPayment(paymentId: string, actorStaffId?: string) {
+  const current = await query(
+    `SELECT * FROM payments WHERE id = $1`,
+    [paymentId]
+  );
+  const payment = current.rows[0] || null;
+  if (!payment) return null;
+
+  const beforeStatus = payment.status;
+  const refreshed = await refreshPaymentFromProvider(payment);
+  await query(
+    `INSERT INTO audit_log (actor_staff_id, action, entity_type, entity_id, metadata)
+     VALUES ($1, 'payment.provider_recheck', 'payment', $2, $3)`,
+    [
+      actorStaffId || null,
+      paymentId,
+      JSON.stringify({
+        before_status: beforeStatus,
+        result_status: refreshed?.status || beforeStatus,
+        provider: payment.provider,
+        transaction: maskSensitiveId(payment.merchant_transaction_id),
+      }),
+    ]
+  );
+  return getAdminPaymentDetail(paymentId);
 }

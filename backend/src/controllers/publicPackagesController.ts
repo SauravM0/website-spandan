@@ -1,19 +1,19 @@
 import { Request, Response } from 'express';
 import {
-  getPackagesPublic, getPackageBySlug, getPackageTests,
-  getFeaturedPackagesPublic, getDoctorBriefById,
+  getPublicPackageSummaries, getPackageBySlug, getPackageTests,
+  getDoctorBriefById,
 } from '../models';
 import { isValidSlug } from '../utils/slug';
 import { notFound } from '../utils/errors';
 
 export async function featured(_req: Request, res: Response): Promise<void> {
-  const packages = await getFeaturedPackagesPublic();
+  const packages = await getPublicPackageSummaries({ featuredOnly: true, limit: 6 });
   res.json({ packages });
 }
 
 export async function listPackages(_req: Request, res: Response): Promise<void> {
-  // Reads from packages_public view - no pricing data by construction
-  const packages = await getPackagesPublic();
+  // Server-side catalog rules keep public pricing and checkout availability aligned.
+  const packages = await getPublicPackageSummaries();
   res.json({ packages });
 }
 
@@ -26,26 +26,35 @@ export async function getPackageDetail(req: Request, res: Response): Promise<voi
     return;
   }
 
+  const summaries = await getPublicPackageSummaries();
+  const summary = summaries.find((item) => item.slug === slug);
+  if (!summary) {
+    notFound(res, 'Package not found');
+    return;
+  }
+
   const pkg = await getPackageBySlug(slug);
   if (!pkg || !pkg.is_active) {
     notFound(res, 'Package not found');
     return;
   }
-
   const tests = await getPackageTests(pkg.id);
 
-  // Return full detail with test list; pricing is NEVER in this response
+  // Detail and checkout use the same current-price summary rules.
   res.json({
     package: {
-      id: pkg.id,
-      slug: pkg.slug,
-      name: pkg.name,
+      ...summary,
       short_description: pkg.short_description,
       description: pkg.description,
       prep_instructions: pkg.prep_instructions,
       image_url: pkg.image_url,
-      category: pkg.category,
-      tests: tests.map(t => t.test_name),
+      gallery_urls: pkg.gallery_urls,
+      exclusions: pkg.exclusions,
+      report_turnaround: pkg.report_turnaround,
+      medical_disclaimer: pkg.medical_disclaimer,
+      terms_text: pkg.terms_text,
+      no_refund_text: pkg.no_refund_text,
+      tests,
       primary_doctor: pkg.primary_doctor_id ? await getDoctorBriefById(pkg.primary_doctor_id) : null,
     },
   });

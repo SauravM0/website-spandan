@@ -3,6 +3,7 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { submitEnquiry } from '../../lib/api';
+import { clinicSettings } from '@/lib/settings';
 import FormFields from './FormFields';
 import ConsentCheckbox from './ConsentCheckbox';
 import '../../lib/i18n';
@@ -96,7 +97,7 @@ export default function EnquiryForm({
 
   if (submitted) {
     return (
-      <div className="max-w-[600px] mx-auto bg-white p-8 rounded-xl shadow-lg text-center">
+      <div className="soft-card trust-card mx-auto max-w-[600px] p-8 text-center" aria-live="polite">
         <div className="text-[#059669] mb-4">
           <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -111,10 +112,10 @@ export default function EnquiryForm({
           {enquiryType === 'package' ? ' Please arrive on an empty stomach (8-10 hours fasting) if your selected tests require it.' : ''}
         </p>
         <a
-          href="https://wa.me/917798095795"
+          href={clinicSettings.social.whatsapp}
           target="_blank"
           rel="noopener noreferrer"
-          className="mt-5 inline-flex items-center justify-center rounded-md bg-[#25D366] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#1fb357] focus:outline-none focus:ring-2 focus:ring-[#25D366] focus:ring-offset-2"
+          className="btn btn-outline mt-5"
         >
           Save our WhatsApp number
         </a>
@@ -123,13 +124,13 @@ export default function EnquiryForm({
   }
 
   return (
-    <form className="max-w-[600px] mx-auto bg-white p-8 rounded-xl shadow-lg" onSubmit={handleSubmit}>
+    <form className="soft-card trust-card mx-auto max-w-[600px] p-8" onSubmit={handleSubmit} noValidate>
       <div className="mb-6 text-center">
         <h3 className="text-2xl font-bold text-navy">{formTitle}</h3>
         <p className="mt-2 text-sm text-text-light">{formIntro}</p>
       </div>
       {(packageName || doctorName) && (
-        <div className="mb-5 rounded-lg border border-border bg-bg-alt p-4">
+        <div className="soft-card trust-card mb-5 p-4">
           <p className="text-xs font-semibold uppercase tracking-wide text-text-light">
             {enquiryType === 'package' ? 'Selected package' : 'Selected doctor'}
           </p>
@@ -138,10 +139,13 @@ export default function EnquiryForm({
       )}
       <FormFields form={form} onChange={handleChange} />
       <ConsentCheckbox checked={consent} onChange={setConsent} />
-      {error && <p className="text-red-600 text-sm mb-4">{error}</p>}
+      <div className="mb-5 rounded-2xl bg-amber-50 px-4 py-3 text-xs text-amber-800 shadow-[0_8px_22px_rgba(245,158,11,0.08)]">
+        {t('contact_form_warning')}
+      </div>
+      {error && <p className="text-red-600 text-sm mb-4" role="alert">{error}</p>}
       <button
         type="submit"
-        className="btn bg-accent text-white w-full justify-center hover:bg-accent-light disabled:opacity-50"
+        className="btn btn-accent w-full justify-center disabled:opacity-50"
         disabled={loading}
       >
         {loading ? '...' : t('form_submit')}

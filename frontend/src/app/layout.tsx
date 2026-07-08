@@ -1,10 +1,13 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import Navbar from '../components/layout/Navbar';
-import Footer from '../components/layout/Footer';
-import ConsentBanner from '../components/layout/ConsentBanner';
-import StickyCTA from '../components/home/StickyCTA';
-import '../styles/globals.css';
+import { Inter } from 'next/font/google';
+import '@/styles/globals.css';
+
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || 'http://localhost:3000'),
@@ -18,44 +21,11 @@ export const metadata: Metadata = {
   },
 };
 
-const medicalClinicJsonLd = {
-  '@context': 'https://schema.org',
-  '@type': 'MedicalClinic',
-  name: 'Spandan Super Speciality Clinic',
-  image: '/logo.png',
-  telephone: '+917798095795',
-  email: 'info@spandanclinic.com',
-  address: {
-    '@type': 'PostalAddress',
-    streetAddress: 'Plot No. 63, Alankar Housing Society, Beside Essar Petrol Pump, Gajanan Maharaj Mandir Rd, Pundlik Nagar, Garkheda',
-    addressLocality: 'Chhatrapati Sambhajinagar',
-    addressRegion: 'Maharashtra',
-    postalCode: '431009',
-    addressCountry: 'IN',
-  },
-  openingHoursSpecification: [
-    {
-      '@type': 'OpeningHoursSpecification',
-      dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-      opens: '07:00',
-      closes: '20:00',
-    },
-  ],
-};
-
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <body className="font-sans text-text bg-white antialiased min-h-screen flex flex-col">
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(medicalClinicJsonLd) }}
-        />
-        <Navbar />
-        <main className="flex-1">{children}</main>
-        <Footer />
-        <ConsentBanner />
-        <StickyCTA />
+        {children}
       </body>
     </html>
   );

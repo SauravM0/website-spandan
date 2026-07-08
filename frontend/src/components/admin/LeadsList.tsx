@@ -5,44 +5,32 @@ import Link from 'next/link';
 
 interface LeadsListProps {
   enquiries: any[];
-  onStatusChange: (id: string, status: string) => void;
-  updating: string | null;
 }
 
-const statuses = ['new', 'contacted', 'scheduled', 'completed', 'closed_no_response'];
-
-export default function LeadsList({ enquiries, onStatusChange, updating }: LeadsListProps) {
+export default function LeadsList({ enquiries }: LeadsListProps) {
   if (enquiries.length === 0) {
-    return <p className="text-center text-text-light py-8">No enquiries found.</p>;
+    return <p className="py-8 text-center text-text-light">No enquiries found.</p>;
   }
 
   return (
     <div className="space-y-3">
       {enquiries.map((enq: any) => (
-        <div key={enq.id} className="bg-white rounded-xl shadow p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div key={enq.id} className="flex flex-col gap-3 rounded-xl bg-white p-4 shadow md:flex-row md:items-center md:justify-between">
           <div className="flex-1">
             <Link href={`/admin/leads/${enq.id}`} className="font-semibold text-navy hover:underline">
               {enq.patient_name}
             </Link>
-            <p className="text-xs text-text-light">{enq.phone} • {new Date(enq.created_at).toLocaleDateString()}</p>
+            <p className="text-xs text-text-light">{enq.phone} &bull; {new Date(enq.created_at).toLocaleDateString()}</p>
           </div>
-          <span className={`badge capitalize text-xs ${
-            enq.status === 'new' ? 'badge-new' :
+          <span className={`badge min-w-[100px] rounded-full px-3 py-1 text-center text-xs capitalize ${
+            enq.status === 'new' ? 'bg-blue-100 text-blue-700' :
             enq.status === 'contacted' ? 'bg-amber-100 text-amber-800' :
-            enq.status === 'completed' ? 'bg-green-100 text-green-800' : ''
+            enq.status === 'completed' || enq.status === 'scheduled' ? 'bg-green-100 text-green-800' :
+            'bg-gray-100 text-gray-600'
           }`}>
             {enq.status.replace(/_/g, ' ')}
           </span>
-          <select
-            value={enq.status}
-            onChange={(e) => onStatusChange(enq.id, e.target.value)}
-            disabled={updating === enq.id}
-            className="px-3 py-1.5 rounded border border-border text-xs bg-white min-w-[120px]"
-          >
-            {statuses.map(s => (
-              <option key={s} value={s} className="capitalize">{s.replace(/_/g, ' ')}</option>
-            ))}
-          </select>
+          <Link href={`/admin/leads/${enq.id}`} className="btn btn-outline btn-sm">Open Detail</Link>
         </div>
       ))}
     </div>

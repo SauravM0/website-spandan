@@ -5,6 +5,7 @@ import {
   createAppointmentPayment,
   createAvailabilityRule,
   createCalendarOverride,
+  createCalendarOverridesBatch,
   deleteCalendarOverride,
   createOrderPayment,
   createPackageOrder,
@@ -13,6 +14,8 @@ import {
   exportAppointmentsCsv,
   exportPaymentsCsv,
   getAdminDashboard,
+  getAdminCalendarView,
+  getAdminPaymentDetail,
   getAppointmentConfig,
   getAppointmentHold,
   getPaymentStatus,
@@ -20,16 +23,22 @@ import {
   listPackageCommerceCatalog,
   listAvailabilityRules,
   listAppointments,
+  listAppointmentsPage,
   listCalendarOverrides,
   listPackageOrders,
   listPayments,
   listSlots,
+  quotePackageOrder,
+  recheckAdminPayment,
   updateAppointmentStatus,
   updateAppointmentConfig,
   updatePaymentStatus,
   appointmentConfigWarnings,
 } from '../services/operations';
 import {
+  bulkRetryNotifications,
+  deadLetterNotification,
+  getNotificationDetail,
   getReceiptDetailsByTransaction,
   listNotificationOutbox,
   queueReceiptEmailByReceiptId,
@@ -38,6 +47,7 @@ import {
 import { buildReceiptPdf } from '../services/receiptPdf';
 import { normalizePhonePeState, verifyPhonePeWebhookAuthorization } from '../services/phonePe';
 import { sendApiError } from '../utils/errors';
+import { config } from '../config';
 
 function handleError(res: Response, err: unknown) {
   const error = err as Error & { status?: number; code?: string };
@@ -119,9 +129,40 @@ export async function createOrder(req: AuthenticatedRequest, res: Response) {
   }
 }
 
+export async function quoteOrder(req: AuthenticatedRequest, res: Response) {
+  try {
+    const quote = await quotePackageOrder(req.body);
+    res.json({ quote });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
 export async function packageCatalog(_req: AuthenticatedRequest, res: Response) {
   try {
     res.json({ packages: await listPackageCommerceCatalog() });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function publicAppointmentConfig(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const settings = await getAppointmentConfig();
+    res.json({
+      config: {
+        clinic_timezone: 'Asia/Kolkata',
+        clinic_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()),
+        fee: config.appointmentConsultationFee,
+        currency: 'INR',
+        policy_version: 'appointment-policy-2026-07-07',
+        consent_version: 'appointment-consent-2026-07-07',
+        minimum_booking_notice_minutes: settings.minimum_booking_notice_minutes,
+        maximum_booking_horizon_days: settings.maximum_booking_horizon_days,
+        hold_duration_minutes: settings.hold_duration_minutes,
+        arrival_buffer_instructions: settings.arrival_buffer_instructions,
+      },
+    });
   } catch (err) {
     handleError(res, err);
   }
@@ -243,9 +284,13 @@ export async function emailReceipt(req: AuthenticatedRequest, res: Response) {
   }
 }
 
-export async function adminDashboard(_req: AuthenticatedRequest, res: Response) {
+export async function adminDashboard(req: AuthenticatedRequest, res: Response) {
   try {
-    res.json({ dashboard: await getAdminDashboard() });
+    res.json({
+      dashboard: await getAdminDashboard({
+        doctorId: req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined,
+      }),
+    });
   } catch (err) {
     handleError(res, err);
   }
@@ -282,15 +327,19 @@ export async function adminAppointments(_req: AuthenticatedRequest, res: Respons
         : req.query.doctor_id
           ? String(req.query.doctor_id)
           : undefined;
-    res.json({
-      appointments: await listAppointments({
+    res.json(
+      await listAppointmentsPage({
         doctorId,
         status: req.query.status ? String(req.query.status) : undefined,
+        source: req.query.source ? String(req.query.source) : undefined,
         from: req.query.from ? String(req.query.from) : undefined,
         to: req.query.to ? String(req.query.to) : undefined,
         search: req.query.search ? String(req.query.search) : undefined,
-      }),
-    });
+        sort: req.query.sort ? String(req.query.sort) : undefined,
+        page: req.query.page ? Number(req.query.page) : undefined,
+        pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
+      })
+    );
   } catch (err) {
     handleError(res, err);
   }
@@ -308,9 +357,11 @@ export async function adminAppointmentsExport(_req: AuthenticatedRequest, res: R
     const csv = await exportAppointmentsCsv({
       doctorId,
       status: req.query.status ? String(req.query.status) : undefined,
+      source: req.query.source ? String(req.query.source) : undefined,
       from: req.query.from ? String(req.query.from) : undefined,
       to: req.query.to ? String(req.query.to) : undefined,
       search: req.query.search ? String(req.query.search) : undefined,
+      sort: req.query.sort ? String(req.query.sort) : undefined,
     });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="appointments-export.csv"');
@@ -366,6 +417,32 @@ export async function adminCalendarOverrides(req: AuthenticatedRequest, res: Res
   }
 }
 
+export async function adminCalendarView(req: AuthenticatedRequest, res: Response) {
+  try {
+    const doctorId =
+      req.user?.role === 'doctor'
+        ? req.user.doctor_id || undefined
+        : req.query.doctor_id
+          ? String(req.query.doctor_id)
+          : undefined;
+
+    if (!doctorId || !req.query.from || !req.query.to) {
+      sendApiError(res, 400, 'CALENDAR_VIEW_PARAMS_REQUIRED', 'doctor_id, from, and to are required');
+      return;
+    }
+
+    res.json({
+      calendar: await getAdminCalendarView({
+        doctorId,
+        from: String(req.query.from),
+        to: String(req.query.to),
+      }),
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
 export async function adminCreateCalendarOverride(req: AuthenticatedRequest, res: Response) {
   try {
     if (req.user?.role === 'doctor') {
@@ -373,6 +450,22 @@ export async function adminCreateCalendarOverride(req: AuthenticatedRequest, res
       return;
     }
     res.status(201).json({ override: await createCalendarOverride(req.body) });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminCreateCalendarOverridesBatch(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (req.user?.role === 'doctor') {
+      res.status(403).json({ error: 'Doctor users cannot change calendar overrides' });
+      return;
+    }
+    const result = await createCalendarOverridesBatch({
+      ...req.body,
+      actor_staff_id: req.user?.id,
+    });
+    res.status(result.requiresConfirmation ? 200 : 201).json(result);
   } catch (err) {
     handleError(res, err);
   }
@@ -414,14 +507,44 @@ export async function adminOrders(_req: AuthenticatedRequest, res: Response) {
 export async function adminPayments(_req: AuthenticatedRequest, res: Response) {
   try {
     const req = _req;
-    res.json({
-      payments: await listPayments({
-        status: req.query.status ? String(req.query.status) : undefined,
-        from: req.query.from ? String(req.query.from) : undefined,
-        to: req.query.to ? String(req.query.to) : undefined,
-        search: req.query.search ? String(req.query.search) : undefined,
-      }),
+    const result = await listPayments({
+      status: req.query.status ? String(req.query.status) : undefined,
+      from: req.query.from ? String(req.query.from) : undefined,
+      to: req.query.to ? String(req.query.to) : undefined,
+      search: req.query.search ? String(req.query.search) : undefined,
+      provider: req.query.provider ? String(req.query.provider) : undefined,
+      entity: req.query.entity ? (String(req.query.entity) as 'appointment' | 'package_order') : undefined,
+      sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
+      page: req.query.page ? Number(req.query.page) : undefined,
+      pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
     });
+    res.json(result);
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminPaymentDetail(req: AuthenticatedRequest, res: Response) {
+  try {
+    const result = await getAdminPaymentDetail(req.params.id);
+    if (!result) {
+      sendApiError(res, 404, 'PAYMENT_NOT_FOUND', 'Payment not found');
+      return;
+    }
+    res.json(result);
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminPaymentRecheck(req: AuthenticatedRequest, res: Response) {
+  try {
+    const result = await recheckAdminPayment(req.params.id, req.user?.id);
+    if (!result) {
+      sendApiError(res, 404, 'PAYMENT_NOT_FOUND', 'Payment not found');
+      return;
+    }
+    res.json(result);
   } catch (err) {
     handleError(res, err);
   }
@@ -435,6 +558,9 @@ export async function adminPaymentsExport(_req: AuthenticatedRequest, res: Respo
       from: req.query.from ? String(req.query.from) : undefined,
       to: req.query.to ? String(req.query.to) : undefined,
       search: req.query.search ? String(req.query.search) : undefined,
+      provider: req.query.provider ? String(req.query.provider) : undefined,
+      entity: req.query.entity ? (String(req.query.entity) as 'appointment' | 'package_order') : undefined,
+      sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
     });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="payments-export.csv"');
@@ -446,7 +572,31 @@ export async function adminPaymentsExport(_req: AuthenticatedRequest, res: Respo
 
 export async function adminNotifications(_req: AuthenticatedRequest, res: Response) {
   try {
-    res.json({ notifications: await listNotificationOutbox() });
+    const req = _req;
+    res.json(await listNotificationOutbox({
+      status: req.query.status ? String(req.query.status) : undefined,
+      channel: req.query.channel ? String(req.query.channel) : undefined,
+      entity: req.query.entity ? (String(req.query.entity) as 'appointment' | 'package_order' | 'payment') : undefined,
+      from: req.query.from ? String(req.query.from) : undefined,
+      to: req.query.to ? String(req.query.to) : undefined,
+      search: req.query.search ? String(req.query.search) : undefined,
+      sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
+      page: req.query.page ? Number(req.query.page) : undefined,
+      pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
+    }));
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminNotificationDetail(req: AuthenticatedRequest, res: Response) {
+  try {
+    const result = await getNotificationDetail(req.params.id);
+    if (!result) {
+      sendApiError(res, 404, 'NOTIFICATION_NOT_FOUND', 'Notification not found');
+      return;
+    }
+    res.json(result);
   } catch (err) {
     handleError(res, err);
   }
@@ -454,7 +604,28 @@ export async function adminNotifications(_req: AuthenticatedRequest, res: Respon
 
 export async function adminRetryNotification(req: AuthenticatedRequest, res: Response) {
   try {
-    const notification = await retryNotification(req.params.id);
+    const notification = await retryNotification(req.params.id, req.user?.id);
+    if (!notification) {
+      sendApiError(res, 404, 'NOTIFICATION_NOT_FOUND', 'Notification not found');
+      return;
+    }
+    res.json({ notification });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminBulkRetryNotifications(req: AuthenticatedRequest, res: Response) {
+  try {
+    res.json(await bulkRetryNotifications(req.body.ids || [], req.user?.id));
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminDeadLetterNotification(req: AuthenticatedRequest, res: Response) {
+  try {
+    const notification = await deadLetterNotification(req.params.id, req.body.reason, req.user?.id);
     if (!notification) {
       sendApiError(res, 404, 'NOTIFICATION_NOT_FOUND', 'Notification not found');
       return;

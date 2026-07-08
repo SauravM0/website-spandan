@@ -7,32 +7,59 @@ import {
   updateAppointmentRequestStatusWithHistory,
 } from '../models';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { badRequest, notFound, forbidden, serverError } from '../utils/errors';
+import { badRequest, notFound, serverError, sendApiError } from '../utils/errors';
+
+const validStatuses = ['new', 'contacted', 'scheduled', 'completed', 'closed_no_response'];
+
+const validTransitions: Record<string, string[]> = {
+  new: ['contacted', 'closed_no_response'],
+  contacted: ['scheduled', 'completed', 'closed_no_response'],
+  scheduled: ['completed', 'contacted', 'closed_no_response'],
+  completed: [],
+  closed_no_response: ['contacted'],
+};
+
+function allowedActions(status: string): string[] {
+  return validTransitions[status] || [];
+}
 
 export async function listLeads(req: AuthenticatedRequest, res: Response): Promise<void> {
   const status = req.query.status as string | undefined;
+  const type = req.query.type as string | undefined;
   const from = req.query.from as string | undefined;
   const to = req.query.to as string | undefined;
+  const search = req.query.search as string | undefined;
+  const sort = req.query.sort as string | undefined;
   let page = parseInt(req.query.page as string, 10) || 1;
-  let pageSize = parseInt(req.query.page_size as string, 10) || 25;
+  let pageSize = parseInt((req.query.pageSize || req.query.page_size) as string, 10) || 25;
 
-  // Cap page_size at 100
   if (pageSize > 100) pageSize = 100;
   if (page < 1) page = 1;
   if (pageSize < 1) pageSize = 25;
 
-  // Validate status if provided
-  const validStatuses = ['new', 'contacted', 'scheduled', 'completed', 'closed_no_response'];
   if (status && !validStatuses.includes(status)) {
     badRequest(res, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
+    return;
+  }
+  const validTypes = ['package', 'doctor', 'general'];
+  if (type && !validTypes.includes(type)) {
+    badRequest(res, `Invalid type. Must be one of: ${validTypes.join(', ')}`);
+    return;
+  }
+  const validSorts = ['date_desc', 'date_asc', 'updated_desc', 'updated_asc'];
+  if (sort && !validSorts.includes(sort)) {
+    badRequest(res, `Invalid sort. Must be one of: ${validSorts.join(', ')}`);
     return;
   }
 
   try {
     const result = await getAppointmentRequestsFiltered({
       status,
+      type,
       from,
       to,
+      search,
+      sort,
       page,
       pageSize,
     });
@@ -52,7 +79,13 @@ export async function getLeadById(req: AuthenticatedRequest, res: Response): Pro
     }
     const history = await getLeadStatusHistoryWithStaffName(req.params.id);
     const notes = await getLeadNotes(req.params.id);
-    res.json({ lead, history, notes });
+    res.json({
+      lead,
+      history,
+      notes,
+      allowed_actions: allowedActions(lead.status),
+      version: lead.version,
+    });
   } catch (err) {
     console.error('Failed to fetch lead:', err);
     serverError(res);
@@ -60,7 +93,7 @@ export async function getLeadById(req: AuthenticatedRequest, res: Response): Pro
 }
 
 export async function updateLeadStatus(req: AuthenticatedRequest, res: Response): Promise<void> {
-  const { new_status, notes } = req.body;
+  const { new_status, notes, expected_version } = req.body;
   const staffId = req.user?.id;
 
   if (!new_status) {
@@ -68,7 +101,6 @@ export async function updateLeadStatus(req: AuthenticatedRequest, res: Response)
     return;
   }
 
-  const validStatuses = ['new', 'contacted', 'scheduled', 'completed', 'closed_no_response'];
   if (!validStatuses.includes(new_status)) {
     badRequest(res, `Invalid status. Must be one of: ${validStatuses.join(', ')}`);
     return;
@@ -79,16 +111,21 @@ export async function updateLeadStatus(req: AuthenticatedRequest, res: Response)
       req.params.id,
       new_status,
       staffId || null,
-      typeof notes === 'string' ? notes.trim() : undefined
+      typeof notes === 'string' ? notes.trim() : undefined,
+      expected_version !== undefined ? Number(expected_version) : undefined
     );
 
     if (!lead) {
-      // RLS would return no rows if not permitted - translate to 403
-      forbidden(res, 'You do not have permission to update this lead');
+      const current = await getAppointmentRequestById(req.params.id);
+      if (!current) {
+        notFound(res, 'Lead not found');
+        return;
+      }
+      sendApiError(res, 409, 'CONFLICT', 'This lead was modified by another user. Please refresh and try again.');
       return;
     }
 
-    res.json({ success: true });
+    res.json({ success: true, version: lead.version });
   } catch (err) {
     console.error('Failed to update lead status:', err);
     serverError(res);

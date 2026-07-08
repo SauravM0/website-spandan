@@ -61,6 +61,7 @@ export interface Package {
   effective_until?: string | null;
   publication_status?: string;
   publish_status?: string | null;
+  version: number;
   terms_text?: string | null;
   no_refund_text?: string | null;
   consultation_included?: boolean;
@@ -99,6 +100,7 @@ export interface AppointmentRequest {
   preferred_time_window: string | null;
   message: string;
   status: string;
+  version: number;
   archived_at?: Date | null;
   is_archived?: boolean;
   consent_given_at: Date;
@@ -363,6 +365,13 @@ export interface Article {
   cover_image_url: string | null;
   youtube_video_url: string | null;
   author_doctor_id: string | null;
+  reviewer_staff_id?: string | null;
+  reviewer_display_name?: string | null;
+  reviewed_at?: Date | null;
+  read_time_minutes?: number;
+  content_format?: string;
+  content_status?: string;
+  withdrawn_at?: Date | null;
   category: string;
   tags: string[];
   published_at: Date | null;
@@ -378,8 +387,11 @@ export interface PublicArticle extends Article {
 
 export interface LeadFilters {
   status?: string;
+  type?: string;
   from?: string;
   to?: string;
+  search?: string;
+  sort?: string;
   page: number;
   pageSize: number;
 }

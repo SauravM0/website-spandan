@@ -11,11 +11,11 @@ export default function TrustStrip() {
   ];
 
   return (
-    <section className="border-b border-border bg-bg-alt py-10">
+    <section className="section-alt py-10">
       <div className="container">
         <div className="grid gap-3 md:grid-cols-5">
           {facts.map((fact) => (
-            <div key={fact.label} className="rounded-lg border border-border bg-white p-4">
+            <div key={fact.label} className="soft-card trust-card p-4">
               <div className="mb-3 text-accent">{fact.icon}</div>
               <p className="font-semibold text-navy">{fact.label}</p>
               <p className="mt-1 text-sm leading-relaxed text-text-light">{fact.text}</p>

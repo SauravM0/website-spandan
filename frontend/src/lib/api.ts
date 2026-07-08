@@ -1,5 +1,8 @@
+import type { Doctor, PackageSummary, PackageDetail, PackageTestSummary, DashboardData, AppointmentHold, Appointment, LeadEnquiry, LeadDetail, Notification, PaginatedResponse, AdminUser } from './types';
+
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
 const DEFAULT_GET_CACHE_MS = 15_000;
+const DEFAULT_TIMEOUT_MS = 30_000;
 
 type ApiErrorPayload = {
   error?: string | {
@@ -42,6 +45,41 @@ function apiErrorMessage(payload: ApiErrorPayload, status: number): string {
   return `HTTP ${status}`;
 }
 
+export function timeoutSignal(ms = DEFAULT_TIMEOUT_MS): AbortSignal {
+  const ctrl = new AbortController();
+  setTimeout(() => ctrl.abort(new DOMException('Request timed out', 'TimeoutError')), ms);
+  return ctrl.signal;
+}
+
+export function idempotencyKey(): string {
+  return crypto.randomUUID();
+}
+
+async function safeRetry<T>(
+  fn: () => Promise<T>,
+  retries = 2,
+  delay = 500
+): Promise<T> {
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (attempt === retries) throw err;
+      if (err instanceof ApiError && err.status < 500) throw err;
+      await new Promise((resolve) => setTimeout(resolve, delay * 2 ** attempt));
+    }
+  }
+  throw new Error('Unreachable');
+}
+
+function handleAuthFailure(endpoint: string, status: number) {
+  if (typeof window === 'undefined') return;
+  if (status !== 401) return;
+  if (!(endpoint.startsWith('/admin/') || endpoint === '/auth/me')) return;
+  if (window.location.pathname === '/admin/login') return;
+  window.location.replace('/admin/login');
+}
+
 // Cache the CSRF token
 let csrfTokenPromise: Promise<string> | null = null;
 const getCache = new Map<string, { expiresAt: number; promise: Promise<unknown> }>();
@@ -65,10 +103,11 @@ function getCsrfToken(): Promise<string> {
   return csrfTokenPromise;
 }
 
-async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> {
+async function fetchAPI<T>(endpoint: string, options?: RequestInit & { signal?: AbortSignal }): Promise<T> {
   const { headers, ...restOptions } = options || {};
   const method = String(restOptions.method || 'GET').toUpperCase();
-  const cacheKey = method === 'GET' ? `${endpoint}|${JSON.stringify(headers || {})}` : '';
+  const isSensitiveGet = endpoint.startsWith('/auth/') || endpoint.startsWith('/admin/');
+  const cacheKey = method === 'GET' && !isSensitiveGet ? `${endpoint}|${JSON.stringify(headers || {})}` : '';
   const cached = cacheKey ? getCache.get(cacheKey) : undefined;
   if (cached && cached.expiresAt > Date.now()) {
     return cached.promise as Promise<T>;
@@ -86,6 +125,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   const promise = (async () => {
     if (!res.ok) {
       const error = await res.json().catch(() => ({ error: 'Request failed' }));
+      handleAuthFailure(endpoint, res.status);
       throw new ApiError(apiErrorMessage(error, res.status), res.status, error);
     }
 
@@ -103,6 +143,10 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit): Promise<T> 
   return promise;
 }
 
+function authHeaders(token?: string): HeadersInit {
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
 export function clearApiCache(endpointPrefix?: string) {
   if (!endpointPrefix) {
     getCache.clear();
@@ -114,27 +158,27 @@ export function clearApiCache(endpointPrefix?: string) {
 }
 
 export async function getDoctors(activeOnly = true) {
-  return fetchAPI<{ doctors: any[] }>(`/doctors${activeOnly ? '' : '?all=true'}`);
+  return fetchAPI<{ doctors: Doctor[] }>(`/doctors${activeOnly ? '' : '?all=true'}`);
 }
 
 export async function getDoctorBySlug(slug: string) {
-  return fetchAPI<{ doctor: any }>(`/doctors/${slug}`);
+  return fetchAPI<{ doctor: Doctor }>(`/doctors/${slug}`);
 }
 
 export async function getPackages(_activeOnly = true) {
-  return fetchAPI<{ packages: any[] }>('/packages');
+  return fetchAPI<{ packages: PackageSummary[] }>('/packages');
 }
 
 export async function getPackageCommerceCatalog() {
-  return fetchAPI<{ packages: any[] }>('/package-orders/catalog');
+  return fetchAPI<{ packages: PackageSummary[] }>('/package-orders/catalog');
 }
 
 export async function getFeaturedPackages() {
-  return fetchAPI<{ packages: any[] }>('/packages/featured');
+  return fetchAPI<{ packages: PackageSummary[] }>('/packages/featured');
 }
 
 export async function getPackageBySlug(slug: string) {
-  return fetchAPI<{ package: any; tests: any[] }>(`/packages/${slug}`);
+  return fetchAPI<{ package: PackageDetail; tests: PackageTestSummary[] }>(`/packages/${slug}`);
 }
 
 export async function getArticles(publishedOnly = true) {
@@ -165,67 +209,131 @@ export async function submitEnquiry(data: {
     method: 'POST',
     headers: {
       'x-csrf-token': csrfToken,
+      'Idempotency-Key': idempotencyKey(),
     },
     credentials: 'include',
     body: JSON.stringify(data),
   });
 }
 
-export async function getAdminPackages(token: string) {
+export async function getAdminPackages(token = '') {
   return fetchAPI<{ packages: any[] }>('/admin/packages', {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders(token),
+  });
+}
+
+export async function getAdminPackagesFiltered(
+  token: string | undefined,
+  filters: {
+    search?: string;
+    category?: string;
+    status?: string;
+    sort?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
+) {
+  return fetchAPI<{
+    data: any[];
+    total: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+  }>(`/admin/packages${toQuery(filters)}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function getAdminPackageDetail(token: string | undefined, id: string) {
+  return fetchAPI<{ package: any }>(`/admin/packages/${encodeURIComponent(id)}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function updateAdminPackage(
+  token: string | undefined,
+  id: string,
+  data: Record<string, unknown>,
+  expectedVersion: number
+) {
+  clearApiCache('/admin/packages');
+  return fetchAPI<{ package: any }>(`/admin/packages/${encodeURIComponent(id)}`, {
+    method: 'PUT',
+    headers: authHeaders(token),
+    body: JSON.stringify({ ...data, expected_version: expectedVersion }),
   });
 }
 
 export async function login(email: string, password: string) {
-  return fetchAPI<{ user: any }>('/auth/login', {
+  return fetchAPI<{ user: AdminUser }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
   });
 }
 
 export async function logout() {
+  const csrfToken = await getCsrfToken();
+  csrfTokenPromise = null;
   return fetchAPI<{ success: boolean }>('/auth/logout', {
     method: 'POST',
+    headers: {
+      'x-csrf-token': csrfToken,
+    },
   });
 }
 
 export async function getAdminSession() {
-  return fetchAPI<{ user: any }>('/auth/me');
+  return fetchAPI<{ user: AdminUser }>('/auth/me');
 }
 
-export async function getEnquiries(token: string, status?: string) {
-  const query = status ? `?status=${status}` : '';
+export async function getEnquiries(
+  token = '',
+  filters: {
+    status?: string;
+    type?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    sort?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
+) {
   const res = await fetchAPI<{
     data: any[];
     total: number;
     page: number;
     pageSize: number;
     totalPages: number;
-  }>(`/admin/leads${query}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  }>(`/admin/leads${toQuery(filters)}`, {
+    headers: authHeaders(token),
   });
-  return { enquiries: res.data };
+  return { enquiries: res.data, pagination: res };
 }
 
-export async function getEnquiryById(token: string, id: string) {
-  const res = await fetchAPI<{ lead: any; history: any[]; notes: any[] }>(`/admin/leads/${id}`, {
-    headers: { Authorization: `Bearer ${token}` },
+export async function getEnquiryById(token: string | undefined, id: string) {
+  const res = await fetchAPI<{ lead: any; history: any[]; notes: any[]; allowed_actions: string[]; version: number }>(`/admin/leads/${id}`, {
+    headers: authHeaders(token),
   });
-  return { enquiry: res.lead, history: res.history || [], notes: res.notes || [] };
+  return { enquiry: res.lead, history: res.history || [], notes: res.notes || [], allowedActions: res.allowed_actions || [], version: res.version || 1 };
 }
 
 export async function updateEnquiryStatus(
-  token: string,
+  token: string | undefined,
   id: string,
   status: string,
-  notes?: string
+  notes?: string,
+  expectedVersion?: number
 ) {
   clearApiCache('/admin/leads');
-  return fetchAPI<{ success: boolean }>(`/admin/leads/${id}/status`, {
+  return fetchAPI<{ success: boolean; version: number }>(`/admin/leads/${id}/status`, {
     method: 'PATCH',
-    headers: { Authorization: `Bearer ${token}` },
-    body: JSON.stringify({ new_status: status, notes }),
+    headers: authHeaders(token),
+    body: JSON.stringify({
+      new_status: status,
+      notes,
+      expected_version: expectedVersion,
+    }),
   });
 }
 
@@ -241,6 +349,23 @@ export async function getDoctorAvailability(doctorId: string, from: string, to: 
   );
 }
 
+export type PublicAppointmentConfig = {
+  clinic_timezone: string;
+  clinic_date: string;
+  fee: number;
+  currency: 'INR';
+  policy_version: string;
+  consent_version: string;
+  minimum_booking_notice_minutes: number;
+  maximum_booking_horizon_days: number;
+  hold_duration_minutes: number;
+  arrival_buffer_instructions: string;
+};
+
+export async function getPublicAppointmentConfig() {
+  return fetchAPI<{ config: PublicAppointmentConfig }>('/public/appointments/config');
+}
+
 export async function createAppointmentHold(data: {
   doctor_id: string;
   appointment_date: string;
@@ -248,8 +373,9 @@ export async function createAppointmentHold(data: {
   patient_phone: string;
 }) {
   clearApiCache('/appointments');
-  return fetchAPI<{ hold: any }>('/appointments/holds', {
+  return fetchAPI<{ hold: AppointmentHold }>('/appointments/holds', {
     method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
     body: JSON.stringify(data),
   });
 }
@@ -257,8 +383,9 @@ export async function createAppointmentHold(data: {
 export async function bookAppointment(data: any) {
   clearApiCache('/admin/operations');
   clearApiCache('/appointments');
-  return fetchAPI<{ appointment: any }>('/appointments', {
+  return fetchAPI<{ appointment: Appointment }>('/appointments', {
     method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
     body: JSON.stringify(data),
   });
 }
@@ -266,6 +393,14 @@ export async function bookAppointment(data: any) {
 export async function createPackageOrder(data: any) {
   clearApiCache('/admin/operations');
   return fetchAPI<{ order: any }>('/package-orders', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
+    body: JSON.stringify(data),
+  });
+}
+
+export async function quotePackageOrder(data: { preferred_date?: string; items: Array<{ package_id: string; quantity?: number; preferred_date?: string }> }) {
+  return fetchAPI<{ quote: any }>('/package-orders/quote', {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -275,6 +410,7 @@ export async function createPayment(data: { order_id?: string; appointment_id?: 
   clearApiCache('/admin/operations/payments');
   return fetchAPI<{ payment: any }>('/payments/create', {
     method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
     body: JSON.stringify(data),
   });
 }
@@ -296,9 +432,9 @@ export function getBackendAssetUrl(path?: string | null) {
   return `${API_URL}${path.startsWith('/api') ? path.slice(4) : path}`;
 }
 
-export async function getAdminDashboard(token: string) {
-  return fetchAPI<{ dashboard: any }>('/admin/operations/dashboard', {
-    headers: { Authorization: `Bearer ${token}` },
+export async function getAdminDashboard(token = '') {
+  return fetchAPI<{ dashboard: DashboardData }>('/admin/operations/dashboard', {
+    headers: authHeaders(token),
   });
 }
 
@@ -312,17 +448,17 @@ export type AppointmentSettings = {
   arrival_buffer_instructions: string;
 };
 
-export async function getAdminAppointmentSettings(token: string) {
+export async function getAdminAppointmentSettings(token = '') {
   return fetchAPI<{ settings: AppointmentSettings; warnings: string[] }>(
     '/admin/operations/appointment-settings',
     {
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders(token),
     }
   );
 }
 
 export async function updateAdminAppointmentSettings(
-  token: string,
+  token: string | undefined,
   data: Partial<AppointmentSettings>
 ) {
   clearApiCache('/admin/operations/appointment-settings');
@@ -330,71 +466,107 @@ export async function updateAdminAppointmentSettings(
     '/admin/operations/appointment-settings',
     {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders(token),
       body: JSON.stringify(data),
     }
   );
 }
 
-function toQuery(params: Record<string, string | undefined>) {
+function toQuery(params: Record<string, string | number | undefined>) {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
-    if (value) search.set(key, value);
+    if (value !== undefined && value !== '') search.set(key, String(value));
   });
   const query = search.toString();
   return query ? `?${query}` : '';
 }
 
 export async function getAdminAppointments(
-  token: string,
-  filters: { doctor_id?: string; status?: string; from?: string; to?: string; search?: string } = {}
+  token = '',
+  filters: {
+    doctor_id?: string;
+    status?: string;
+    source?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    sort?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
 ) {
-  return fetchAPI<{ appointments: any[] }>(`/admin/operations/appointments${toQuery(filters)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  return fetchAPI<PaginatedResponse<Appointment>>(`/admin/operations/appointments${toQuery(filters)}`, {
+    headers: authHeaders(token),
   });
 }
 
 export async function getAdminAvailabilityRules(
-  token: string,
+  token = '',
   filters: { doctor_id?: string } = {}
 ) {
   return fetchAPI<{ rules: any[] }>(`/admin/operations/availability-rules${toQuery(filters)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders(token),
   });
 }
 
-export async function createAdminAvailabilityRule(token: string, data: any) {
+export async function createAdminAvailabilityRule(token: string | undefined, data: any) {
   clearApiCache('/admin/operations/availability-rules');
   clearApiCache('/public/doctors');
   clearApiCache('/appointments/slots');
   return fetchAPI<{ rule: any }>('/admin/operations/availability-rules', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders(token),
     body: JSON.stringify(data),
   });
 }
 
 export async function getAdminCalendarOverrides(
-  token: string,
+  token = '',
   filters: { doctor_id?: string; from?: string; to?: string } = {}
 ) {
   return fetchAPI<{ overrides: any[] }>(`/admin/operations/calendar-overrides${toQuery(filters)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders(token),
   });
 }
 
-export async function createAdminCalendarOverride(token: string, data: any) {
+export async function getAdminCalendarView(
+  token = '',
+  filters: { doctor_id: string; from: string; to: string }
+) {
+  return fetchAPI<{ calendar: any }>(`/admin/operations/calendar-view${toQuery(filters)}`, {
+    headers: authHeaders(token),
+  });
+}
+
+export async function createAdminCalendarOverride(token: string | undefined, data: any) {
   clearApiCache('/admin/operations/calendar-overrides');
   clearApiCache('/public/doctors');
   clearApiCache('/appointments/slots');
   return fetchAPI<{ override: any }>('/admin/operations/calendar-overrides', {
     method: 'POST',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders(token),
     body: JSON.stringify(data),
   });
 }
 
-export async function deleteAdminCalendarOverride(token: string, id: string) {
+export async function createAdminCalendarOverridesBatch(token: string | undefined, data: any) {
+  clearApiCache('/admin/operations/calendar-view');
+  clearApiCache('/admin/operations/calendar-overrides');
+  clearApiCache('/public/doctors');
+  clearApiCache('/appointments/slots');
+  return fetchAPI<{
+    created: any[];
+    skipped: any[];
+    conflicted: Array<{ date: string; appointment_count: number }>;
+    requiresConfirmation: boolean;
+  }>('/admin/operations/calendar-overrides/batch', {
+    method: 'POST',
+    headers: authHeaders(token),
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAdminCalendarOverride(token: string | undefined, id: string) {
   clearApiCache('/admin/operations/calendar-overrides');
   clearApiCache('/public/doctors');
   clearApiCache('/appointments/slots');
@@ -402,12 +574,12 @@ export async function deleteAdminCalendarOverride(token: string, id: string) {
     `/admin/operations/calendar-overrides/${encodeURIComponent(id)}`,
     {
       method: 'DELETE',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders(token),
     }
   );
 }
 
-export async function updateAdminAppointmentStatus(token: string, id: string, status: string) {
+export async function updateAdminAppointmentStatus(token: string | undefined, id: string, status: string) {
   clearApiCache('/admin/operations');
   clearApiCache('/appointments/slots');
   clearApiCache('/public/doctors');
@@ -415,35 +587,63 @@ export async function updateAdminAppointmentStatus(token: string, id: string, st
     `/admin/operations/appointments/${encodeURIComponent(id)}/status`,
     {
       method: 'PATCH',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey() },
       body: JSON.stringify({ status }),
     }
   );
 }
 
-export async function getAdminPackageOrders(token: string) {
+export async function getAdminPackageOrders(token = '') {
   return fetchAPI<{ orders: any[] }>('/admin/operations/package-orders', {
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders(token),
   });
 }
 
 export async function getAdminPayments(
-  token: string,
-  filters: { status?: string; from?: string; to?: string; search?: string } = {}
+  token: string | undefined,
+  filters: {
+    status?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    provider?: string;
+    entity?: string;
+    sort?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
 ) {
-  return fetchAPI<{ payments: any[] }>(`/admin/operations/payments${toQuery(filters)}`, {
-    headers: { Authorization: `Bearer ${token}` },
+  return fetchAPI<{ payments: any[]; pagination?: any; summary?: any }>(`/admin/operations/payments${toQuery(filters)}`, {
+    headers: authHeaders(token),
   });
 }
 
+export async function getAdminPaymentDetail(token: string | undefined, id: string) {
+  return fetchAPI<{ payment: any; events: any[] }>(
+    `/admin/operations/payments/${encodeURIComponent(id)}`,
+    { headers: authHeaders(token) }
+  );
+}
+
+export async function recheckAdminPayment(token: string | undefined, id: string) {
+  clearApiCache('/admin/operations/payments');
+  return fetchAPI<{ payment: any; events: any[] }>(
+    `/admin/operations/payments/${encodeURIComponent(id)}/recheck`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+    }
+  );
+}
+
 export async function downloadAdminExport(
-  token: string,
+  token: string | undefined,
   kind: 'appointments' | 'payments',
   filters: Record<string, string | undefined> = {}
 ) {
   const res = await fetch(`${API_URL}/admin/operations/${kind}/export${toQuery(filters)}`, {
     credentials: 'include',
-    headers: { Authorization: `Bearer ${token}` },
+    headers: authHeaders(token),
   });
   if (!res.ok) {
     throw new Error(`Export failed with HTTP ${res.status}`);
@@ -459,19 +659,75 @@ export async function downloadAdminExport(
   URL.revokeObjectURL(url);
 }
 
-export async function getAdminNotifications(token: string) {
-  return fetchAPI<{ notifications: any[] }>('/admin/operations/notifications', {
-    headers: { Authorization: `Bearer ${token}` },
+export async function getAdminNotifications(
+  token = '',
+  filters: {
+    status?: string;
+    channel?: string;
+    entity?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    sort?: string;
+    page?: number;
+    pageSize?: number;
+  } = {}
+) {
+  return fetchAPI<{ notifications: any[]; pagination?: any; summary?: any }>(`/admin/operations/notifications${toQuery(filters)}`, {
+    headers: authHeaders(token),
   });
 }
 
-export async function retryAdminNotification(token: string, id: string) {
+export async function getAdminNotificationDetail(token: string | undefined, id: string) {
+  return fetchAPI<{ notification: any; history: any[] }>(
+    `/admin/operations/notifications/${encodeURIComponent(id)}`,
+    { headers: authHeaders(token) }
+  );
+}
+
+export async function retryAdminNotification(token: string | undefined, id: string) {
   clearApiCache('/admin/operations/notifications');
   return fetchAPI<{ notification: any }>(
     `/admin/operations/notifications/${encodeURIComponent(id)}/retry`,
     {
       method: 'POST',
-      headers: { Authorization: `Bearer ${token}` },
+      headers: authHeaders(token),
     }
   );
+}
+
+export async function bulkRetryAdminNotifications(token: string | undefined, ids: string[]) {
+  clearApiCache('/admin/operations/notifications');
+  return fetchAPI<{ results: Array<{ id: string; ok: boolean; notification?: any; message?: string }> }>(
+    '/admin/operations/notifications/bulk-retry',
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ ids }),
+    }
+  );
+}
+
+export async function deadLetterAdminNotification(token: string | undefined, id: string, reason: string) {
+  clearApiCache('/admin/operations/notifications');
+  return fetchAPI<{ notification: any }>(
+    `/admin/operations/notifications/${encodeURIComponent(id)}/dead-letter`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ reason }),
+    }
+  );
+}
+
+/** Server component helper: GET with timeout, no auth or CSRF. */
+export async function serverApiGet<T>(endpoint: string, revalidate = 60): Promise<T> {
+  const res = await fetch(`${API_URL}${endpoint}`, {
+    next: { revalidate },
+    signal: timeoutSignal(),
+  });
+  if (!res.ok) {
+    throw new Error(`Server fetch failed: ${endpoint} (${res.status})`);
+  }
+  return res.json();
 }

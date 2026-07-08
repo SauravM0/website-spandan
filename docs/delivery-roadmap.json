@@ -1,0 +1,139 @@
+{
+  "phases": [
+    {
+      "id": "phase-0",
+      "name": "Baseline and verification",
+      "status": "in_progress",
+      "objective": "Establish a reproducible, verified baseline before production cutover.",
+      "gates": [
+        "Clean release branch identified",
+        "Secrets reviewed outside source control",
+        "Staging environment reproduces production build",
+        "Clinic, doctor, package, contact, and policy facts verified",
+        "Approved media and testimonials inventoried",
+        "Admin roles and status transitions reviewed"
+      ],
+      "evidence": [
+        "docs/release-runbook.md",
+        "npm run release:check"
+      ]
+    },
+    {
+      "id": "phase-1",
+      "name": "Architecture and security",
+      "status": "in_progress",
+      "objective": "Lock down deployment, API contracts, admin session behavior, and shared platform primitives.",
+      "gates": [
+        "Next server deployment path confirmed",
+        "Public and admin shells separated",
+        "Layout-level admin guard active",
+        "Cookie admin session and CSRF/origin controls verified",
+        "Typed API errors and pagination contracts used by admin lists",
+        "Timezone and settings utilities used by scheduling paths",
+        "Privacy-safe logging reviewed"
+      ],
+      "evidence": [
+        "frontend/src/components/layout/AdminLayout.tsx",
+        "frontend/src/lib/api.ts",
+        "backend/src/middleware/auth.ts",
+        "backend/src/utils/errors.ts"
+      ]
+    },
+    {
+      "id": "phase-2",
+      "name": "Responsive system",
+      "status": "in_progress",
+      "objective": "Make public and admin flows usable across phone, tablet, desktop, zoom, and keyboard-only contexts.",
+      "gates": [
+        "Public header, drawer, footer, and sticky actions verified",
+        "Admin sidebar and mobile drawer verified",
+        "Shared admin data primitives used for list/table/card views",
+        "Skeleton, empty, error, and mutation states covered",
+        "Responsive matrix captured for 320, 390, 768, 1024, 1280, and 1440 px"
+      ],
+      "evidence": [
+        "frontend/src/components/admin/AdminPrimitives.tsx",
+        "frontend/src/components/ui",
+        "docs/release-runbook.md"
+      ]
+    },
+    {
+      "id": "phase-3",
+      "name": "Operational and revenue workflows",
+      "status": "in_progress",
+      "objective": "Complete scheduling, payment, package purchase, and reconciliation flows before marketing polish.",
+      "gates": [
+        "Appointment booking to payment confirmation tested",
+        "Admin calendar and appointments tested",
+        "Package booking and package orders tested",
+        "Payments search, export, detail, and recheck tested",
+        "Notifications retry and manual follow-up tested",
+        "No stale price, availability, or payment fallback is treated as authority"
+      ],
+      "evidence": [
+        "frontend/src/app/admin/(protected)",
+        "frontend/src/app/(public)",
+        "backend/src/services/operations.ts",
+        "backend/src/services/notifications.ts"
+      ]
+    },
+    {
+      "id": "phase-4",
+      "name": "Public trust pages",
+      "status": "pending",
+      "objective": "Finish public content pages with verified clinic content only.",
+      "gates": [
+        "Home content verified",
+        "Doctors list and detail verified",
+        "Packages list and detail verified",
+        "Facilities, about, and contact verified",
+        "Resources, videos, and tools reviewed for clinical claims",
+        "Marathi and Hindi expansion checked where content exists"
+      ],
+      "evidence": [
+        "spandan-implementation-plan/spandan-implementation-plan/public-pages"
+      ]
+    },
+    {
+      "id": "phase-5",
+      "name": "Admin CRM and content",
+      "status": "in_progress",
+      "objective": "Finish operational admin CRM/content tools and retire duplicate operations surfaces.",
+      "gates": [
+        "Dashboard aggregation verified",
+        "Leads list and detail canonical flow verified",
+        "Package editor version/audit behavior verified",
+        "Audit and RBAC behavior reviewed",
+        "Legacy /admin/operations removed or redirected after replacement coverage"
+      ],
+      "evidence": [
+        "frontend/src/app/admin/(protected)",
+        "backend/src/controllers/adminLeadsController.ts",
+        "backend/src/controllers/adminPackagesController.ts"
+      ]
+    },
+    {
+      "id": "phase-6",
+      "name": "Legal, accessibility, and hardening",
+      "status": "pending",
+      "objective": "Complete production readiness gates that require human review and operational ownership.",
+      "gates": [
+        "Privacy and terms approved",
+        "Retention and deletion policy approved",
+        "Manual accessibility audit completed",
+        "Load and concurrency tests completed",
+        "Backup restore verified",
+        "Monitoring and support runbook owners assigned",
+        "Staged rollout and rollback owner named"
+      ],
+      "evidence": [
+        "docs/release-runbook.md"
+      ]
+    }
+  ],
+  "complexity": {
+    "S": "Focused refactor, usually 1-3 engineering days after dependencies.",
+    "M": "Multi-component or API work, usually 3-7 engineering days after dependencies.",
+    "L": "End-to-end workflow, usually 1-3 weeks after dependencies."
+  }
+}

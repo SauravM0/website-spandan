@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import * as publicEnquiriesController from '../controllers/publicEnquiriesController';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
@@ -12,6 +13,6 @@ const enquiryLimiter = rateLimit({
   legacyHeaders: false,
 });
 
-router.post('/', enquiryLimiter, publicEnquiriesController.submitEnquiry);
+router.post('/', enquiryLimiter, asyncHandler(publicEnquiriesController.submitEnquiry));
 
 export default router;

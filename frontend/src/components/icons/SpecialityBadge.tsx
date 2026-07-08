@@ -30,8 +30,8 @@ const configs: Record<BadgeType, {
       <DropletIcon key="d" size={14} color="#2E86C1" />,
     ],
     label: 'Cardiology & Endocrinology',
-    bg: 'bg-slate-50',
-    text: 'text-slate-700',
+    bg: 'bg-pink-50',
+    text: 'text-pink-700',
   },
 };
 

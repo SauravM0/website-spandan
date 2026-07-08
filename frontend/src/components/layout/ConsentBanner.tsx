@@ -1,19 +1,17 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useTranslation } from 'react-i18next';
-import '../../lib/i18n';
+import { X } from 'lucide-react';
 
 export default function ConsentBanner() {
-  const { t } = useTranslation('common');
   const [visible, setVisible] = useState(false);
 
   useEffect(() => {
-    const consented = localStorage.getItem('consent_banner');
-    if (!consented) setVisible(true);
+    const dismissed = localStorage.getItem('consent_banner');
+    if (!dismissed) setVisible(true);
   }, []);
 
-  const accept = () => {
+  const dismiss = () => {
     localStorage.setItem('consent_banner', 'true');
     setVisible(false);
   };
@@ -21,17 +19,19 @@ export default function ConsentBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-navy text-white p-4 z-50 shadow-lg">
-      <div className="container flex flex-col md:flex-row items-center justify-between gap-3">
-        <p className="text-sm md:text-base">
-          We use cookies and similar technologies to improve your experience. By continuing, you agree to our{' '}
-          <a href="/privacy" className="underline text-[#E8A33D] hover:text-white">Privacy Policy</a>.
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-navy p-3 text-white shadow-lg">
+      <div className="container flex items-center justify-between gap-3">
+        <p className="text-xs leading-relaxed md:text-sm">
+          This site uses only essential storage for session and preferences. No tracking cookies are used.
+          By continuing, you agree to our{' '}
+          <a href="/privacy" className="underline text-accent hover:text-white">Privacy Policy</a>.
         </p>
         <button
-          onClick={accept}
-          className="btn bg-accent text-white hover:bg-accent-light whitespace-nowrap"
+          onClick={dismiss}
+          className="inline-flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-md bg-white/10 text-white hover:bg-white/20"
+          aria-label="Dismiss notice"
         >
-          Accept
+          <X size={16} />
         </button>
       </div>
     </div>

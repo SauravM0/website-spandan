@@ -23,15 +23,7 @@ jobs:
       - name: Install frontend
         working-directory: frontend
         run: npm ci
-      - name: Backend type check
-        run: npm run backend:typecheck
-      - name: Backend unit tests
-        run: npm run backend:test
-      - name: Frontend build
-        run: npm run frontend:build
-      - name: Backend build
-        run: npm run backend:build
-      - name: Migration validation
-        run: npm run migrations:validate
+      - name: Release check
+        run: npm run release:check
       - name: Dependency audit
         run: npm run audit

@@ -5,6 +5,7 @@ import { findStaffUserByAuthId, StaffUser } from '../models';
 
 export interface AuthenticatedRequest extends Request {
   user?: StaffUser;
+  sessionExpiresAt?: string | null;
 }
 
 const STAFF_CACHE_TTL_MS = 30_000;
@@ -60,13 +61,19 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
   }
 
   try {
-    const decoded = jwt.verify(token, config.jwtSecret) as { userId: string; role?: string; doctor_id?: string };
+    const decoded = jwt.verify(token, config.jwtSecret) as {
+      userId: string;
+      role?: string;
+      doctor_id?: string;
+      exp?: number;
+    };
     const user = await getCachedStaffUser(decoded.userId);
     if (!user || !user.is_active) {
       res.status(401).json({ error: 'User not found or inactive' });
       return;
     }
     req.user = user;
+    req.sessionExpiresAt = decoded.exp ? new Date(decoded.exp * 1000).toISOString() : null;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });

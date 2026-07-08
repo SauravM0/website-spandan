@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { Article, PublicArticle } from '../domain/entities';
 import { buildInsert, buildUpdate } from '../persistence/sqlBuilders';
+import { normalizePublicArticleFilters, type PublicArticleFilters, SUPPORTED_ARTICLE_LANGUAGES } from '../utils/articleFilters';
 
 const PUBLIC_ARTICLE_FIELDS = `
   SELECT a.*,
@@ -10,8 +11,6 @@ const PUBLIC_ARTICLE_FIELDS = `
   FROM articles a
   LEFT JOIN doctors d ON a.author_doctor_id = d.id
 `;
-
-const SUPPORTED_LANGUAGES = ['en', 'hi', 'mr'];
 
 export async function getArticles(publishedOnly = true): Promise<Article[]> {
   const sql = publishedOnly
@@ -50,21 +49,45 @@ export async function deleteArticle(id: string): Promise<boolean> {
   return (result.rowCount ?? 0) > 0;
 }
 
-export async function getArticlesByLanguage(lang?: string): Promise<PublicArticle[]> {
-  if (lang && SUPPORTED_LANGUAGES.includes(lang)) {
-    const result = await query(
-      `${PUBLIC_ARTICLE_FIELDS}
-       WHERE a.published_at IS NOT NULL AND a.language = $1
-       ORDER BY a.published_at DESC`,
-      [lang]
-    );
-    return result.rows;
+export async function getArticlesByLanguage(
+  langOrFilters?: string | PublicArticleFilters
+): Promise<PublicArticle[]> {
+  const filters = normalizePublicArticleFilters(
+    typeof langOrFilters === 'string' ? { lang: langOrFilters } : langOrFilters || {}
+  );
+  const where = [
+    'a.published_at IS NOT NULL',
+    "a.content_status = 'published'",
+    'a.withdrawn_at IS NULL',
+  ];
+  const values: string[] = [];
+
+  if (filters.lang) {
+    values.push(filters.lang);
+    where.push(`a.language = $${values.length}`);
+  }
+
+  if (filters.category) {
+    values.push(filters.category);
+    where.push(`LOWER(a.category) = LOWER($${values.length})`);
+  }
+
+  if (filters.format) {
+    values.push(filters.format);
+    where.push(`a.content_format = $${values.length}`);
+  }
+
+  if (filters.q) {
+    values.push(`%${filters.q}%`);
+    where.push(`(a.title ILIKE $${values.length} OR a.excerpt ILIKE $${values.length} OR array_to_string(a.tags, ' ') ILIKE $${values.length})`);
   }
 
   const result = await query(
     `${PUBLIC_ARTICLE_FIELDS}
-     WHERE a.published_at IS NOT NULL
-     ORDER BY a.published_at DESC`
+     WHERE ${where.join(' AND ')}
+     ORDER BY a.published_at DESC
+     LIMIT 60`,
+    values
   );
   return result.rows;
 }
@@ -73,10 +96,14 @@ export async function getArticleBySlugAndLanguage(
   slug: string,
   lang?: string
 ): Promise<PublicArticle | null> {
-  if (lang && SUPPORTED_LANGUAGES.includes(lang)) {
+  if (lang && SUPPORTED_ARTICLE_LANGUAGES.includes(lang)) {
     const result = await query(
       `${PUBLIC_ARTICLE_FIELDS}
-       WHERE a.slug = $1 AND a.published_at IS NOT NULL AND a.language = $2`,
+       WHERE a.slug = $1
+         AND a.published_at IS NOT NULL
+         AND a.content_status = 'published'
+         AND a.withdrawn_at IS NULL
+         AND a.language = $2`,
       [slug, lang]
     );
     return result.rows[0] || null;
@@ -84,7 +111,10 @@ export async function getArticleBySlugAndLanguage(
 
   const result = await query(
     `${PUBLIC_ARTICLE_FIELDS}
-     WHERE a.slug = $1 AND a.published_at IS NOT NULL`,
+     WHERE a.slug = $1
+       AND a.published_at IS NOT NULL
+       AND a.content_status = 'published'
+       AND a.withdrawn_at IS NULL`,
     [slug]
   );
   return result.rows[0] || null;

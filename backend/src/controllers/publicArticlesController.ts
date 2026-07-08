@@ -4,9 +4,13 @@ import { isValidSlug } from '../utils/slug';
 import { notFound } from '../utils/errors';
 
 export async function listArticles(req: Request, res: Response): Promise<void> {
-  const lang = req.query.lang as string | undefined;
-  const articles = await getArticlesByLanguage(lang);
-  // Return only published articles with summary fields
+  const articles = await getArticlesByLanguage({
+    lang: req.query.lang as string | undefined,
+    category: req.query.category as string | undefined,
+    format: req.query.format as string | undefined,
+    q: req.query.q as string | undefined,
+  });
+
   const result = articles.map(a => ({
     slug: a.slug,
     title: a.title,
@@ -16,6 +20,11 @@ export async function listArticles(req: Request, res: Response): Promise<void> {
     category: a.category,
     tags: a.tags,
     published_at: a.published_at,
+    updated_at: a.updated_at,
+    reviewed_at: a.reviewed_at,
+    reviewer_display_name: a.reviewer_display_name,
+    read_time_minutes: a.read_time_minutes,
+    content_format: a.content_format,
     language: a.language,
     author_doctor_id: a.author_doctor_id,
     author_doctor_name: a.author_doctor_name,
@@ -50,6 +59,11 @@ export async function getArticleDetail(req: Request, res: Response): Promise<voi
     category: article.category,
     tags: article.tags,
     published_at: article.published_at,
+    updated_at: article.updated_at,
+    reviewed_at: article.reviewed_at,
+    reviewer_display_name: article.reviewer_display_name,
+    read_time_minutes: article.read_time_minutes,
+    content_format: article.content_format,
     language: article.language,
     author_doctor_id: article.author_doctor_id,
     author_doctor_name: article.author_doctor_name,

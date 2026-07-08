@@ -105,6 +105,7 @@ export const appointmentSchema = z.object({
   doctor_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
   appointment_date: dateSchema,
   start_time: timeSchema,
+  appointment_type: z.enum(['new', 'follow_up']).optional(),
   patient: patientSchema,
   reception_notes: z.string().max(1000).transform(stripHtml).optional(),
 });
@@ -120,6 +121,20 @@ export const packageOrderSchema = z.object({
       z.object({
         package_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
         patient: patientSchema,
+        quantity: z.number().int().min(1).max(20).optional(),
+        preferred_date: dateSchema.optional(),
+      })
+    )
+    .min(1)
+    .max(20),
+});
+
+export const packageQuoteSchema = z.object({
+  preferred_date: dateSchema.optional(),
+  items: z
+    .array(
+      z.object({
+        package_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
         quantity: z.number().int().min(1).max(20).optional(),
         preferred_date: dateSchema.optional(),
       })
@@ -167,9 +182,13 @@ export const adminAppointmentFiltersSchema = z.object({
       'payment_failed',
     ])
     .optional(),
+  source: z.enum(['public', 'admin']).optional(),
   from: dateSchema.optional(),
   to: dateSchema.optional(),
   search: z.string().max(120).transform(stripHtml).optional(),
+  sort: z.enum(['date_desc', 'date_asc', 'created_desc', 'created_asc']).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(50).optional(),
 });
 
 export const adminPaymentFiltersSchema = z.object({
@@ -188,7 +207,84 @@ export const adminPaymentFiltersSchema = z.object({
   from: dateSchema.optional(),
   to: dateSchema.optional(),
   search: z.string().max(120).transform(stripHtml).optional(),
+  provider: z.string().max(40).transform(stripHtml).optional(),
+  entity: z.enum(['appointment', 'package_order']).optional(),
+  sort: z.enum(['date_desc', 'date_asc', 'updated_desc', 'updated_asc', 'amount_desc', 'amount_asc']).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(50).optional(),
 });
+
+export const adminPaymentParamsSchema = z.object({
+  id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
+});
+
+export const adminNotificationFiltersSchema = z.object({
+  status: z
+    .enum([
+      'queued',
+      'sending',
+      'sent',
+      'failed',
+      'skipped_no_destination',
+      'retrying',
+      'permanent_failure',
+      'manual_follow_up',
+    ])
+    .optional(),
+  channel: z.string().max(40).transform(stripHtml).optional(),
+  entity: z.enum(['appointment', 'package_order', 'payment']).optional(),
+  from: dateSchema.optional(),
+  to: dateSchema.optional(),
+  search: z.string().max(120).transform(stripHtml).optional(),
+  sort: z.enum(['date_desc', 'date_asc', 'updated_desc', 'updated_asc']).optional(),
+  page: z.coerce.number().int().min(1).optional(),
+  pageSize: z.coerce.number().int().min(1).max(50).optional(),
+});
+
+export const adminNotificationParamsSchema = z.object({
+  id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
+});
+
+export const adminNotificationBulkRetrySchema = z.object({
+  ids: z.array(z.string().regex(uuidRegex, 'Must be a valid UUID')).min(1).max(25),
+});
+
+export const adminNotificationDeadLetterSchema = z.object({
+  reason: z.string().min(3).max(500).transform(stripHtml),
+});
+
+export const adminCalendarViewQuerySchema = z.object({
+  doctor_id: z.string().regex(uuidRegex, 'Must be a valid UUID').optional(),
+  from: dateSchema,
+  to: dateSchema,
+});
+
+export const calendarOverrideBatchSchema = z
+  .object({
+    doctor_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
+    dates: z.array(dateSchema).min(1).max(31),
+    override_type: z.enum([
+      'unavailable_whole_day',
+      'custom_hours',
+      'block_time_range',
+      'add_extra_hours',
+    ]),
+    start_time: timeSchema.optional(),
+    end_time: timeSchema.optional(),
+    reason: z.string().max(120).transform(stripHtml).optional(),
+    public_note: z.string().max(240).transform(stripHtml).optional(),
+    internal_note: z.string().max(500).transform(stripHtml).optional(),
+    allow_conflicts: z.boolean().optional(),
+  })
+  .refine(
+    (value) =>
+      value.override_type === 'unavailable_whole_day' ||
+      Boolean(value.start_time && value.end_time),
+    {
+      message: 'start_time and end_time are required for time-based overrides',
+      path: ['start_time'],
+    }
+  );
 
 export type EnquiryInput = z.infer<typeof enquirySchema>;
 export type StatusUpdateInput = z.infer<typeof statusUpdateSchema>;

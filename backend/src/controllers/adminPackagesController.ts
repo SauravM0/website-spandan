@@ -1,11 +1,12 @@
 import { Response } from 'express';
 import {
-  getPackages, getPackageById, getPackageTests,
-  updatePackageAdmin,
+  getPackagesAdminFiltered,
+  getPackageById,
+  getPackageTests,
+  updatePackageAdminWithVersion,
 } from '../models';
-import { query } from '../config/database';
 import { AuthenticatedRequest } from '../middleware/auth';
-import { notFound, serverError } from '../utils/errors';
+import { badRequest, notFound, serverError, sendApiError } from '../utils/errors';
 
 function numberFrom(value: unknown): number | null {
   if (value === undefined || value === null || value === '') return null;
@@ -13,7 +14,7 @@ function numberFrom(value: unknown): number | null {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-function validatePackageCommerceInput(body: Record<string, unknown>, current?: Record<string, unknown> | null): string | null {
+function validatePackageInput(body: Record<string, unknown>, current?: Record<string, unknown> | null): string | null {
   const basePrice = numberFrom(body.base_price ?? current?.base_price);
   const discountedPrice = numberFrom(body.discounted_price ?? current?.discounted_price);
   const taxRate = numberFrom(body.tax_rate ?? current?.tax_rate);
@@ -41,15 +42,35 @@ function validatePackageCommerceInput(body: Record<string, unknown>, current?: R
 }
 
 export async function listPackages(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const search = req.query.search as string | undefined;
+  const category = req.query.category as string | undefined;
+  const status = req.query.status as string | undefined;
+  const sort = (req.query.sort as string) || 'order';
+  let page = parseInt(req.query.page as string, 10) || 1;
+  let pageSize = parseInt((req.query.pageSize || req.query.page_size) as string, 10) || 25;
+
+  if (pageSize > 100) pageSize = 100;
+  if (page < 1) page = 1;
+  if (pageSize < 1) pageSize = 25;
+
+  const validSorts = ['order', 'name_asc', 'name_desc', 'updated_desc', 'updated_asc', 'price_asc', 'price_desc'];
+  if (sort && !validSorts.includes(sort)) {
+    badRequest(res, `Invalid sort. Must be one of: ${validSorts.join(', ')}`);
+    return;
+  }
+
   try {
-    const packages = await getPackages(false); // All packages including inactive
-    const result = await Promise.all(packages.map(async (pkg) => {
-      const tests = await getPackageTests(pkg.id);
-      return { ...pkg, tests };
-    }));
-    res.json({ packages: result });
+    const result = await getPackagesAdminFiltered({
+      search,
+      category,
+      status,
+      sort,
+      page,
+      pageSize,
+    });
+    res.json(result);
   } catch (err) {
-    console.error('Failed to fetch packages:', err);
+    console.error('Failed to list packages:', err);
     serverError(res);
   }
 }
@@ -70,37 +91,45 @@ export async function getPackageDetail(req: AuthenticatedRequest, res: Response)
 }
 
 export async function updatePackage(req: AuthenticatedRequest, res: Response): Promise<void> {
+  const { expected_version, ...body } = req.body;
+
+  if (!expected_version || typeof expected_version !== 'number') {
+    badRequest(res, 'expected_version is required');
+    return;
+  }
+
   try {
     const before = await getPackageById(req.params.id);
     if (!before) {
       notFound(res, 'Package not found');
       return;
     }
-    const validationError = validatePackageCommerceInput(req.body, before as unknown as Record<string, unknown>);
+
+    const validationError = validatePackageInput(body, before as unknown as Record<string, unknown>);
     if (validationError) {
       res.status(400).json({ error: validationError });
       return;
     }
-    const pkg = await updatePackageAdmin(req.params.id, req.body);
-    if (!pkg) {
+
+    const result = await updatePackageAdminWithVersion(
+      req.params.id,
+      body,
+      expected_version,
+      req.user?.id
+    );
+
+    if (!result.pkg) {
+      if (result.tests === undefined) {
+        sendApiError(res, 409, 'CONFLICT', 'This package was modified by another user. Please refresh and try again.');
+        return;
+      }
       notFound(res, 'Package not found');
       return;
     }
-    await query(
-      `INSERT INTO audit_log (actor_staff_id, action, entity_type, entity_id, metadata)
-       VALUES ($1, 'package.updated', 'package', $2, $3)`,
-      [
-        req.user?.id || null,
-        pkg.id,
-        JSON.stringify({
-          before,
-          after: pkg,
-          changed_fields: Object.keys(req.body || {}),
-        }),
-      ]
-    );
-    const tests = await getPackageTests(pkg.id);
-    res.json({ package: { ...pkg, tests } });
+
+    res.json({
+      package: { ...result.pkg, tests: result.tests || [] },
+    });
   } catch (err) {
     console.error('Failed to update package:', err);
     serverError(res);

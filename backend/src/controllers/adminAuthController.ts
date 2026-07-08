@@ -7,6 +7,61 @@ import { findStaffUserByEmail } from '../models';
 import { badRequest, unauthorized } from '../utils/errors';
 import { AuthenticatedRequest } from '../middleware/auth';
 
+const roleCapabilities: Record<string, string[]> = {
+  admin: [
+    'admin.dashboard.read',
+    'admin.calendar.read',
+    'admin.calendar.write',
+    'admin.appointments.read',
+    'admin.appointments.write',
+    'admin.package_orders.read',
+    'admin.payments.read',
+    'admin.notifications.read',
+    'admin.notifications.write',
+    'admin.leads.read',
+    'admin.leads.write',
+    'admin.packages.read',
+    'admin.packages.write',
+  ],
+  staff: [
+    'admin.dashboard.read',
+    'admin.calendar.read',
+    'admin.appointments.read',
+    'admin.appointments.write',
+    'admin.package_orders.read',
+    'admin.notifications.read',
+    'admin.leads.read',
+    'admin.leads.write',
+  ],
+  doctor: [
+    'admin.dashboard.read',
+    'admin.calendar.read',
+    'admin.appointments.read',
+  ],
+};
+
+function capabilitiesForRole(role: string): string[] {
+  return roleCapabilities[role] || roleCapabilities.staff;
+}
+
+function publicStaffUser(user: {
+  id: string;
+  email: string;
+  full_name: string;
+  role: string;
+  doctor_id?: string | null;
+}, sessionExpiresAt?: string | null) {
+  return {
+    id: user.id,
+    email: user.email,
+    full_name: user.full_name,
+    role: user.role,
+    doctor_id: user.doctor_id,
+    capabilities: capabilitiesForRole(user.role),
+    session_expires_at: sessionExpiresAt || null,
+  };
+}
+
 function adminCookieOptions() {
   return {
     httpOnly: true,
@@ -39,7 +94,8 @@ async function auditLogin(req: Request, action: 'auth.login_success' | 'auth.log
 }
 
 export async function login(req: Request, res: Response): Promise<void> {
-  const { email, password } = req.body;
+  const email = String(req.body.email || '').trim().toLowerCase();
+  const { password } = req.body;
 
   if (!email || !password) {
     badRequest(res, 'Email and password are required');
@@ -50,20 +106,20 @@ export async function login(req: Request, res: Response): Promise<void> {
 
   if (!user) {
     await auditLogin(req, 'auth.login_failed', null, email);
-    unauthorized(res, 'Invalid credentials');
+    unauthorized(res, 'Invalid email or password');
     return;
   }
 
   if (!user.is_active) {
     await auditLogin(req, 'auth.login_failed', user.id, email);
-    unauthorized(res, 'Account is disabled');
+    unauthorized(res, 'Invalid email or password');
     return;
   }
 
   const valid = await bcrypt.compare(password, user.password_hash);
   if (!valid) {
     await auditLogin(req, 'auth.login_failed', user.id, email);
-    unauthorized(res, 'Invalid credentials');
+    unauthorized(res, 'Invalid email or password');
     return;
   }
 
@@ -76,13 +132,7 @@ export async function login(req: Request, res: Response): Promise<void> {
   await auditLogin(req, 'auth.login_success', user.id, email);
   res.cookie(config.adminSessionCookieName, token, adminCookieOptions());
   res.json({
-    user: {
-      id: user.id,
-      email: user.email,
-      full_name: user.full_name,
-      role: user.role,
-      doctor_id: user.doctor_id,
-    },
+    user: publicStaffUser(user),
   });
 }
 
@@ -101,12 +151,6 @@ export async function me(req: AuthenticatedRequest, res: Response): Promise<void
     return;
   }
   res.json({
-    user: {
-      id: req.user.id,
-      email: req.user.email,
-      full_name: req.user.full_name,
-      role: req.user.role,
-      doctor_id: req.user.doctor_id,
-    },
+    user: publicStaffUser(req.user, req.sessionExpiresAt),
   });
 }

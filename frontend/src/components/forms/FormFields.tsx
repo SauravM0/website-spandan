@@ -32,7 +32,7 @@ export default function FormFields({ form, onChange }: FormFieldsProps) {
         <div className="form-group">
           <label>Phone Number *</label>
           <div className="flex">
-            <span className="inline-flex items-center px-3 bg-bg-alt border border-r-0 border-border rounded-l-lg text-sm text-text-light">
+            <span className="inline-flex items-center rounded-l-2xl bg-bg-alt px-3 text-sm text-text-light shadow-[0_8px_22px_rgba(23,58,94,0.04)]">
               +91
             </span>
             <input
@@ -42,7 +42,7 @@ export default function FormFields({ form, onChange }: FormFieldsProps) {
               value={form.phone}
               onChange={onChange}
               required
-              className="rounded-l-none !rounded-r-lg"
+              className="rounded-l-none !rounded-r-2xl"
             />
           </div>
         </div>
