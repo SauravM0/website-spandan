@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { CalendarCheck, ChevronDown, Globe2, Menu, Phone, MessageCircle, X } from 'lucide-react';
 import '../../lib/i18n';
+import { clinicLinks } from '@/lib/settings';
 
 const languages = [
   { code: 'en', label: 'English' },
@@ -13,20 +14,24 @@ const languages = [
 ];
 
 const primaryLinks = [
-  { href: '/', label: 'nav_home' },
-  { href: '/about', label: 'nav_about' },
   { href: '/doctors', label: 'nav_doctors' },
   { href: '/packages', label: 'nav_packages' },
-  { href: '/facilities', label: 'nav_facilities' },
   { href: '/health-resources', label: 'nav_articles' },
-  { href: '/tools', label: 'nav_tools' },
   { href: '/contact', label: 'nav_contact' },
+];
+
+const secondaryLinks = [
+  { href: '/about', label: 'nav_about' },
+  { href: '/facilities', label: 'nav_facilities' },
+  { href: '/tools', label: 'nav_tools' },
+  { href: '/videos', label: 'nav_videos' },
 ];
 
 export default function Navbar() {
   const { t, i18n } = useTranslation('common');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -101,6 +106,18 @@ export default function Navbar() {
               {navLabel(link.label)}
             </Link>
           ))}
+          <div className="relative">
+            <button type="button" onClick={() => setMoreOpen((open) => !open)} className="flex min-h-[44px] items-center gap-1 rounded-2xl px-3 text-sm font-medium text-text transition-colors hover:bg-bg-alt hover:text-accent" aria-expanded={moreOpen}>
+              {t('nav_more')} <ChevronDown size={15} aria-hidden="true" />
+            </button>
+            {moreOpen && (
+              <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-2xl bg-white p-2 shadow-[0_16px_34px_rgba(23,58,94,0.12)]">
+                {secondaryLinks.map((link) => (
+                  <Link key={link.href} href={link.href} onClick={() => setMoreOpen(false)} className="block rounded-xl px-3 py-2 text-sm text-text hover:bg-bg-alt hover:text-accent">{navLabel(link.label)}</Link>
+                ))}
+              </div>
+            )}
+          </div>
           <div className="relative ml-1">
             <button
               type="button"
@@ -183,6 +200,11 @@ export default function Navbar() {
                   {navLabel(link.label)}
                 </Link>
               ))}
+              {secondaryLinks.map((link) => (
+                <Link key={link.href} href={link.href} onClick={closeDrawer} className="flex min-h-[48px] items-center rounded-2xl px-3 text-base font-medium text-text hover:bg-bg-alt hover:text-accent">
+                  {navLabel(link.label)}
+                </Link>
+              ))}
 
               <div className="mt-4 pt-4">
                 <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-text-light">
@@ -217,14 +239,14 @@ export default function Navbar() {
                   Book
                 </Link>
                 <a
-                  href="tel:+917798095795"
+                  href={clinicLinks.phone}
                   className="btn btn-outline min-h-[48px] justify-center text-sm"
                 >
                   <Phone size={16} />
                   Call
                 </a>
                 <a
-                  href="https://wa.me/917798095795"
+                  href={clinicLinks.whatsapp}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="btn btn-outline min-h-[48px] justify-center text-sm"

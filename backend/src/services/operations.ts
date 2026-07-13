@@ -11,6 +11,9 @@ import {
   normalizePhonePeState,
 } from './phonePe';
 import { queueReceiptEmailForPayment } from './notifications';
+import { assertBookingTransition, bookingStateForPayment, isBookingState } from '../domain/appointmentBooking';
+import { assertPaymentTransition, providerEventHash, validateRefundAmount } from '../domain/paymentLifecycle';
+import { resolveServicePrice } from './servicePricing';
 
 type Queryable = {
   query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
@@ -125,6 +128,39 @@ function minutesSinceMidnight(time: string): number {
   return h * 60 + m;
 }
 
+export function slotMinutesForCount(startTime?: string, endTime?: string, slotCount?: number): number {
+  if (!startTime || !endTime || !slotCount) {
+    const error = new Error('Opening time, closing time, and slot count are required') as Error & {
+      status?: number;
+      code?: string;
+    };
+    error.status = 400;
+    error.code = 'SLOT_PLAN_REQUIRED';
+    throw error;
+  }
+  const totalMinutes = minutesSinceMidnight(endTime) - minutesSinceMidnight(startTime);
+  if (totalMinutes <= 0 || totalMinutes % slotCount !== 0) {
+    const error = new Error('The selected hours must divide evenly into the requested number of slots') as Error & {
+      status?: number;
+      code?: string;
+    };
+    error.status = 400;
+    error.code = 'SLOT_COUNT_NOT_DIVISIBLE';
+    throw error;
+  }
+  const slotMinutes = totalMinutes / slotCount;
+  if (slotMinutes < 5 || slotMinutes > 240) {
+    const error = new Error('Each appointment slot must be between 5 and 240 minutes') as Error & {
+      status?: number;
+      code?: string;
+    };
+    error.status = 400;
+    error.code = 'SLOT_DURATION_OUT_OF_RANGE';
+    throw error;
+  }
+  return slotMinutes;
+}
+
 function overlaps(startA: string, endA: string, startB: string, endB: string): boolean {
   return (
     minutesSinceMidnight(startA) < minutesSinceMidnight(endB) &&
@@ -211,6 +247,29 @@ async function createPatient(client: PoolClient, input: PatientInput): Promise<s
   );
   const patientId = result.rows[0].id;
 
+  // Phone is only a candidate signal. Never merge public submissions automatically.
+  const possibleMatches = await client.query(
+    `SELECT id,
+            ARRAY_REMOVE(ARRAY[
+              CASE WHEN LOWER(BTRIM(full_name)) = LOWER(BTRIM($1)) THEN 'name' END,
+              CASE WHEN phone = $2 THEN 'phone' END,
+              CASE WHEN date_of_birth IS NOT DISTINCT FROM $3::date AND $3::date IS NOT NULL THEN 'date_of_birth' END,
+              CASE WHEN LOWER(COALESCE(email, '')) = LOWER(COALESCE($4, '')) AND $4 IS NOT NULL THEN 'email' END
+            ], NULL) AS reasons
+     FROM patients
+     WHERE id <> $5 AND (phone = $2 OR ($3::date IS NOT NULL AND date_of_birth = $3::date))
+     LIMIT 10`,
+    [input.full_name, input.phone, input.date_of_birth || null, input.email || null, patientId]
+  );
+  for (const match of possibleMatches.rows) {
+    await client.query(
+      `INSERT INTO patient_match_reviews
+       (candidate_patient_id, possible_patient_id, reason_codes)
+       VALUES ($1, $2, $3)`,
+      [patientId, match.id, match.reasons]
+    );
+  }
+
   if (input.guardian?.full_name && input.guardian.phone) {
     await client.query(
       `INSERT INTO guardians (patient_id, full_name, phone, relationship)
@@ -286,8 +345,6 @@ function buildSlotsForDate(input: {
       row.start_time &&
       row.end_time
   );
-  if (weekday === 0 && customHours.length === 0 && extraHours.length === 0) return [];
-
   const blocked = exceptions.filter(
     (row) =>
       (row.override_type === 'block_time_range' ||
@@ -300,7 +357,7 @@ function buildSlotsForDate(input: {
       ? customHours.map((row) => ({
           start_time: row.start_time,
           end_time: row.end_time,
-          slot_minutes: settings.default_slot_minutes,
+          slot_minutes: row.slot_minutes || settings.default_slot_minutes,
         }))
       : rules.map((row) => ({
           start_time: row.start_time,
@@ -312,7 +369,7 @@ function buildSlotsForDate(input: {
     ...extraHours.map((row) => ({
       start_time: row.start_time,
       end_time: row.end_time,
-      slot_minutes: settings.default_slot_minutes,
+      slot_minutes: row.slot_minutes || settings.default_slot_minutes,
     }))
   );
 
@@ -381,7 +438,8 @@ function buildSlotsForDate(input: {
 export async function listSlotsWithDb(
   db: Queryable,
   doctorId: string,
-  date: string
+  date: string,
+  excludeHoldId?: string
 ): Promise<Slot[]> {
   const settings = await getAppointmentConfig(db);
   const weekday = new Date(`${date}T00:00:00`).getDay();
@@ -396,7 +454,8 @@ export async function listSlotsWithDb(
     ),
     db.query(
       `SELECT * FROM calendar_exceptions
-       WHERE (doctor_id = $1 OR doctor_id IS NULL) AND exception_date = $2`,
+       WHERE (doctor_id = $1 OR doctor_id IS NULL) AND exception_date = $2
+         AND (status IS NULL OR status = 'active')`,
       [doctorId, date]
     ),
     db.query(
@@ -407,8 +466,9 @@ export async function listSlotsWithDb(
     ),
     db.query(
       `SELECT start_time, end_time FROM appointment_holds
-       WHERE doctor_id = $1 AND appointment_date = $2 AND status = 'active' AND expires_at > NOW()`,
-      [doctorId, date]
+       WHERE doctor_id = $1 AND appointment_date = $2 AND status = 'active' AND expires_at > NOW()
+         AND ($3::uuid IS NULL OR id <> $3)`,
+      [doctorId, date, excludeHoldId || null]
     ),
   ]);
 
@@ -479,6 +539,7 @@ export async function listDoctorAvailability(
     query(
       `SELECT * FROM calendar_exceptions
        WHERE (doctor_id = $1 OR doctor_id IS NULL)
+         AND (status IS NULL OR status = 'active')
          AND exception_date >= $2
          AND exception_date <= $3
        ORDER BY exception_date ASC, start_time ASC NULLS FIRST`,
@@ -523,10 +584,75 @@ export async function listDoctorAvailability(
   return availability;
 }
 
+export async function getPublicDoctorAvailabilityView(
+  doctorId: string,
+  from: string,
+  to: string
+) {
+  const availability = await listDoctorAvailability(doctorId, from, to);
+  const settings = await getAppointmentConfig();
+  const now = clinicNow();
+  const horizonDate = addClinicDays(now.date, settings.maximum_booking_horizon_days);
+  const days = Object.fromEntries(
+    Object.entries(availability).map(([date, slots]) => {
+      const available = slots.filter((slot) => slot.available).length;
+      const status = date < now.date
+        ? 'past'
+        : date > horizonDate
+          ? 'booking_not_open'
+          : slots.length === 0
+            ? 'closed'
+            : available > 0
+              ? 'open'
+              : slots.every((slot) => ['Past time', 'Same-day booking closed', 'Booking notice required'].includes(slot.reason || ''))
+                ? 'booking_closed'
+                : 'fully_booked';
+      return [date, {
+        date,
+        status,
+        total_slots: slots.length,
+        available_slots: available,
+        opening_time: slots[0]?.start_time || null,
+        closing_time: slots[slots.length - 1]?.end_time || null,
+      }];
+    })
+  );
+  return { availability, days, timezone: 'Asia/Kolkata' };
+}
+
 export async function getAppointmentHold(id: string) {
   await expireOldHolds();
   const result = await query('SELECT * FROM appointment_holds WHERE id = $1', [id]);
   return result.rows[0] || null;
+}
+
+export async function recoverAppointmentBooking(reference: string, phone: string) {
+  await expireOldHolds();
+  const normalizedPhone = phone.replace(/^\+91/, '');
+  const result = await query(
+    `SELECT h.booking_state AS hold_state, h.expires_at, h.public_reference,
+            a.booking_state, a.status, a.appointment_number,
+            CASE WHEN a.booking_state = 'confirmed' THEN a.appointment_number ELSE NULL END AS confirmed_appointment_number,
+            p.merchant_transaction_id
+     FROM appointment_holds h
+     LEFT JOIN appointments a ON a.hold_id = h.id
+     LEFT JOIN payments p ON p.appointment_id = a.id
+       AND p.status IN ('created', 'pending', 'success', 'verification_required')
+     WHERE (h.public_reference::text = $1 OR p.merchant_transaction_id = $1)
+       AND RIGHT(REGEXP_REPLACE(h.patient_phone, '\\D', '', 'g'), 10) = $2
+     ORDER BY p.created_at DESC NULLS LAST
+     LIMIT 1`,
+    [reference, normalizedPhone]
+  );
+  if (!result.rows[0]) return null;
+  const row = result.rows[0];
+  return {
+    reference: row.public_reference,
+    state: row.booking_state || row.hold_state,
+    expires_at: row.expires_at,
+    appointment_number: row.confirmed_appointment_number,
+    payment_reference: row.merchant_transaction_id || null,
+  };
 }
 
 export async function createSlotHold(input: {
@@ -534,14 +660,29 @@ export async function createSlotHold(input: {
   appointment_date: string;
   start_time: string;
   patient_phone: string;
+  appointment_type?: 'new' | 'follow_up';
+  idempotency_key?: string;
+  correlation_id?: string;
 }) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`calendar:${input.doctor_id}`]);
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
       `${input.doctor_id}:${input.appointment_date}`,
     ]);
     await expireOldHolds(client);
+
+    if (input.idempotency_key) {
+      const replay = await client.query(
+        `SELECT * FROM appointment_holds WHERE idempotency_key = $1 FOR UPDATE`,
+        [input.idempotency_key]
+      );
+      if (replay.rows[0]) {
+        await client.query('COMMIT');
+        return replay.rows[0];
+      }
+    }
 
     const existingHold = await client.query(
       `SELECT * FROM appointment_holds
@@ -583,9 +724,14 @@ export async function createSlotHold(input: {
       throw error;
     }
 
+    const servicePrice = await resolveServicePrice(client, 'consultation', input.doctor_id, input.appointment_type || 'new', true);
     const result = await client.query(
-      `INSERT INTO appointment_holds (doctor_id, appointment_date, start_time, end_time, patient_phone, expires_at)
-       VALUES ($1, $2, $3, $4, $5, NOW() + ($6::text || ' minutes')::interval)
+      `INSERT INTO appointment_holds
+       (doctor_id, appointment_date, start_time, end_time, patient_phone, expires_at,
+        idempotency_key, correlation_id, fee_amount, fee_currency, booking_state,
+        service_id, service_code, service_name, service_price_version)
+       VALUES ($1, $2, $3, $4, $5, NOW() + ($6::text || ' minutes')::interval,
+               $7, COALESCE($8::uuid, gen_random_uuid()), $9, 'INR', 'slot_held', $10, $11, $12, $13)
        RETURNING *`,
       [
         input.doctor_id,
@@ -594,6 +740,13 @@ export async function createSlotHold(input: {
         slot.end_time,
         input.patient_phone,
         settings.hold_duration_minutes,
+        input.idempotency_key || null,
+        input.correlation_id || null,
+        Number(servicePrice.price),
+        servicePrice.id,
+        servicePrice.code,
+        servicePrice.name,
+        servicePrice.version,
       ]
     );
     await client.query('COMMIT');
@@ -626,32 +779,55 @@ export async function createAppointment(input: {
   status?: string;
   reception_notes?: string;
   created_by_staff_id?: string;
+  idempotency_key?: string;
+  correlation_id?: string;
+  expected_version?: number;
+  consent: {
+    accepted: true;
+    purpose: 'appointment_booking_and_payment';
+    version: string;
+    policy_version: string;
+    language: 'en' | 'hi' | 'mr';
+  };
 }) {
   const client = await getClient();
   try {
     await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`calendar:${input.doctor_id}`]);
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
       `${input.doctor_id}:${input.appointment_date}`,
     ]);
     await expireOldHolds(client);
+    if (input.idempotency_key) {
+      const replay = await client.query(
+        `SELECT * FROM appointments WHERE idempotency_key = $1 FOR UPDATE`,
+        [input.idempotency_key]
+      );
+      if (replay.rows[0]) {
+        await client.query('COMMIT');
+        return replay.rows[0];
+      }
+    }
     const patientId = await createPatient(client, input.patient);
 
     const settings = await getAppointmentConfig(client);
     let endTime = addMinutes(input.start_time, settings.default_slot_minutes);
     let slotMinutes = settings.default_slot_minutes;
+    let serviceSnapshot: { id: string; code: string; name: string; version: number; price: number };
     if (input.hold_id) {
-      const hold = await client.query(
-        `UPDATE appointment_holds
-         SET status = 'converted', converted_at = NOW()
+      const holdResult = await client.query(
+        `SELECT * FROM appointment_holds
          WHERE id = $1 AND status = 'active' AND expires_at > NOW()
-         RETURNING *`,
-        [input.hold_id]
+           AND ($2::integer IS NULL OR version = $2)
+         FOR UPDATE`,
+        [input.hold_id, input.expected_version || null]
       );
-      if (!hold.rows[0]) throw new Error('Slot hold has expired');
+      const heldSlot = holdResult.rows[0];
+      if (!heldSlot) throw new Error('Slot hold has expired');
       if (
-        hold.rows[0].doctor_id !== input.doctor_id ||
-        String(hold.rows[0].appointment_date).slice(0, 10) !== input.appointment_date ||
-        compactTime(hold.rows[0].start_time) !== compactTime(input.start_time)
+        heldSlot.doctor_id !== input.doctor_id ||
+        String(heldSlot.appointment_date).slice(0, 10) !== input.appointment_date ||
+        compactTime(heldSlot.start_time) !== compactTime(input.start_time)
       ) {
         const error = new Error('Slot hold does not match the requested appointment') as Error & {
           status?: number;
@@ -659,7 +835,45 @@ export async function createAppointment(input: {
         error.status = 409;
         throw error;
       }
+
+      const currentSlots = await listSlotsWithDb(
+        client,
+        input.doctor_id,
+        input.appointment_date,
+        input.hold_id
+      );
+      const currentSlot = currentSlots.find(
+        (item) => compactTime(item.start_time) === compactTime(input.start_time)
+      );
+      if (!currentSlot || !currentSlot.available) {
+        const error = new Error(
+          'The doctor schedule changed while this slot was held. Please select another slot.'
+        ) as Error & { status?: number; code?: string };
+        error.status = 409;
+        error.code = 'HELD_SLOT_NO_LONGER_AVAILABLE';
+        throw error;
+      }
+
+      const hold = await client.query(
+        `UPDATE appointment_holds
+         SET status = 'converted', converted_at = NOW(), booking_state = 'payment_required',
+             version = version + 1, policy_version = $2, consent_version = $3,
+             consent_language = $4, consent_given_at = NOW()
+         WHERE id = $1 AND status = 'active' AND expires_at > NOW()
+           AND ($5::integer IS NULL OR version = $5)
+         RETURNING *`,
+        [input.hold_id, input.consent.policy_version, input.consent.version, input.consent.language, input.expected_version || null]
+      );
+      if (!hold.rows[0]) throw new Error('Slot hold has expired');
       endTime = hold.rows[0].end_time;
+      const legacyResolved = hold.rows[0].service_id ? null : await resolveServicePrice(client, 'consultation', input.doctor_id, input.appointment_type || 'new');
+      serviceSnapshot = {
+        id: hold.rows[0].service_id || legacyResolved.id,
+        code: hold.rows[0].service_code || legacyResolved?.code || 'consultation',
+        name: hold.rows[0].service_name || legacyResolved?.name || 'Consultation',
+        version: Number(hold.rows[0].service_price_version || legacyResolved?.version || 1),
+        price: Number(hold.rows[0].fee_amount ?? legacyResolved?.price),
+      };
       slotMinutes = Math.max(
         1,
         minutesSinceMidnight(endTime) - minutesSinceMidnight(input.start_time)
@@ -681,12 +895,19 @@ export async function createAppointment(input: {
         1,
         minutesSinceMidnight(endTime) - minutesSinceMidnight(slot.start_time)
       );
+      const resolved = await resolveServicePrice(client, 'consultation', input.doctor_id, input.appointment_type || 'new', input.source !== 'admin');
+      serviceSnapshot = { id: resolved.id, code: resolved.code, name: resolved.name, version: resolved.version, price: Number(resolved.price) };
     }
 
     const appointment = await client.query(
       `INSERT INTO appointments
-       (patient_id, doctor_id, hold_id, appointment_date, start_time, end_time, slot_minutes, appointment_type, status, source, reception_notes, created_by_staff_id)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+       (patient_id, doctor_id, hold_id, appointment_date, start_time, end_time, slot_minutes,
+        appointment_type, status, source, reception_notes, created_by_staff_id, booking_state,
+        idempotency_key, correlation_id, fee_amount, fee_currency, service_id, service_code,
+        service_name, service_price_version, policy_version,
+        consent_version, consent_language, consent_given_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, 'payment_required',
+               $13, COALESCE($14::uuid, gen_random_uuid()), $15, 'INR', $16, $17, $18, $19, $20, $21, $22, NOW())
        RETURNING *`,
       [
         patientId,
@@ -701,6 +922,16 @@ export async function createAppointment(input: {
         input.source || 'public',
         input.reception_notes || null,
         input.created_by_staff_id || null,
+        input.idempotency_key || null,
+        input.correlation_id || null,
+        serviceSnapshot.price,
+        serviceSnapshot.id,
+        serviceSnapshot.code,
+        serviceSnapshot.name,
+        serviceSnapshot.version,
+        input.consent.policy_version,
+        input.consent.version,
+        input.consent.language,
       ]
     );
 
@@ -978,7 +1209,11 @@ export async function listPackageCommerceCatalog() {
   return getPackageCommerceCatalog();
 }
 
-export async function createPayment(input: { order_id?: string; appointment_id?: string }) {
+export async function createPayment(input: { order_id?: string; appointment_id?: string; idempotency_key?: string }) {
+  if (input.idempotency_key) {
+    const replay = await query('SELECT * FROM payments WHERE idempotency_key = $1', [input.idempotency_key]);
+    if (replay.rows[0]) return replay.rows[0];
+  }
   if (input.order_id || input.appointment_id) {
     const existing = await query(
       `SELECT * FROM payments
@@ -1003,9 +1238,7 @@ export async function createPayment(input: { order_id?: string; appointment_id?:
         [input.appointment_id]
       )
     : { rows: [] };
-  const amount = Number(
-    order.rows[0]?.total_amount || (appointment.rows[0] ? config.appointmentConsultationFee : 0)
-  );
+  const amount = Number(order.rows[0]?.total_amount || appointment.rows[0]?.fee_amount || 0);
   if (!order.rows[0] && !appointment.rows[0]) throw new Error('Payment target not found');
   if (amount <= 0 && order.rows[0]) throw new Error('Order amount must be greater than zero');
   if (amount <= 0 && appointment.rows[0])
@@ -1014,12 +1247,15 @@ export async function createPayment(input: { order_id?: string; appointment_id?:
   const merchantTransactionId = orderNumber('SPP');
   const returnUrl = `${config.frontendUrl}/payment/confirmation?transaction=${merchantTransactionId}`;
   const amountPaisa = amountToPaisa(amount);
-  const paymentPhone = '9172027838';
+  const paymentPhone = String(order.rows[0]?.phone || appointment.rows[0]?.phone || '').replace(/^\+/, '');
 
-  const result = await query(
-    `INSERT INTO payments
-     (order_id, appointment_id, merchant_transaction_id, amount, amount_paisa, status, redirect_url, raw_response)
-     VALUES ($1, $2, $3, $4, $5, 'created', $6, $7)
+  let result;
+  try {
+    result = await query(
+      `INSERT INTO payments
+     (order_id, appointment_id, merchant_transaction_id, amount, amount_paisa, currency,
+      status, redirect_url, raw_response, idempotency_key, quote_snapshot, policy_snapshot)
+     VALUES ($1, $2, $3, $4, $5, 'INR', 'created', $6, $7, $8, $9, $10)
      RETURNING *`,
     [
       input.order_id || null,
@@ -1029,8 +1265,44 @@ export async function createPayment(input: { order_id?: string; appointment_id?:
       amountPaisa,
       config.phonePe.enabled ? returnUrl : `${returnUrl}&mock=1`,
       JSON.stringify({ mode: config.phonePe.enabled ? 'phonepe' : 'mock' }),
-    ]
-  );
+      input.idempotency_key || null,
+      JSON.stringify({
+        amount, amount_paisa: amountPaisa, currency: 'INR',
+        ...(appointment.rows[0] ? {
+          service_id: appointment.rows[0].service_id,
+          service_code: appointment.rows[0].service_code,
+          service_name: appointment.rows[0].service_name,
+          service_price_version: appointment.rows[0].service_price_version,
+        } : {}),
+      }),
+      JSON.stringify({
+        policy_version: order.rows[0]?.policy_version || appointment.rows[0]?.policy_version || null,
+        captured_at: new Date().toISOString(),
+      }),
+      ]
+    );
+  } catch (err) {
+    if ((err as { code?: string }).code !== '23505') throw err;
+    const replay = await query(
+      `SELECT * FROM payments
+       WHERE ($1::text IS NOT NULL AND idempotency_key = $1)
+          OR ($2::uuid IS NOT NULL AND order_id = $2 AND status IN ('created','pending','success','verification_required','refund_pending'))
+          OR ($3::uuid IS NOT NULL AND appointment_id = $3 AND status IN ('created','pending','success','verification_required','refund_pending'))
+       ORDER BY created_at DESC LIMIT 1`,
+      [input.idempotency_key || null, input.order_id || null, input.appointment_id || null]
+    );
+    if (replay.rows[0]) return replay.rows[0];
+    throw err;
+  }
+  if (input.appointment_id) {
+    await query(
+      `UPDATE appointments
+       SET booking_state = 'payment_pending', status = 'payment_pending',
+           version = version + 1, updated_at = NOW()
+       WHERE id = $1 AND booking_state IN ('payment_required', 'payment_failed')`,
+      [input.appointment_id]
+    );
+  }
   if (!config.phonePe.enabled) {
     return updatePaymentStatus(merchantTransactionId, 'success', {
       mode: 'mock',
@@ -1082,11 +1354,11 @@ export async function createPayment(input: { order_id?: string; appointment_id?:
   return result.rows[0];
 }
 
-export async function createOrderPayment(orderId: string) {
-  return createPayment({ order_id: orderId });
+export async function createOrderPayment(orderId: string, idempotencyKey?: string) {
+  return createPayment({ order_id: orderId, idempotency_key: idempotencyKey });
 }
 
-export async function createAppointmentPayment(holdId: string) {
+export async function createAppointmentPayment(holdId: string, idempotencyKey?: string) {
   const appointment = await query(
     `SELECT id FROM appointments WHERE hold_id = $1 OR id = $1 LIMIT 1`,
     [holdId]
@@ -1100,7 +1372,7 @@ export async function createAppointmentPayment(holdId: string) {
     error.code = 'APPOINTMENT_NOT_FOUND';
     throw error;
   }
-  return createPayment({ appointment_id: appointment.rows[0].id });
+  return createPayment({ appointment_id: appointment.rows[0].id, idempotency_key: idempotencyKey });
 }
 
 export async function updatePaymentStatus(
@@ -1120,6 +1392,19 @@ export async function updatePaymentStatus(
 
     const paymentRow = current.rows[0];
     const safePayload = redactPaymentPayload(payload);
+    const eventHash = providerEventHash('phonepe', eventName, safePayload);
+    const acceptedEvent = await client.query(
+      `INSERT INTO payment_webhook_events
+       (payment_id, event_name, merchant_order_id, status, raw_payload, event_hash)
+       VALUES ($1, $2, $3, $4, $5, $6)
+       ON CONFLICT (provider, event_hash) WHERE event_hash IS NOT NULL DO NOTHING
+       RETURNING id`,
+      [paymentRow.id, eventName, merchantTransactionId, status, JSON.stringify(safePayload), eventHash]
+    );
+    if (!acceptedEvent.rows[0]) {
+      await client.query('COMMIT');
+      return paymentRow;
+    }
     const payloadObject = (payload || {}) as any;
     const paymentDetail = extractPhonePePaymentDetail(payloadObject.payload || payloadObject);
     const providerOrderId =
@@ -1140,6 +1425,18 @@ export async function updatePaymentStatus(
         : status;
     const shouldApplyStatus = !(paymentRow.status === 'success' && nextStatus !== 'success');
     const appliedStatus = shouldApplyStatus ? nextStatus : paymentRow.status;
+    assertPaymentTransition(paymentRow.status, appliedStatus);
+    if (paymentRow.appointment_id) {
+      const appointmentState = await client.query(
+        `SELECT booking_state FROM appointments WHERE id = $1 FOR UPDATE`,
+        [paymentRow.appointment_id]
+      );
+      const currentBookingState = appointmentState.rows[0]?.booking_state;
+      const mappedState = bookingStateForPayment(appliedStatus);
+      if (mappedState && isBookingState(currentBookingState)) {
+        assertBookingTransition(currentBookingState, mappedState);
+      }
+    }
 
     const payment = await client.query(
       `UPDATE payments
@@ -1148,6 +1445,8 @@ export async function updatePaymentStatus(
            provider_reference = COALESCE($3, provider_reference),
            payment_method = COALESCE($4, payment_method),
            raw_response = $5,
+           status_version = status_version + CASE WHEN status <> $1 THEN 1 ELSE 0 END,
+           last_reconciled_at = CASE WHEN $7 THEN NOW() ELSE last_reconciled_at END,
            verified_at = CASE WHEN $1 = 'success' THEN COALESCE(verified_at, NOW()) ELSE verified_at END,
            failed_at = CASE WHEN $1 IN ('failed', 'expired') THEN COALESCE(failed_at, NOW()) ELSE failed_at END,
            updated_at = NOW()
@@ -1160,6 +1459,7 @@ export async function updatePaymentStatus(
         paymentMethod,
         JSON.stringify(safePayload),
         paymentRow.id,
+        eventName === 'phonepe.status_api' || eventName === 'phonepe.reconciliation',
       ]
     );
 
@@ -1168,17 +1468,14 @@ export async function updatePaymentStatus(
       [payment.rows[0].id, nextStatus, JSON.stringify(safePayload)]
     );
     await client.query(
-      `INSERT INTO payment_webhook_events
-       (payment_id, event_name, merchant_order_id, provider_order_id, provider_transaction_id, status, raw_payload)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+      `UPDATE payment_webhook_events
+       SET provider_order_id = $1, provider_transaction_id = $2, status = $3
+       WHERE id = $4`,
       [
-        payment.rows[0].id,
-        eventName,
-        merchantTransactionId,
         providerOrderId,
         providerTransactionId,
         nextStatus,
-        JSON.stringify(safePayload),
+        acceptedEvent.rows[0].id,
       ]
     );
 
@@ -1191,7 +1488,10 @@ export async function updatePaymentStatus(
       }
       if (payment.rows[0].appointment_id) {
         await client.query(
-          `UPDATE appointments SET status = 'confirmed', updated_at = NOW() WHERE id = $1`,
+          `UPDATE appointments
+           SET status = 'confirmed', booking_state = 'confirmed', version = version + 1,
+               updated_at = NOW()
+           WHERE id = $1 AND booking_state = 'payment_pending'`,
           [payment.rows[0].appointment_id]
         );
       }
@@ -1233,7 +1533,9 @@ export async function updatePaymentStatus(
       }
       if (payment.rows[0].appointment_id) {
         await client.query(
-          `UPDATE appointments SET status = 'payment_failed', updated_at = NOW() WHERE id = $1`,
+          `UPDATE appointments
+           SET status = 'payment_failed', booking_state = 'payment_failed',
+               version = version + 1, updated_at = NOW() WHERE id = $1`,
           [payment.rows[0].appointment_id]
         );
       }
@@ -1249,12 +1551,12 @@ export async function updatePaymentStatus(
   }
 }
 
-async function refreshPaymentFromProvider(payment: any) {
+export async function refreshPaymentFromProvider(payment: any, force = false) {
   if (!config.phonePe.enabled || !payment) return payment;
   if (isTerminalPaymentStatus(payment.status) && payment.status !== 'verification_required')
     return payment;
   const updatedAt = parseDate(payment.updated_at);
-  if (updatedAt && Date.now() - updatedAt.getTime() < 60_000) return payment;
+  if (!force && updatedAt && Date.now() - updatedAt.getTime() < 60_000) return payment;
 
   const providerStatus = await getPhonePeOrderStatus(payment.merchant_transaction_id);
   const nextStatus = normalizePhonePeState(providerStatus.state);
@@ -1262,8 +1564,97 @@ async function refreshPaymentFromProvider(payment: any) {
     payment.merchant_transaction_id,
     nextStatus,
     providerStatus,
-    'phonepe.status_api'
+    force ? 'phonepe.reconciliation' : 'phonepe.status_api'
   );
+}
+
+export async function reconcilePendingPayments(limit = 25) {
+  if (!config.phonePe.enabled) return { checked: 0, changed: 0, exceptions: 0 };
+  const pending = await query(
+    `SELECT * FROM payments
+     WHERE status IN ('created','pending','verification_required')
+       AND updated_at < NOW() - INTERVAL '2 minutes'
+     ORDER BY updated_at ASC, id ASC LIMIT $1`,
+    [Math.min(100, Math.max(1, limit))]
+  );
+  let changed = 0;
+  let exceptions = 0;
+  for (const payment of pending.rows) {
+    try {
+      const refreshed = await refreshPaymentFromProvider(payment, true);
+      if (refreshed?.status !== payment.status) changed += 1;
+      if (refreshed?.status === 'verification_required' || (Date.now() - new Date(payment.created_at).getTime()) > 15 * 60_000) {
+        const inserted = await query(
+          `INSERT INTO payment_exceptions
+           (payment_id, exception_type, severity, expected_snapshot, observed_snapshot)
+           VALUES ($1, $2, $3, $4, $5)
+           ON CONFLICT (payment_id, exception_type) WHERE status <> 'resolved'
+           DO UPDATE SET observed_snapshot = EXCLUDED.observed_snapshot, updated_at = NOW()
+           RETURNING id`,
+          [payment.id, refreshed?.status === 'verification_required' ? 'provider_mismatch' : 'pending_too_long',
+            refreshed?.status === 'verification_required' ? 'critical' : 'warning',
+            JSON.stringify({ amount_paisa: payment.amount_paisa, currency: payment.currency || 'INR' }),
+            JSON.stringify({ status: refreshed?.status || payment.status, checked_at: new Date().toISOString() })]
+        );
+        if (inserted.rows[0]) exceptions += 1;
+      }
+    } catch (err) {
+      await query(
+        `INSERT INTO payment_exceptions (payment_id, exception_type, severity, observed_snapshot)
+         VALUES ($1, 'provider_unavailable', 'warning', $2)
+         ON CONFLICT (payment_id, exception_type) WHERE status <> 'resolved'
+         DO UPDATE SET observed_snapshot = EXCLUDED.observed_snapshot, updated_at = NOW()`,
+        [payment.id, JSON.stringify({ checked_at: new Date().toISOString(), error_code: 'PROVIDER_REQUEST_FAILED' })]
+      );
+      exceptions += 1;
+    }
+  }
+  return { checked: pending.rows.length, changed, exceptions };
+}
+
+export async function listPaymentExceptions(status = 'open', limit = 50) {
+  const result = await query(
+    `SELECT pe.id, pe.payment_id, pe.exception_type, pe.severity, pe.status,
+            pe.owner_staff_id, pe.resolution_notes, pe.created_at, pe.updated_at,
+            p.merchant_transaction_id, p.amount, p.currency, p.status AS payment_status
+     FROM payment_exceptions pe JOIN payments p ON p.id = pe.payment_id
+     WHERE pe.status = $1 ORDER BY pe.severity DESC, pe.created_at ASC LIMIT $2`,
+    [status, Math.min(100, Math.max(1, limit))]
+  );
+  return result.rows;
+}
+
+export async function requestPaymentRefund(input: { paymentId: string; amount: number; reason: string; idempotencyKey: string; actorStaffId: string }) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const replay = await client.query('SELECT * FROM payment_refunds WHERE idempotency_key = $1', [input.idempotencyKey]);
+    if (replay.rows[0]) { await client.query('COMMIT'); return replay.rows[0]; }
+    const paymentResult = await client.query(`SELECT * FROM payments WHERE id = $1 FOR UPDATE`, [input.paymentId]);
+    const payment = paymentResult.rows[0];
+    if (!payment || !['success','refund_pending'].includes(payment.status)) {
+      const error = new Error('Only provider-verified successful payments can be refunded') as Error & { status?: number; code?: string };
+      error.status = 409; error.code = 'PAYMENT_NOT_REFUNDABLE'; throw error;
+    }
+    const totals = await client.query(
+      `SELECT COALESCE(SUM(amount) FILTER (WHERE status IN ('approved','processing','completed')), 0) AS reserved
+       FROM payment_refunds WHERE payment_id = $1`, [input.paymentId]
+    );
+    validateRefundAmount(Number(payment.amount), Number(totals.rows[0].reserved), input.amount);
+    const refund = await client.query(
+      `INSERT INTO payment_refunds
+       (payment_id, amount, currency, reason, idempotency_key, requested_by_staff_id)
+       VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+      [input.paymentId, input.amount, payment.currency || 'INR', input.reason, input.idempotencyKey, input.actorStaffId]
+    );
+    await client.query(
+      `INSERT INTO audit_log (actor_staff_id, action, entity_type, entity_id, metadata)
+       VALUES ($1, 'payment.refund_requested', 'payment', $2, $3)`,
+      [input.actorStaffId, input.paymentId, JSON.stringify({ refund_id: refund.rows[0].id, amount: input.amount, currency: payment.currency || 'INR' })]
+    );
+    await client.query('COMMIT');
+    return refund.rows[0];
+  } catch (err) { await client.query('ROLLBACK'); throw err; } finally { client.release(); }
 }
 
 export async function getPaymentStatus(merchantTransactionId: string) {
@@ -1695,7 +2086,9 @@ export async function listAvailabilityRules(doctorId?: string) {
     `SELECT ar.*, d.name AS doctor_name
      FROM doctor_availability_rules ar
      JOIN doctors d ON d.id = ar.doctor_id
-     ${doctorId ? 'WHERE ar.doctor_id = $1' : ''}
+     WHERE ar.is_active = true
+       AND (ar.effective_until IS NULL OR ar.effective_until >= (NOW() AT TIME ZONE 'Asia/Kolkata')::date)
+       ${doctorId ? 'AND ar.doctor_id = $1' : ''}
      ORDER BY ar.weekday ASC, ar.start_time ASC`,
     doctorId ? [doctorId] : []
   );
@@ -1705,30 +2098,102 @@ export async function listAvailabilityRules(doctorId?: string) {
 export async function createAvailabilityRule(input: {
   doctor_id: string;
   weekday: number;
-  start_time: string;
-  end_time: string;
-  slot_minutes?: number;
-  effective_from?: string;
+  closed: boolean;
+  start_time?: string;
+  end_time?: string;
+  slot_count?: number;
+  effective_from: string;
   effective_until?: string;
-  is_active?: boolean;
+  expected_version: number;
+  actor_staff_id?: string;
 }) {
-  const result = await query(
-    `INSERT INTO doctor_availability_rules
-     (doctor_id, weekday, start_time, end_time, slot_minutes, effective_from, effective_until, is_active)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-     RETURNING *`,
-    [
-      input.doctor_id,
-      input.weekday,
-      input.start_time,
-      input.end_time,
-      input.slot_minutes || defaultAppointmentConfig.default_slot_minutes,
-      input.effective_from || new Date().toISOString().slice(0, 10),
-      input.effective_until || null,
-      input.is_active ?? true,
-    ]
-  );
-  return result.rows[0];
+  const slotMinutes = input.closed ? null : slotMinutesForCount(input.start_time, input.end_time, input.slot_count);
+  const settings = await getAppointmentConfig();
+  const endDate = input.effective_until || addClinicDays(input.effective_from, settings.maximum_booking_horizon_days);
+  const affectedDates: string[] = [];
+  const cursor = new Date(`${input.effective_from}T00:00:00Z`);
+  const end = new Date(`${endDate}T00:00:00Z`);
+  while (cursor <= end) {
+    const date = cursor.toISOString().slice(0, 10);
+    if (cursor.getUTCDay() === input.weekday) affectedDates.push(date);
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`calendar:${input.doctor_id}`]);
+    await expireOldHolds(client);
+    const versionResult = await client.query(
+      `INSERT INTO doctor_schedule_versions (doctor_id) VALUES ($1)
+       ON CONFLICT (doctor_id) DO UPDATE SET doctor_id = EXCLUDED.doctor_id
+       RETURNING version`,
+      [input.doctor_id]
+    );
+    if (Number(versionResult.rows[0]?.version || 1) !== input.expected_version) {
+      const error = new Error('The calendar changed in another session. Reload before saving weekly hours.') as Error & { status?: number; code?: string };
+      error.status = 409;
+      error.code = 'SCHEDULE_VERSION_CONFLICT';
+      throw error;
+    }
+    if (affectedDates.length > 0) {
+      const conflicts = await client.query(
+        `SELECT
+           (SELECT COUNT(*) FROM appointments WHERE doctor_id = $1 AND appointment_date = ANY($2::date[])
+             AND status IN ('awaiting_payment','payment_pending','confirmed','checked_in'))::int AS appointments,
+           (SELECT COUNT(*) FROM appointment_holds WHERE doctor_id = $1 AND appointment_date = ANY($2::date[])
+             AND status = 'active' AND expires_at > NOW())::int AS holds`,
+        [input.doctor_id, affectedDates]
+      );
+      const appointmentCount = Number(conflicts.rows[0]?.appointments || 0);
+      const holdCount = Number(conflicts.rows[0]?.holds || 0);
+      if (appointmentCount > 0 || holdCount > 0) {
+        const error = new Error(`Weekly hours cannot be replaced while ${appointmentCount} appointment(s) and ${holdCount} active hold(s) exist on affected dates.`) as Error & { status?: number; code?: string };
+        error.status = 409;
+        error.code = 'RECURRING_SCHEDULE_CONFLICT';
+        throw error;
+      }
+    }
+    await client.query(
+      `UPDATE doctor_availability_rules
+       SET effective_until = ($3::date - 1), updated_at = NOW()
+       WHERE doctor_id = $1 AND weekday = $2 AND is_active = true
+         AND effective_from < $3 AND (effective_until IS NULL OR effective_until >= $3)`,
+      [input.doctor_id, input.weekday, input.effective_from]
+    );
+    await client.query(
+      `UPDATE doctor_availability_rules SET is_active = false, updated_at = NOW()
+       WHERE doctor_id = $1 AND weekday = $2 AND is_active = true AND effective_from >= $3`,
+      [input.doctor_id, input.weekday, input.effective_from]
+    );
+    let rule = null;
+    if (!input.closed) {
+      const inserted = await client.query(
+        `INSERT INTO doctor_availability_rules
+         (doctor_id, weekday,start_time,end_time,slot_minutes,effective_from,effective_until,is_active)
+         VALUES($1,$2,$3,$4,$5,$6,$7,true) RETURNING *`,
+        [input.doctor_id, input.weekday, input.start_time, input.end_time, slotMinutes, input.effective_from, input.effective_until || null]
+      );
+      rule = inserted.rows[0];
+    }
+    const nextVersion = await client.query(
+      `UPDATE doctor_schedule_versions SET version = version + 1, updated_at = NOW() WHERE doctor_id = $1 RETURNING version`,
+      [input.doctor_id]
+    );
+    await client.query(
+      `INSERT INTO schedule_audit_events
+       (doctor_id,actor_staff_id,action,after_state,reason,affected_dates,correlation_id)
+       VALUES($1,$2,'schedule.weekday_replaced',$3,$4,$5::date[],gen_random_uuid())`,
+      [input.doctor_id, input.actor_staff_id || null, JSON.stringify({ weekday: input.weekday, closed: input.closed, rule }), input.closed ? 'Regular weekday closed' : 'Regular weekday hours updated', affectedDates]
+    );
+    await client.query('COMMIT');
+    return { ...rule, closed: input.closed, version: Number(nextVersion.rows[0]?.version) };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function listCalendarOverrides(
@@ -1748,7 +2213,8 @@ export async function listCalendarOverrides(
     values.push(filters.to);
     conditions.push(`ce.exception_date <= $${values.length}`);
   }
-  const where = conditions.length ? `WHERE ${conditions.join(' AND ')}` : '';
+  conditions.push(`ce.status = 'active'`);
+  const where = `WHERE ${conditions.join(' AND ')}`;
   const result = await query(
     `SELECT ce.*, d.name AS doctor_name
      FROM calendar_exceptions ce
@@ -1775,14 +2241,12 @@ function effectiveCalendarStatus(input: {
   overrides: any[];
   appointmentCount: number;
 }) {
-  const weekday = new Date(`${input.date}T00:00:00`).getDay();
   const hasWholeDayBlock = input.overrides.some((item) => item.override_type === 'unavailable_whole_day');
   const hasCustomHours = input.overrides.some((item) => ['custom_hours', 'add_extra_hours'].includes(item.override_type));
   const hasPartialBlock = input.overrides.some((item) => item.override_type === 'block_time_range');
   const summary = summarizeAvailability(input.slots);
 
   if (hasWholeDayBlock) return 'unavailable';
-  if (weekday === 0 && !hasCustomHours) return 'sunday_closed';
   if (summary.total === 0) return 'no_hours';
   if (summary.available === 0) return 'full';
   if (hasPartialBlock || summary.blocked > 0) return 'partial';
@@ -1796,12 +2260,25 @@ export async function getAdminCalendarView(input: {
   to: string;
 }) {
   const dates = datesBetween(input.from, input.to);
-  const [settings, availability, rules, overrides, appointments] = await Promise.all([
+  const [settings, availability, rules, overrides, appointments, versionResult, conflictsResult] = await Promise.all([
     getAppointmentConfig(),
     listDoctorAvailability(input.doctorId, input.from, input.to),
     listAvailabilityRules(input.doctorId),
     listCalendarOverrides({ doctorId: input.doctorId, from: input.from, to: input.to }),
     listAppointments({ doctorId: input.doctorId, from: input.from, to: input.to }),
+    query(
+      `INSERT INTO doctor_schedule_versions (doctor_id) VALUES ($1)
+       ON CONFLICT (doctor_id) DO UPDATE SET doctor_id = EXCLUDED.doctor_id
+       RETURNING version`,
+      [input.doctorId]
+    ),
+    query(
+      `SELECT id, status, reason, requested_change, created_at
+       FROM schedule_conflict_cases
+       WHERE doctor_id = $1 AND status IN ('open', 'ready')
+       ORDER BY created_at DESC LIMIT 50`,
+      [input.doctorId]
+    ),
   ]);
 
   const appointmentsByDate = appointments.reduce<Record<string, any[]>>((map, item) => {
@@ -1856,6 +2333,8 @@ export async function getAdminCalendarView(input: {
     to: input.to,
     generatedAt: new Date().toISOString(),
     timezone: 'Asia/Kolkata',
+    version: Number(versionResult.rows[0]?.version || 1),
+    pendingConflictCases: conflictsResult.rows,
     settings,
     warnings: appointmentConfigWarnings(settings),
     rules,
@@ -1866,22 +2345,143 @@ export async function getAdminCalendarView(input: {
   };
 }
 
+export async function getScheduleConflictCase(id: string, doctorId?: string) {
+  const caseResult = await query(
+    `SELECT scc.*, d.name AS doctor_name
+     FROM schedule_conflict_cases scc
+     JOIN doctors d ON d.id = scc.doctor_id
+     WHERE scc.id = $1 ${doctorId ? 'AND scc.doctor_id = $2' : ''}`,
+    doctorId ? [id, doctorId] : [id]
+  );
+  if (!caseResult.rows[0]) return null;
+  const appointments = await query(
+    `SELECT sca.appointment_id, sca.resolution, sca.notes, sca.resolved_at,
+            a.appointment_number, a.doctor_id, a.appointment_date, a.start_time, a.end_time,
+            a.status, p.full_name AS patient_name, p.phone
+     FROM schedule_conflict_appointments sca
+     JOIN appointments a ON a.id = sca.appointment_id
+     JOIN patients p ON p.id = a.patient_id
+     WHERE sca.case_id = $1
+     ORDER BY a.appointment_date, a.start_time`,
+    [id]
+  );
+  return {
+    ...caseResult.rows[0],
+    appointments: appointments.rows.map((row) => ({ ...row, phone: undefined, phone_masked: maskPhone(row.phone) })),
+  };
+}
+
+export async function recordScheduleConflictResolutions(input: {
+  caseId: string;
+  resolutions: Array<{
+    appointment_id: string;
+    resolution: 'keep' | 'reschedule' | 'approved_transfer' | 'cancel_contact';
+    notes: string;
+  }>;
+  actorStaffId?: string;
+  doctorId?: string;
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const caseResult = await client.query(
+      `SELECT * FROM schedule_conflict_cases
+       WHERE id = $1 ${input.doctorId ? 'AND doctor_id = $2' : ''}
+         AND status IN ('open', 'ready')
+       FOR UPDATE`,
+      input.doctorId ? [input.caseId, input.doctorId] : [input.caseId]
+    );
+    const conflictCase = caseResult.rows[0];
+    if (!conflictCase) {
+      const error = new Error('Open schedule conflict case not found') as Error & { status?: number; code?: string };
+      error.status = 404;
+      error.code = 'SCHEDULE_CONFLICT_NOT_FOUND';
+      throw error;
+    }
+    const requestedDates: string[] = conflictCase.requested_change?.dates || [];
+    for (const resolution of input.resolutions) {
+      const appointmentResult = await client.query(
+        `SELECT a.* FROM schedule_conflict_appointments sca
+         JOIN appointments a ON a.id = sca.appointment_id
+         WHERE sca.case_id = $1 AND sca.appointment_id = $2
+         FOR UPDATE OF sca, a`,
+        [input.caseId, resolution.appointment_id]
+      );
+      const appointment = appointmentResult.rows[0];
+      if (!appointment) {
+        const error = new Error('Appointment is not part of this conflict case') as Error & { status?: number; code?: string };
+        error.status = 400;
+        error.code = 'CONFLICT_APPOINTMENT_MISMATCH';
+        throw error;
+      }
+      if (resolution.resolution === 'cancel_contact' && appointment.status !== 'cancelled') {
+        const error = new Error('Cancel the appointment and complete patient contact before recording this resolution') as Error & { status?: number; code?: string };
+        error.status = 409;
+        error.code = 'APPOINTMENT_CANCELLATION_REQUIRED';
+        throw error;
+      }
+      if (resolution.resolution === 'approved_transfer' && appointment.doctor_id === conflictCase.doctor_id) {
+        const error = new Error('Transfer the appointment to the approved doctor before recording this resolution') as Error & { status?: number; code?: string };
+        error.status = 409;
+        error.code = 'APPOINTMENT_TRANSFER_REQUIRED';
+        throw error;
+      }
+      if (
+        resolution.resolution === 'reschedule' &&
+        requestedDates.includes(formatClinicDate(appointment.appointment_date))
+      ) {
+        const error = new Error('Reschedule the appointment to a different date before recording this resolution') as Error & { status?: number; code?: string };
+        error.status = 409;
+        error.code = 'APPOINTMENT_RESCHEDULE_REQUIRED';
+        throw error;
+      }
+      await client.query(
+        `UPDATE schedule_conflict_appointments
+         SET resolution = $3, notes = $4, resolved_by_staff_id = $5, resolved_at = NOW()
+         WHERE case_id = $1 AND appointment_id = $2`,
+        [input.caseId, resolution.appointment_id, resolution.resolution, resolution.notes, input.actorStaffId || null]
+      );
+    }
+    const unresolved = await client.query(
+      `SELECT COUNT(*)::int AS count FROM schedule_conflict_appointments
+       WHERE case_id = $1 AND resolution IS NULL`,
+      [input.caseId]
+    );
+    const status = Number(unresolved.rows[0]?.count || 0) === 0 ? 'ready' : 'open';
+    const updated = await client.query(
+      `UPDATE schedule_conflict_cases SET status = $2, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [input.caseId, status]
+    );
+    await client.query('COMMIT');
+    return updated.rows[0];
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
 export async function createCalendarOverride(input: {
   doctor_id?: string;
   exception_date: string;
   override_type: 'unavailable_whole_day' | 'custom_hours' | 'block_time_range' | 'add_extra_hours';
   start_time?: string;
   end_time?: string;
+  slot_count?: number;
   reason?: string;
   public_note?: string;
   internal_note?: string;
 }) {
   const available =
     input.override_type === 'custom_hours' || input.override_type === 'add_extra_hours';
+  const slotMinutes = input.override_type === 'unavailable_whole_day'
+    ? null
+    : slotMinutesForCount(input.start_time, input.end_time, input.slot_count);
   const result = await query(
     `INSERT INTO calendar_exceptions
-     (doctor_id, exception_date, override_type, start_time, end_time, reason, public_note, internal_note, is_available)
-     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     (doctor_id, exception_date, override_type, start_time, end_time, slot_minutes, reason, public_note, internal_note, is_available)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
      RETURNING *`,
     [
       input.doctor_id || null,
@@ -1889,6 +2489,7 @@ export async function createCalendarOverride(input: {
       input.override_type,
       input.override_type === 'unavailable_whole_day' ? null : input.start_time || null,
       input.override_type === 'unavailable_whole_day' ? null : input.end_time || null,
+      slotMinutes,
       input.reason || null,
       input.public_note || null,
       input.internal_note || null,
@@ -1904,13 +2505,18 @@ export async function createCalendarOverridesBatch(input: {
   override_type: 'unavailable_whole_day' | 'custom_hours' | 'block_time_range' | 'add_extra_hours';
   start_time?: string;
   end_time?: string;
+  slot_count?: number;
   reason?: string;
   public_note?: string;
   internal_note?: string;
-  allow_conflicts?: boolean;
+  expected_version: number;
   actor_staff_id?: string;
+  resolved_conflict_case_id?: string;
 }) {
   const uniqueDates = Array.from(new Set(input.dates)).sort();
+  const slotMinutes = input.override_type === 'unavailable_whole_day'
+    ? null
+    : slotMinutesForCount(input.start_time, input.end_time, input.slot_count);
   if (uniqueDates.length === 0) {
     const error = new Error('At least one date is required') as Error & { status?: number; code?: string };
     error.status = 400;
@@ -1928,6 +2534,71 @@ export async function createCalendarOverridesBatch(input: {
   try {
     await client.query('BEGIN');
     await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`calendar:${input.doctor_id}`]);
+    for (const date of uniqueDates) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+        `${input.doctor_id}:${date}`,
+      ]);
+    }
+    await expireOldHolds(client);
+    const versionResult = await client.query(
+      `INSERT INTO doctor_schedule_versions (doctor_id) VALUES ($1)
+       ON CONFLICT (doctor_id) DO UPDATE SET doctor_id = EXCLUDED.doctor_id
+       RETURNING version`,
+      [input.doctor_id]
+    );
+    const currentVersion = Number(versionResult.rows[0].version);
+    if (currentVersion !== input.expected_version) {
+      const error = new Error('The calendar changed in another session. Reload and review the latest schedule.') as Error & { status?: number; code?: string };
+      error.status = 409;
+      error.code = 'SCHEDULE_VERSION_CONFLICT';
+      throw error;
+    }
+
+    if (input.resolved_conflict_case_id) {
+      const readyCase = await client.query(
+        `SELECT id FROM schedule_conflict_cases
+         WHERE id = $1 AND doctor_id = $2 AND status = 'ready'
+           AND NOT EXISTS (
+             SELECT 1 FROM schedule_conflict_appointments
+             WHERE case_id = $1 AND resolution IS NULL
+           )
+         FOR UPDATE`,
+        [input.resolved_conflict_case_id, input.doctor_id]
+      );
+      if (!readyCase.rows[0]) {
+        const error = new Error('Resolve every affected appointment before applying this schedule change') as Error & { status?: number; code?: string };
+        error.status = 409;
+        error.code = 'SCHEDULE_CONFLICT_NOT_READY';
+        throw error;
+      }
+    }
+
+    const activeHoldResult = await client.query(
+      `SELECT appointment_date, COUNT(*)::int AS hold_count
+       FROM appointment_holds
+       WHERE doctor_id = $1
+         AND appointment_date = ANY($2::date[])
+         AND status = 'active'
+         AND expires_at > NOW()
+       GROUP BY appointment_date
+       ORDER BY appointment_date ASC`,
+      [input.doctor_id, uniqueDates]
+    );
+    const isReduction =
+      input.override_type === 'unavailable_whole_day' ||
+      input.override_type === 'block_time_range' ||
+      input.override_type === 'custom_hours';
+    if (isReduction && activeHoldResult.rows.length > 0) {
+      const affected = activeHoldResult.rows
+        .map((row) => `${formatClinicDate(row.appointment_date)} (${Number(row.hold_count)} hold)`)
+        .join(', ');
+      const error = new Error(
+        `A patient is currently completing a booking on ${affected}. Retry after the slot hold expires or is converted.`
+      ) as Error & { status?: number; code?: string };
+      error.status = 409;
+      error.code = 'ACTIVE_SLOT_HOLDS';
+      throw error;
+    }
 
     const conflictResult = await client.query(
       `SELECT appointment_date, COUNT(*)::int AS appointment_count
@@ -1935,22 +2606,54 @@ export async function createCalendarOverridesBatch(input: {
        WHERE doctor_id = $1
          AND appointment_date = ANY($2::date[])
          AND status IN ('awaiting_payment', 'payment_pending', 'confirmed', 'checked_in')
+         AND ($3::uuid IS NULL OR id NOT IN (
+           SELECT appointment_id FROM schedule_conflict_appointments
+           WHERE case_id = $3 AND resolution IS NOT NULL
+         ))
        GROUP BY appointment_date
        ORDER BY appointment_date ASC`,
-      [input.doctor_id, uniqueDates]
+      [input.doctor_id, uniqueDates, input.resolved_conflict_case_id || null]
     );
     const conflicted = conflictResult.rows.map((row) => ({
       date: formatClinicDate(row.appointment_date),
       appointment_count: Number(row.appointment_count || 0),
     }));
 
-    if (conflicted.length > 0 && input.override_type === 'unavailable_whole_day' && !input.allow_conflicts) {
-      await client.query('ROLLBACK');
+    if (conflicted.length > 0 && isReduction) {
+      const appointmentRows = await client.query(
+        `SELECT id FROM appointments
+         WHERE doctor_id = $1 AND appointment_date = ANY($2::date[])
+           AND status IN ('awaiting_payment', 'payment_pending', 'confirmed', 'checked_in')`,
+        [input.doctor_id, uniqueDates]
+      );
+      const correlationId = crypto.randomUUID();
+      const conflictCase = await client.query(
+        `INSERT INTO schedule_conflict_cases
+         (doctor_id, requested_by_staff_id, requested_version, requested_change, reason, due_at, correlation_id)
+         VALUES ($1, $2, $3, $4, $5, ($6::date + time '09:00') AT TIME ZONE 'Asia/Kolkata', $7)
+         RETURNING *`,
+        [input.doctor_id, input.actor_staff_id || null, currentVersion, JSON.stringify({ ...input, actor_staff_id: undefined }), input.reason, uniqueDates[0], correlationId]
+      );
+      for (const row of appointmentRows.rows) {
+        await client.query(
+          `INSERT INTO schedule_conflict_appointments (case_id, appointment_id) VALUES ($1, $2)`,
+          [conflictCase.rows[0].id, row.id]
+        );
+      }
+      await client.query(
+        `INSERT INTO schedule_audit_events
+         (doctor_id, actor_staff_id, action, after_state, reason, affected_dates, correlation_id)
+         VALUES ($1, $2, 'schedule.change_pending_resolution', $3, $4, $5::date[], $6)`,
+        [input.doctor_id, input.actor_staff_id || null, JSON.stringify({ conflict_case_id: conflictCase.rows[0].id, conflicted }), input.reason, uniqueDates, correlationId]
+      );
+      await client.query('COMMIT');
       return {
         created: [],
         skipped: [],
         conflicted,
-        requiresConfirmation: true,
+        requiresResolution: true,
+        conflictCase: conflictCase.rows[0],
+        version: currentVersion,
       };
     }
 
@@ -1960,16 +2663,18 @@ export async function createCalendarOverridesBatch(input: {
     const skipped: any[] = [];
 
     for (const date of uniqueDates) {
-      const weekday = new Date(`${date}T00:00:00`).getDay();
-      if (weekday === 0 && input.override_type === 'unavailable_whole_day') {
-        skipped.push({ date, reason: 'Sunday is already closed' });
-        continue;
+      if (['custom_hours', 'unavailable_whole_day'].includes(input.override_type)) {
+        await client.query(
+          `UPDATE calendar_exceptions
+           SET status = 'superseded', updated_at = NOW()
+           WHERE doctor_id = $1 AND exception_date = $2 AND status = 'active'`,
+          [input.doctor_id, date]
+        );
       }
-
       const result = await client.query(
         `INSERT INTO calendar_exceptions
-         (doctor_id, exception_date, override_type, start_time, end_time, reason, public_note, internal_note, is_available)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         (doctor_id, exception_date, override_type, start_time, end_time, slot_minutes, reason, public_note, internal_note, is_available)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING *`,
         [
           input.doctor_id,
@@ -1977,6 +2682,7 @@ export async function createCalendarOverridesBatch(input: {
           input.override_type,
           input.override_type === 'unavailable_whole_day' ? null : input.start_time || null,
           input.override_type === 'unavailable_whole_day' ? null : input.end_time || null,
+          slotMinutes,
           input.reason || null,
           input.public_note || null,
           input.internal_note || null,
@@ -2003,12 +2709,32 @@ export async function createCalendarOverridesBatch(input: {
       ]
     );
 
+    const correlationId = crypto.randomUUID();
+    const nextVersionResult = await client.query(
+      `UPDATE doctor_schedule_versions SET version = version + 1, updated_at = NOW()
+       WHERE doctor_id = $1 RETURNING version`,
+      [input.doctor_id]
+    );
+    await client.query(
+      `INSERT INTO schedule_audit_events
+       (doctor_id, actor_staff_id, action, after_state, reason, affected_dates, correlation_id)
+       VALUES ($1, $2, 'schedule.change_applied', $3, $4, $5::date[], $6)`,
+      [input.doctor_id, input.actor_staff_id || null, JSON.stringify({ override_type: input.override_type, created: created.map((item) => item.id) }), input.reason, uniqueDates, correlationId]
+    );
+    if (input.resolved_conflict_case_id) {
+      await client.query(
+        `UPDATE schedule_conflict_cases SET status = 'applied', updated_at = NOW() WHERE id = $1`,
+        [input.resolved_conflict_case_id]
+      );
+    }
+
     await client.query('COMMIT');
     return {
       created,
       skipped,
       conflicted,
-      requiresConfirmation: false,
+      requiresResolution: false,
+      version: Number(nextVersionResult.rows[0].version),
     };
   } catch (err) {
     await client.query('ROLLBACK');
@@ -2018,14 +2744,162 @@ export async function createCalendarOverridesBatch(input: {
   }
 }
 
-export async function deleteCalendarOverride(id: string) {
-  const result = await query('DELETE FROM calendar_exceptions WHERE id = $1 RETURNING *', [id]);
-  if (!result.rows[0]) {
-    const error = new Error('Calendar override not found') as Error & { status?: number };
+export async function applyScheduleConflictCase(input: {
+  caseId: string;
+  expectedVersion: number;
+  actorStaffId?: string;
+  doctorId?: string;
+}) {
+  const result = await query(
+    `SELECT * FROM schedule_conflict_cases
+     WHERE id = $1 ${input.doctorId ? 'AND doctor_id = $2' : ''} AND status = 'ready'`,
+    input.doctorId ? [input.caseId, input.doctorId] : [input.caseId]
+  );
+  const conflictCase = result.rows[0];
+  if (!conflictCase) {
+    const error = new Error('Ready schedule conflict case not found') as Error & { status?: number; code?: string };
     error.status = 404;
+    error.code = 'SCHEDULE_CONFLICT_NOT_READY';
     throw error;
   }
-  return result.rows[0];
+  const requested = conflictCase.requested_change;
+  return createCalendarOverridesBatch({
+    doctor_id: conflictCase.doctor_id,
+    dates: requested.dates,
+    override_type: requested.override_type,
+    start_time: requested.start_time,
+    end_time: requested.end_time,
+    slot_count: requested.slot_count,
+    reason: requested.reason || conflictCase.reason,
+    public_note: requested.public_note,
+    internal_note: requested.internal_note,
+    expected_version: input.expectedVersion,
+    actor_staff_id: input.actorStaffId,
+    resolved_conflict_case_id: input.caseId,
+  });
+}
+
+export async function deleteCalendarOverride(
+  id: string,
+  expectedVersion: number,
+  actorStaffId?: string,
+  actorDoctorId?: string
+) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const lookup = await client.query('SELECT * FROM calendar_exceptions WHERE id = $1', [id]);
+    if (!lookup.rows[0]) {
+      const error = new Error('Calendar override not found') as Error & { status?: number };
+      error.status = 404;
+      throw error;
+    }
+    const doctorId = lookup.rows[0].doctor_id;
+    const exceptionDate = formatClinicDate(lookup.rows[0].exception_date);
+    if (!doctorId) {
+      const error = new Error('Clinic-wide calendar changes require the global schedule workflow') as Error & {
+        status?: number;
+        code?: string;
+      };
+      error.status = 409;
+      error.code = 'GLOBAL_SCHEDULE_WORKFLOW_REQUIRED';
+      throw error;
+    }
+    if (actorDoctorId && doctorId !== actorDoctorId) {
+      const error = new Error('Doctors may only remove changes from their own calendar') as Error & {
+        status?: number;
+        code?: string;
+      };
+      error.status = 403;
+      error.code = 'DOCTOR_CALENDAR_SCOPE_DENIED';
+      throw error;
+    }
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [`calendar:${doctorId}`]);
+    await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [
+      `${doctorId}:${exceptionDate}`,
+    ]);
+    await expireOldHolds(client);
+    const existing = await client.query(
+      `SELECT * FROM calendar_exceptions WHERE id = $1 AND status = 'active' FOR UPDATE`,
+      [id]
+    );
+    if (!existing.rows[0]) {
+      const error = new Error('This calendar change was already removed') as Error & {
+        status?: number;
+        code?: string;
+      };
+      error.status = 409;
+      error.code = 'CALENDAR_OVERRIDE_ALREADY_REMOVED';
+      throw error;
+    }
+    const version = await client.query(
+      `SELECT version FROM doctor_schedule_versions WHERE doctor_id = $1 FOR UPDATE`,
+      [doctorId]
+    );
+    if (Number(version.rows[0]?.version || 1) !== expectedVersion) {
+      const error = new Error('The calendar changed in another session. Reload before removing this change.') as Error & { status?: number; code?: string };
+      error.status = 409;
+      error.code = 'SCHEDULE_VERSION_CONFLICT';
+      throw error;
+    }
+    const result = await client.query(
+      `UPDATE calendar_exceptions SET status = 'superseded', updated_at = NOW() WHERE id = $1 RETURNING *`,
+      [id]
+    );
+
+    if (['custom_hours', 'add_extra_hours'].includes(existing.rows[0].override_type)) {
+      const [effectiveSlots, activeAppointments, activeHolds] = await Promise.all([
+        listSlotsWithDb(client, doctorId, exceptionDate),
+        client.query(
+          `SELECT id, start_time, end_time FROM appointments
+           WHERE doctor_id = $1 AND appointment_date = $2
+             AND status IN ('awaiting_payment', 'payment_pending', 'confirmed', 'checked_in')`,
+          [doctorId, exceptionDate]
+        ),
+        client.query(
+          `SELECT id, start_time, end_time FROM appointment_holds
+           WHERE doctor_id = $1 AND appointment_date = $2
+             AND status = 'active' AND expires_at > NOW()`,
+          [doctorId, exceptionDate]
+        ),
+      ]);
+      const isStillScheduled = (row: any) =>
+        effectiveSlots.some(
+          (slot) =>
+            compactTime(slot.start_time) === compactTime(row.start_time) &&
+            compactTime(slot.end_time) === compactTime(row.end_time)
+        );
+      const impactedAppointments = activeAppointments.rows.filter((row) => !isStillScheduled(row));
+      const impactedHolds = activeHolds.rows.filter((row) => !isStillScheduled(row));
+      if (impactedAppointments.length > 0 || impactedHolds.length > 0) {
+        const error = new Error(
+          `This change cannot be removed because it would leave ${impactedAppointments.length} appointment(s) and ${impactedHolds.length} active hold(s) outside the doctor's working hours.`
+        ) as Error & { status?: number; code?: string };
+        error.status = 409;
+        error.code = 'SCHEDULE_REVERT_CONFLICT';
+        throw error;
+      }
+    }
+
+    const correlationId = crypto.randomUUID();
+    await client.query(
+      `UPDATE doctor_schedule_versions SET version = version + 1, updated_at = NOW() WHERE doctor_id = $1`,
+      [doctorId]
+    );
+    await client.query(
+      `INSERT INTO schedule_audit_events
+       (doctor_id, actor_staff_id, action, before_state, reason, affected_dates, correlation_id)
+       VALUES ($1, $2, 'schedule.change_superseded', $3, 'Removed by operator', ARRAY[$4::date], $5)`,
+      [doctorId, actorStaffId || null, JSON.stringify(existing.rows[0]), exceptionDate, correlationId]
+    );
+    await client.query('COMMIT');
+    return result.rows[0];
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 export async function updateAppointmentStatus(input: {
@@ -2075,16 +2949,66 @@ export async function updateAppointmentStatus(input: {
   return result.rows[0];
 }
 
-export async function listPackageOrders() {
+type PackageOrderFilters = { status?: string; search?: string; cursor?: string; pageSize?: number };
+
+function encodeOrderCursor(row: { created_at: unknown; id: string }): string {
+  return Buffer.from(JSON.stringify([new Date(row.created_at as any).toISOString(), row.id])).toString('base64url');
+}
+
+function decodeOrderCursor(cursor?: string): [string, string] | null {
+  if (!cursor) return null;
+  try {
+    const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (!Array.isArray(value) || value.length !== 2 || !value.every((item) => typeof item === 'string')) return null;
+    if (Number.isNaN(Date.parse(value[0])) || !/^[0-9a-f-]{36}$/i.test(value[1])) return null;
+    return value as [string, string];
+  } catch { return null; }
+}
+
+export async function listPackageOrders(filters: PackageOrderFilters = {}) {
+  const pageSize = Math.min(50, Math.max(1, Number(filters.pageSize || 25)));
+  const values: unknown[] = [];
+  const conditions: string[] = [];
+  if (filters.status) { values.push(filters.status); conditions.push(`po.status = $${values.length}`); }
+  if (filters.search) {
+    const normalized = filters.search.trim();
+    values.push(`${normalized}%`);
+    conditions.push(`(po.order_number ILIKE $${values.length} OR po.phone LIKE $${values.length} OR po.purchaser_name ILIKE $${values.length})`);
+  }
+  const decodedCursor = decodeOrderCursor(filters.cursor);
+  if (filters.cursor && !decodedCursor) {
+    const error = new Error('Invalid package order cursor') as Error & { status?: number; code?: string };
+    error.status = 400; error.code = 'INVALID_CURSOR'; throw error;
+  }
+  if (decodedCursor) {
+    values.push(decodedCursor[0], decodedCursor[1]);
+    conditions.push(`(po.created_at, po.id) < ($${values.length - 1}::timestamptz, $${values.length}::uuid)`);
+  }
+  values.push(pageSize + 1);
   const result = await query(
-    `SELECT po.*, COUNT(poi.id) AS item_count
+    `SELECT po.id, po.order_number, po.purchaser_name, po.phone, po.preferred_date,
+            po.total_amount, po.status, po.fulfilment_status, po.created_at,
+            COUNT(poi.id)::int AS item_count
      FROM package_orders po
      LEFT JOIN package_order_items poi ON poi.order_id = po.id
+     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
      GROUP BY po.id
-     ORDER BY po.created_at DESC
-     LIMIT 100`
+     ORDER BY po.created_at DESC, po.id DESC
+     LIMIT $${values.length}`,
+    values
   );
-  return result.rows;
+  const hasMore = result.rows.length > pageSize;
+  const rows = result.rows.slice(0, pageSize).map((row) => ({
+    ...row,
+    phone: undefined,
+    phone_masked: maskPhone(row.phone),
+  }));
+  return {
+    data: rows,
+    cursor: hasMore ? encodeOrderCursor(result.rows[pageSize - 1]) : null,
+    filters: { status: filters.status || '', search: filters.search || '', pageSize },
+    generatedAt: new Date().toISOString(),
+  };
 }
 
 type PaymentFilters = {
@@ -2299,7 +3223,7 @@ export async function getAdminPaymentDetail(paymentId: string) {
   const payment = paymentResult.rows[0] || null;
   if (!payment) return null;
 
-  const [webhooks, attempts, notifications, audits] = await Promise.all([
+  const [webhooks, attempts, notifications, audits, refunds, exceptions] = await Promise.all([
     query(
       `SELECT id, 'provider_event' AS type, event_name, provider, status,
               merchant_order_id, provider_order_id, provider_transaction_id, created_at
@@ -2334,6 +3258,14 @@ export async function getAdminPaymentDetail(paymentId: string) {
        LIMIT 25`,
       [paymentId]
     ),
+    query(
+      `SELECT id, 'refund' AS type, status, amount, currency, reason, requested_at AS created_at
+       FROM payment_refunds WHERE payment_id = $1 ORDER BY requested_at DESC LIMIT 25`, [paymentId]
+    ),
+    query(
+      `SELECT id, 'exception' AS type, exception_type AS action, status, severity, created_at
+       FROM payment_exceptions WHERE payment_id = $1 ORDER BY created_at DESC LIMIT 25`, [paymentId]
+    ),
   ]);
 
   const receiptEvents = payment.receipt_id
@@ -2360,6 +3292,8 @@ export async function getAdminPaymentDetail(paymentId: string) {
       created_at: event.created_at,
     })),
     ...receiptEvents,
+    ...refunds.rows,
+    ...exceptions.rows,
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
   return { payment, events };

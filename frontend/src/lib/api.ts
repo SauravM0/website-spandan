@@ -106,6 +106,8 @@ function getCsrfToken(): Promise<string> {
 async function fetchAPI<T>(endpoint: string, options?: RequestInit & { signal?: AbortSignal }): Promise<T> {
   const { headers, ...restOptions } = options || {};
   const method = String(restOptions.method || 'GET').toUpperCase();
+  const unsafe = !['GET', 'HEAD', 'OPTIONS'].includes(method);
+  const csrfToken = unsafe ? await getCsrfToken() : undefined;
   const isSensitiveGet = endpoint.startsWith('/auth/') || endpoint.startsWith('/admin/');
   const cacheKey = method === 'GET' && !isSensitiveGet ? `${endpoint}|${JSON.stringify(headers || {})}` : '';
   const cached = cacheKey ? getCache.get(cacheKey) : undefined;
@@ -118,6 +120,7 @@ async function fetchAPI<T>(endpoint: string, options?: RequestInit & { signal?: 
     ...restOptions,
     headers: {
       'Content-Type': 'application/json',
+      ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
       ...headers,
     },
   });
@@ -203,17 +206,22 @@ export async function submitEnquiry(data: {
   language?: string;
   source_language?: string;
 }) {
-  const csrfToken = await getCsrfToken();
-  csrfTokenPromise = null;
   return fetchAPI<{ enquiry: any; reference_id?: string }>('/enquiries', {
     method: 'POST',
     headers: {
-      'x-csrf-token': csrfToken,
       'Idempotency-Key': idempotencyKey(),
     },
     credentials: 'include',
     body: JSON.stringify(data),
   });
+}
+
+export async function submitPrivacyRightsRequest(data: {
+  request_type: 'access'|'correction'|'consent_withdrawal'|'export'|'deletion'|'restriction'|'complaint';
+  requester_name: string; contact_email?: string; contact_phone?: string;
+  relationship: 'self'|'parent_guardian'|'authorised_proxy'|'other'; request_details: string;
+}) {
+  return fetchAPI<{request:{reference_number:string;status:string};message:string}>('/privacy/rights-requests',{method:'POST',headers:{'Idempotency-Key':idempotencyKey()},body:JSON.stringify(data)});
 }
 
 export async function getAdminPackages(token = '') {
@@ -272,19 +280,17 @@ export async function login(email: string, password: string) {
 }
 
 export async function logout() {
-  const csrfToken = await getCsrfToken();
-  csrfTokenPromise = null;
   return fetchAPI<{ success: boolean }>('/auth/logout', {
     method: 'POST',
-    headers: {
-      'x-csrf-token': csrfToken,
-    },
   });
 }
 
 export async function getAdminSession() {
   return fetchAPI<{ user: AdminUser }>('/auth/me');
 }
+
+export async function getPrivacyRightsRequests(status?: string){return fetchAPI<{data:any[];cursor:string|null}>(`/admin/privacy-security/rights-requests${status?`?status=${encodeURIComponent(status)}`:''}`);}
+export async function updatePrivacyRightsRequest(id:string,data:{expected_version:number;status:string;confirm_identity_verified?:boolean;decision_notes?:string;legal_hold?:boolean}){clearApiCache('/admin/privacy-security/rights-requests');return fetchAPI<{request:any}>(`/admin/privacy-security/rights-requests/${encodeURIComponent(id)}`,{method:'PATCH',body:JSON.stringify(data)});}
 
 export async function getEnquiries(
   token = '',
@@ -344,7 +350,11 @@ export async function getAppointmentSlots(doctorId: string, date: string) {
 }
 
 export async function getDoctorAvailability(doctorId: string, from: string, to: string) {
-  return fetchAPI<{ availability: Record<string, any[]> }>(
+  return fetchAPI<{
+    availability: Record<string, any[]>;
+    days: Record<string, { date: string; status: 'open'|'closed'|'fully_booked'|'past'|'booking_not_open'|'booking_closed'; total_slots: number; available_slots: number; opening_time: string | null; closing_time: string | null }>;
+    timezone: string;
+  }>(
     `/public/doctors/${encodeURIComponent(doctorId)}/availability?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
   );
 }
@@ -354,6 +364,7 @@ export type PublicAppointmentConfig = {
   clinic_date: string;
   fee: number;
   currency: 'INR';
+  service: { id: string; code: string; name: string; version: number };
   policy_version: string;
   consent_version: string;
   minimum_booking_notice_minutes: number;
@@ -362,8 +373,8 @@ export type PublicAppointmentConfig = {
   arrival_buffer_instructions: string;
 };
 
-export async function getPublicAppointmentConfig() {
-  return fetchAPI<{ config: PublicAppointmentConfig }>('/public/appointments/config');
+export async function getPublicAppointmentConfig(doctorId?: string, appointmentType?: string) {
+  return fetchAPI<{ config: PublicAppointmentConfig }>(`/public/appointments/config${toQuery({ doctor_id: doctorId, appointment_type: appointmentType })}`);
 }
 
 export async function createAppointmentHold(data: {
@@ -371,6 +382,7 @@ export async function createAppointmentHold(data: {
   appointment_date: string;
   start_time: string;
   patient_phone: string;
+  appointment_type?: 'new' | 'follow_up';
 }) {
   clearApiCache('/appointments');
   return fetchAPI<{ hold: AppointmentHold }>('/appointments/holds', {
@@ -417,6 +429,13 @@ export async function createPayment(data: { order_id?: string; appointment_id?: 
 
 export async function getPaymentStatus(transactionId: string) {
   return fetchAPI<{ payment: any }>(`/payments/${encodeURIComponent(transactionId)}/status`);
+}
+
+export async function recoverAppointment(reference: string, phone: string) {
+  return fetchAPI<{ booking: { reference: string; state: string; expires_at: string; appointment_number: string | null; payment_reference: string | null } }>(
+    '/public/appointments/recover',
+    { method: 'POST', body: JSON.stringify({ reference, phone }) }
+  );
 }
 
 export async function emailReceipt(receiptId: string, email?: string) {
@@ -558,7 +577,9 @@ export async function createAdminCalendarOverridesBatch(token: string | undefine
     created: any[];
     skipped: any[];
     conflicted: Array<{ date: string; appointment_count: number }>;
-    requiresConfirmation: boolean;
+    requiresResolution: boolean;
+    conflictCase?: any;
+    version: number;
   }>('/admin/operations/calendar-overrides/batch', {
     method: 'POST',
     headers: authHeaders(token),
@@ -566,15 +587,57 @@ export async function createAdminCalendarOverridesBatch(token: string | undefine
   });
 }
 
-export async function deleteAdminCalendarOverride(token: string | undefined, id: string) {
+export async function deleteAdminCalendarOverride(token: string | undefined, id: string, expectedVersion: number) {
   clearApiCache('/admin/operations/calendar-overrides');
   clearApiCache('/public/doctors');
   clearApiCache('/appointments/slots');
   return fetchAPI<{ override: any }>(
-    `/admin/operations/calendar-overrides/${encodeURIComponent(id)}`,
+    `/admin/operations/calendar-overrides/${encodeURIComponent(id)}?expected_version=${expectedVersion}`,
     {
       method: 'DELETE',
       headers: authHeaders(token),
+    }
+  );
+}
+
+export async function getAdminScheduleConflict(token: string | undefined, id: string) {
+  return fetchAPI<{ conflictCase: any }>(
+    `/admin/operations/schedule-conflicts/${encodeURIComponent(id)}`,
+    { headers: authHeaders(token) }
+  );
+}
+
+export async function resolveAdminScheduleConflict(
+  token: string | undefined,
+  id: string,
+  resolutions: Array<{ appointment_id: string; resolution: string; notes: string }>
+) {
+  clearApiCache('/admin/operations/calendar-view');
+  return fetchAPI<{ conflictCase: any }>(
+    `/admin/operations/schedule-conflicts/${encodeURIComponent(id)}/resolutions`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ resolutions }),
+    }
+  );
+}
+
+export async function applyAdminScheduleConflict(
+  token: string | undefined,
+  id: string,
+  expectedVersion: number
+) {
+  clearApiCache('/admin/operations/calendar-view');
+  clearApiCache('/admin/operations/calendar-overrides');
+  clearApiCache('/appointments/slots');
+  clearApiCache('/public/doctors');
+  return fetchAPI<any>(
+    `/admin/operations/schedule-conflicts/${encodeURIComponent(id)}/apply`,
+    {
+      method: 'POST',
+      headers: authHeaders(token),
+      body: JSON.stringify({ expected_version: expectedVersion }),
     }
   );
 }
@@ -593,9 +656,10 @@ export async function updateAdminAppointmentStatus(token: string | undefined, id
   );
 }
 
-export async function getAdminPackageOrders(token = '') {
-  return fetchAPI<{ orders: any[] }>('/admin/operations/package-orders', {
+export async function getAdminPackageOrders(token = '', filters: { status?: string; search?: string; cursor?: string; pageSize?: number } = {}, signal?: AbortSignal) {
+  return fetchAPI<{ data: any[]; cursor: string | null; filters: any; generatedAt: string }>(`/admin/operations/package-orders${toQuery(filters)}`, {
     headers: authHeaders(token),
+    signal,
   });
 }
 
@@ -618,6 +682,35 @@ export async function getAdminPayments(
   });
 }
 
+export type BillableService = {
+  id: string; code: string; name: string; description: string | null;
+  category: 'consultation' | 'counselling' | 'diagnostic' | 'other';
+  doctor_id: string | null; doctor_name: string | null; appointment_type: 'new' | 'follow_up' | null;
+  price: number | string; currency: 'INR'; is_active: boolean; is_public: boolean;
+  effective_from: string; version: number; change_reason: string; price_history: any[];
+};
+
+export type BillableServiceInput = {
+  code: string; name: string; description?: string | null;
+  category: BillableService['category']; doctor_id?: string | null;
+  appointment_type?: BillableService['appointment_type']; price: number;
+  is_active: boolean; is_public: boolean; effective_from: string; change_reason: string;
+};
+
+export async function getAdminServicePricing() {
+  return fetchAPI<{ services: BillableService[] }>('/admin/operations/service-pricing');
+}
+
+export async function createAdminServicePrice(data: BillableServiceInput) {
+  clearApiCache('/admin/operations/service-pricing');
+  return fetchAPI<{ service: BillableService }>('/admin/operations/service-pricing', { method: 'POST', body: JSON.stringify(data) });
+}
+
+export async function updateAdminServicePrice(id: string, data: BillableServiceInput & { expected_version: number }) {
+  clearApiCache('/admin/operations/service-pricing');
+  return fetchAPI<{ service: BillableService }>(`/admin/operations/service-pricing/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
 export async function getAdminPaymentDetail(token: string | undefined, id: string) {
   return fetchAPI<{ payment: any; events: any[] }>(
     `/admin/operations/payments/${encodeURIComponent(id)}`,
@@ -632,6 +725,18 @@ export async function recheckAdminPayment(token: string | undefined, id: string)
     {
       method: 'POST',
       headers: authHeaders(token),
+    }
+  );
+}
+
+export async function requestAdminPaymentRefund(token: string | undefined, id: string, amount: number, reason: string) {
+  clearApiCache('/admin/operations/payments');
+  return fetchAPI<{ refund: any; message: string }>(
+    `/admin/operations/payments/${encodeURIComponent(id)}/refunds`,
+    {
+      method: 'POST',
+      headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify({ amount, reason }),
     }
   );
 }
@@ -731,3 +836,72 @@ export async function serverApiGet<T>(endpoint: string, revalidate = 60): Promis
   }
   return res.json();
 }
+
+export async function getIntakeInvitation(token: string) {
+  return fetchAPI<{ invitation: any }>(`/intake/${encodeURIComponent(token)}`);
+}
+export async function startIntakeVerification(token: string) {
+  return fetchAPI<{ verification: any }>(`/intake/${encodeURIComponent(token)}/verification`, { method: 'POST', body: '{}' });
+}
+export async function confirmIntakeVerification(token: string, verification_id: string, code: string) {
+  return fetchAPI<{ session: any }>(`/intake/${encodeURIComponent(token)}/verification/confirm`, { method: 'POST', body: JSON.stringify({ verification_id, code }) });
+}
+export async function getIntakeDraft(token: string, session: string) {
+  return fetchAPI<{ draft: any }>(`/intake/${encodeURIComponent(token)}/draft`, { headers: { Authorization: `Bearer ${session}` } });
+}
+export async function saveIntakeDraft(token: string, session: string, expected_version: number, data: Record<string, unknown>) {
+  return fetchAPI<{ draft: any }>(`/intake/${encodeURIComponent(token)}/draft`, { method: 'PUT', headers: { Authorization: `Bearer ${session}` }, body: JSON.stringify({ expected_version, data }) });
+}
+export async function submitIntake(token: string, session: string, expected_version: number) {
+  return fetchAPI<{ submission: any }>(`/intake/${encodeURIComponent(token)}/submit`, { method: 'POST', headers: { Authorization: `Bearer ${session}` }, body: JSON.stringify({ expected_version }) });
+}
+export async function createIntakeInvitation(data: Record<string, unknown>) {
+  return fetchAPI<{ invitation: any }>('/admin/intake/invitations', { method: 'POST', body: JSON.stringify(data) });
+}
+export async function getIntakeReviews(status?: string) {
+  return fetchAPI<{ data: any[]; pagination: any }>(`/admin/intake/reviews${status ? `?status=${encodeURIComponent(status)}` : ''}`);
+}
+export async function getIntakeReview(id: string) {
+  return fetchAPI<{ review: any }>(`/admin/intake/reviews/${encodeURIComponent(id)}`);
+}
+export async function updateIntakeReview(id: string, data: Record<string, unknown>) {
+  clearApiCache('/admin/intake');
+  return fetchAPI<{ review: any }>(`/admin/intake/reviews/${encodeURIComponent(id)}`, { method: 'PATCH', body: JSON.stringify(data) });
+}
+
+export async function searchAdminPatients(search = '', cursor?: string) {
+  return fetchAPI<{ data: any[]; cursor: string | null }>(`/admin/patients${toQuery({ search, cursor, page_size: 25 })}`);
+}
+export async function getAdminPatient(id: string, signal?: AbortSignal) {
+  return fetchAPI<any>(`/admin/patients/${encodeURIComponent(id)}`, { signal });
+}
+export async function openPatientEncounter(patientId: string, data: Record<string, unknown>) {
+  return fetchAPI<{ encounter: any }>(`/admin/patients/${encodeURIComponent(patientId)}/encounters`, { method: 'POST', body: JSON.stringify(data) });
+}
+export async function closePatientEncounter(id: string, expected_version: number) {
+  return fetchAPI<{ encounter: any }>(`/admin/patients/encounters/${encodeURIComponent(id)}/close`, { method: 'POST', body: JSON.stringify({ expected_version }) });
+}
+export async function createClinicalResource(patientId: string, data: Record<string, unknown>) {
+  return fetchAPI<{ resource: any }>(`/admin/patients/${encodeURIComponent(patientId)}/resources`, { method: 'POST', headers: { 'Idempotency-Key': idempotencyKey() }, body: JSON.stringify(data) });
+}
+export async function getPatientMedications(patientId:string){return fetchAPI<{medications:any[]}>(`/admin/medications/${encodeURIComponent(patientId)}`);}
+export async function reportPatientMedication(patientId:string,data:Record<string,unknown>){return fetchAPI<{medication:any}>(`/admin/medications/${encodeURIComponent(patientId)}`,{method:'POST',headers:{'Idempotency-Key':idempotencyKey()},body:JSON.stringify(data)});}
+export async function reconcilePatientMedication(patientId:string,id:string,data:Record<string,unknown>){return fetchAPI<{medication:any}>(`/admin/medications/${encodeURIComponent(patientId)}/${encodeURIComponent(id)}/reconcile`,{method:'POST',headers:{'Idempotency-Key':idempotencyKey()},body:JSON.stringify(data)});}
+export async function getObservationCatalog(){return fetchAPI<{catalog:any[]}>('/admin/observations/catalog');}
+export async function getPatientObservations(patientId:string){return fetchAPI<{data:any[];cursor:string|null;writesEnabled:boolean}>(`/admin/observations/${encodeURIComponent(patientId)}`);}
+export async function recordPatientObservation(patientId:string,data:Record<string,unknown>){return fetchAPI<{observation:any}>(`/admin/observations/${encodeURIComponent(patientId)}`,{method:'POST',headers:{'Idempotency-Key':idempotencyKey()},body:JSON.stringify(data)});}
+export async function reviewPatientObservation(patientId:string,id:string,data:Record<string,unknown>){return fetchAPI<{observation:any}>(`/admin/observations/${encodeURIComponent(patientId)}/${encodeURIComponent(id)}/review`,{method:'POST',headers:{'Idempotency-Key':idempotencyKey()},body:JSON.stringify(data)});}
+export type DeviceImportInput={filename:string;content:string;unit:'mg/dL'|'mmol/L';timezone:'Asia/Kolkata';context:'fasting'|'post_meal'|'random'|'other'};
+export async function getDeviceImports(patientId:string){return fetchAPI<{data:any[];writesEnabled:boolean}>(`/admin/device-integrations/${encodeURIComponent(patientId)}`);}
+export async function previewDeviceImport(patientId:string,data:DeviceImportInput){return fetchAPI<any>(`/admin/device-integrations/${encodeURIComponent(patientId)}/preview`,{method:'POST',headers:{'Idempotency-Key':idempotencyKey()},body:JSON.stringify(data)});}
+export async function commitDeviceImport(patientId:string,importId:string,data:DeviceImportInput){return fetchAPI<any>(`/admin/device-integrations/${encodeURIComponent(patientId)}/${encodeURIComponent(importId)}/commit`,{method:'POST',headers:{'Idempotency-Key':idempotencyKey()},body:JSON.stringify(data)});}
+export async function saveClinicalNote(patientId: string, data: Record<string, unknown>) {
+  return fetchAPI<{ note: any }>(`/admin/patients/${encodeURIComponent(patientId)}/notes`, { method: 'PUT', body: JSON.stringify(data) });
+}
+export async function signClinicalNote(noteId: string, expected_version: number, confirm_patient_id: string) {
+  return fetchAPI<{ note: any }>(`/admin/patients/notes/${encodeURIComponent(noteId)}/sign`, { method: 'POST', body: JSON.stringify({ expected_version, confirm_patient_id }) });
+}
+export async function getMedicalDocuments(filters:Record<string,string|undefined>={}){return fetchAPI<{data:any[];cursor:string|null}>(`/admin/documents${toQuery(filters)}`);}
+export async function uploadMedicalDocument(metadata:Record<string,string>,file:File){const csrf=await getCsrfToken();const res=await fetch(`${API_URL}/admin/documents/upload${toQuery(metadata)}`,{method:'POST',credentials:'include',headers:{'Content-Type':file.type,'x-csrf-token':csrf,'Idempotency-Key':idempotencyKey()},body:file,signal:timeoutSignal(60000)});if(!res.ok){const payload=await res.json().catch(()=>({error:'Upload failed'}));throw new ApiError(apiErrorMessage(payload,res.status),res.status,payload);}return res.json();}
+export async function reviewMedicalDocument(id:string,expected_version:number,decision:'review'|'verify'|'reject',notes:string){return fetchAPI<{document:any}>(`/admin/documents/${encodeURIComponent(id)}/review`,{method:'POST',body:JSON.stringify({expected_version,decision,notes})});}
+export async function downloadMedicalDocument(id:string,filename:string){const res=await fetch(`${API_URL}/admin/documents/${encodeURIComponent(id)}/download`,{credentials:'include'});if(!res.ok)throw new Error('Document is not available for download.');const url=URL.createObjectURL(await res.blob()),a=document.createElement('a');a.href=url;a.download=filename;document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);}

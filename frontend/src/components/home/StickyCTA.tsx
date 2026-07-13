@@ -3,7 +3,8 @@
 import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarCheck, MessageCircle, Phone } from 'lucide-react';
+import { CalendarCheck, MapPin, Phone } from 'lucide-react';
+import { clinicLinks } from '@/lib/settings';
 
 const HIDE_PATHS = ['/book-appointment', '/book-package', '/payment/', '/admin'];
 
@@ -34,18 +35,18 @@ export default function StickyCTA() {
           <CalendarCheck size={16} />
           Book
         </Link>
-        <a href="tel:+917798095795" className="btn btn-outline min-h-[44px] justify-center text-xs">
+        <a href={clinicLinks.phone} className="btn btn-outline min-h-[44px] justify-center text-xs">
           <Phone size={16} />
           Call
         </a>
         <a
-          href="https://wa.me/917798095795"
+          href={clinicLinks.directions}
           target="_blank"
           rel="noopener noreferrer"
           className="btn btn-outline min-h-[44px] justify-center text-xs"
         >
-          <MessageCircle size={16} />
-          WhatsApp
+          <MapPin size={16} />
+          Directions
         </a>
       </div>
     </div>

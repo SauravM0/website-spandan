@@ -82,12 +82,18 @@ export interface DoctorAvailability {
 
 export interface AppointmentHold {
   id: string;
+  public_reference?: string;
+  version: number;
+  booking_state?: string;
   doctor_id: string;
   appointment_date?: string;
   start_time?: string;
   end_time?: string;
   expires_at: string;
   status: string;
+  fee_amount?: number;
+  fee_currency?: 'INR';
+  service_name?: string;
 }
 
 export interface Appointment {

@@ -26,8 +26,6 @@ import SlotCalendar from '@/components/booking/SlotCalendar';
 import PatientForm, { usePatientValidation } from '@/components/booking/PatientForm';
 import { clinicToday } from '@/lib/timezone';
 
-const FALLBACK_CONSULTATION_FEE = 700;
-
 function formatTime(value: string) {
   return value ? value.slice(0, 5) : '';
 }
@@ -52,7 +50,8 @@ const steps: { label: string; step: BookingStep }[] = [
 ];
 
 function money(value: number | undefined) {
-  return `Rs. ${Number(value || FALLBACK_CONSULTATION_FEE).toLocaleString('en-IN')}`;
+  if (value === undefined) return 'Loading...';
+  return `Rs. ${Number(value).toLocaleString('en-IN')}`;
 }
 
 function HoldTimer({ expiresAt }: { expiresAt: string }) {
@@ -101,14 +100,18 @@ export default function BookAppointmentPage() {
 
   const [slots, setSlots] = React.useState<any[]>([]);
   const [monthAvailability, setMonthAvailability] = React.useState<Record<string, any[]>>({});
+  const [monthDays, setMonthDays] = React.useState<Record<string, any>>({});
   const [doctorList, setDoctorList] = React.useState<any[]>([]);
 
   useEffect(() => {
     getDoctors().then((d) => setDoctorList(d.doctors || [])).catch(() => {});
-    getPublicAppointmentConfig()
+  }, []);
+
+  useEffect(() => {
+    getPublicAppointmentConfig(form.doctor_id || undefined, form.appointment_type || 'new')
       .then((data) => setBookingConfig(data.config))
       .catch(() => dispatch({ type: 'SET_ERROR', error: 'Could not load appointment policy and fee.' }));
-  }, []);
+  }, [form.doctor_id, form.appointment_type]);
 
   useEffect(() => {
     if (!form.doctor_id || !form.appointment_date) return;
@@ -124,8 +127,8 @@ export default function BookAppointmentPage() {
     const lastDay = new Date(y, m, 0).getDate();
     const to = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     getDoctorAvailability(form.doctor_id, from, to)
-      .then((data) => setMonthAvailability(data.availability || {}))
-      .catch(() => setMonthAvailability({}));
+      .then((data) => { setMonthAvailability(data.availability || {}); setMonthDays(data.days || {}); })
+      .catch(() => { setMonthAvailability({}); setMonthDays({}); });
   }, [form.doctor_id, calendarMonth]);
 
   const selectedDoctor = useMemo(
@@ -160,7 +163,11 @@ export default function BookAppointmentPage() {
         appointment_date: form.appointment_date,
         start_time: form.start_time,
         patient_phone: phone,
+        appointment_type: form.appointment_type as 'new' | 'follow_up',
       });
+      setBookingConfig((current) => current && hold.hold.fee_amount !== undefined
+        ? { ...current, fee: Number(hold.hold.fee_amount), service: { ...current.service, name: hold.hold.service_name || current.service.name } }
+        : current);
       dispatch({ type: 'SET_HOLD', hold: { id: hold.hold.id, expires_at: hold.hold.expires_at } });
       dispatch({ type: 'SET_PHASE', phase: 'hold_active' });
       dispatch({ type: 'SET_PHASE', phase: 'creating_appointment' });
@@ -170,7 +177,14 @@ export default function BookAppointmentPage() {
         appointment_date: form.appointment_date,
         start_time: form.start_time,
         appointment_type: form.appointment_type,
-        status: 'awaiting_payment',
+        expected_version: hold.hold.version,
+        consent: {
+          accepted: true,
+          purpose: 'appointment_booking_and_payment',
+          version: bookingConfig?.consent_version || 'appointment-consent-2026-07-07',
+          policy_version: bookingConfig?.policy_version || 'appointment-policy-2026-07-07',
+          language: document.documentElement.lang?.split('-')[0] || 'en',
+        },
         reception_notes: [
           `Reason: ${form.reason_for_visit}`,
           `Policy: ${bookingConfig?.policy_version || 'appointment-policy-2026-07-07'}`,
@@ -290,6 +304,7 @@ export default function BookAppointmentPage() {
                   calendarMonth={calendarMonth}
                   onMonthChange={(m) => dispatch({ type: 'SET_CALENDAR_MONTH', month: m })}
                   monthAvailability={monthAvailability}
+                  monthDays={monthDays}
                   selectedDate={form.appointment_date}
                   onDateSelect={(d) => update('appointment_date', d)}
                 />
@@ -368,6 +383,9 @@ export default function BookAppointmentPage() {
           <div className="soft-card mt-6 flex items-center gap-3 p-4 text-sm text-text-light">
             <CalendarCheck className="shrink-0 text-success" size={22} />
             <span>After payment, the confirmation page will show payment status, receipt details when available, clinic address, and next steps.</span>
+          </div>
+          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="note">
+            <strong>This booking service is not for emergencies.</strong> If symptoms are severe or life-threatening, call local emergency services or go to the nearest emergency department now.
           </div>
         </div>
       </section>

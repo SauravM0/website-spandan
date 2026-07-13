@@ -5,11 +5,11 @@ import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react';
 import { apiWeekdays, formatShortDate, formatTime } from './CalendarUtils';
 import type { AppointmentSettings } from '@/lib/api';
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: React.ReactElement<{ className?: string }> }) {
   return (
     <label className="grid gap-1 text-sm font-bold text-navy">
       {label}
-      {React.cloneElement(children as React.ReactElement, {
+      {React.cloneElement(children, {
         className: 'rounded-md border border-border px-3 py-2 text-sm font-semibold text-text',
       })}
     </label>
@@ -22,6 +22,7 @@ export default function AdvancedSettings({
   settings,
   settingsWarnings,
   saving,
+  canManageBookingPolicy,
   onSaveRule,
   onSaveSettings,
   onUpdateSettings,
@@ -31,7 +32,8 @@ export default function AdvancedSettings({
   settings: AppointmentSettings | null;
   settingsWarnings: string[];
   saving: boolean;
-  onSaveRule: (e: React.FormEvent) => void;
+  canManageBookingPolicy: boolean;
+  onSaveRule: (data: { weekday: number; closed: boolean; start_time?: string; end_time?: string; slot_count?: number; effective_from: string }) => void;
   onSaveSettings: (e: React.FormEvent) => void;
   onUpdateSettings: (patch: Partial<AppointmentSettings>) => void;
 }) {
@@ -39,6 +41,8 @@ export default function AdvancedSettings({
   const [weekday, setWeekday] = React.useState('1');
   const [ruleStart, setRuleStart] = React.useState('10:00');
   const [ruleEnd, setRuleEnd] = React.useState('14:00');
+  const [ruleClosed, setRuleClosed] = React.useState(false);
+  const [slotCount, setSlotCount] = React.useState(8);
   const [effectiveFrom, setEffectiveFrom] = React.useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -49,10 +53,12 @@ export default function AdvancedSettings({
     if (!settings) return;
     onSaveRule({
       weekday: Number(weekday),
-      start_time: ruleStart,
-      end_time: ruleEnd,
+      closed: ruleClosed,
+      start_time: ruleClosed ? undefined : ruleStart,
+      end_time: ruleClosed ? undefined : ruleEnd,
+      slot_count: ruleClosed ? undefined : slotCount,
       effective_from: effectiveFrom,
-    } as unknown as React.FormEvent);
+    });
   };
 
   return (
@@ -71,7 +77,7 @@ export default function AdvancedSettings({
       {open && (
         <div className="grid gap-5 border-t border-border p-4">
           <form onSubmit={handleRuleSubmit} className="grid gap-3">
-            <h3 className="font-bold text-navy">Add weekly working hours</h3>
+            <h3 className="font-bold text-navy">Regular weekly hours</h3>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Weekday">
                 <select value={weekday} onChange={(e) => setWeekday(e.target.value)}>
@@ -83,19 +89,30 @@ export default function AdvancedSettings({
               <Field label="From date">
                 <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
               </Field>
-              <Field label="Start">
-                <input type="time" value={ruleStart} onChange={(e) => setRuleStart(e.target.value)} />
-              </Field>
-              <Field label="End">
-                <input type="time" value={ruleEnd} onChange={(e) => setRuleEnd(e.target.value)} />
-              </Field>
+              <label className="col-span-2 flex items-center gap-2 text-sm font-bold text-navy">
+                <input type="checkbox" checked={ruleClosed} onChange={(e) => setRuleClosed(e.target.checked)} />
+                Closed on this weekday
+              </label>
+              {!ruleClosed && (
+                <>
+                  <Field label="Opens at">
+                    <input type="time" value={ruleStart} onChange={(e) => setRuleStart(e.target.value)} />
+                  </Field>
+                  <Field label="Closes at">
+                    <input type="time" value={ruleEnd} onChange={(e) => setRuleEnd(e.target.value)} />
+                  </Field>
+                  <Field label="Slots per day">
+                    <input type="number" min="1" max="100" value={slotCount} onChange={(e) => setSlotCount(Number(e.target.value))} />
+                  </Field>
+                </>
+              )}
             </div>
             <button className="btn btn-outline w-full" type="submit" disabled={saving}>
-              Add weekly hours
+              Save weekday schedule
             </button>
           </form>
 
-          {settings && (
+          {settings && canManageBookingPolicy && (
             <form onSubmit={onSaveSettings} className="grid gap-3">
               <h3 className="font-bold text-navy">Booking rules</h3>
               {settingsWarnings.map((warning) => (

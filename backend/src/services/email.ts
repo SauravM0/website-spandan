@@ -1,6 +1,7 @@
 import nodemailer from 'nodemailer';
 import { config } from '../config';
 import { query } from '../config/database';
+import { requireApprovedVendor } from '../security/vendorGate';
 
 function getTransporter() {
   if (!config.smtp.host || !config.smtp.user) {
@@ -70,6 +71,7 @@ export async function sendEnquiryNotification(data: EnquiryNotification): Promis
     console.log('Email not configured — skipping notification');
     return false;
   }
+  await requireApprovedVendor('SMTP provider');
 
   let packageName = data.packageName;
   let doctorName = data.doctorName;

@@ -1,4 +1,5 @@
 import { config } from '../config';
+import { requireApprovedVendor } from '../security/vendorGate';
 
 export interface WhatsAppEnquiryNotification {
   enquiryId: string;
@@ -116,6 +117,7 @@ export function isWhatsAppConfigured(): boolean {
 }
 
 export async function sendWhatsAppEnquiryNotification(data: WhatsAppEnquiryNotification): Promise<void> {
+  await requireApprovedVendor('WhatsApp provider');
   if (!isWhatsAppConfigured()) {
     console.log('WhatsApp not configured - skipping notification');
     return;

@@ -1,5 +1,6 @@
 import crypto from 'crypto';
 import { config } from '../config';
+import { requireApprovedVendor } from '../security/vendorGate';
 
 type TokenCache = {
   accessToken: string;
@@ -29,7 +30,8 @@ function assertPhonePeConfigured() {
 }
 
 async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
-  const response = await fetch(url, init);
+  const signal = init.signal || AbortSignal.timeout(10_000);
+  const response = await fetch(url, { ...init, signal });
   const text = await response.text();
   const body = text ? JSON.parse(text) : {};
   if (!response.ok) {
@@ -74,6 +76,7 @@ export function extractPhonePePaymentDetail(payload: any) {
 }
 
 export async function getPhonePeAccessToken(): Promise<string> {
+  await requireApprovedVendor('PhonePe');
   assertPhonePeConfigured();
   const now = Math.floor(Date.now() / 1000);
   if (tokenCache && tokenCache.expiresAt > now + 60) {

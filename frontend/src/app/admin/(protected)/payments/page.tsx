@@ -1,6 +1,7 @@
 'use client';
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Download, ExternalLink, RefreshCw, Search, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -8,6 +9,7 @@ import {
   getAdminPaymentDetail,
   getAdminPayments,
   recheckAdminPayment,
+  requestAdminPaymentRefund,
 } from '@/lib/api';
 import {
   AdminPageHeader,
@@ -169,6 +171,11 @@ function PaymentsInner() {
   const [detail, setDetail] = useState<{ payment: any; events: any[] } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [recheckingId, setRecheckingId] = useState('');
+  const [refundAmount, setRefundAmount] = useState('');
+  const [refundReason, setRefundReason] = useState('');
+  const [refundPreview, setRefundPreview] = useState(false);
+  const [refundSubmitting, setRefundSubmitting] = useState(false);
+  const [refundMessage, setRefundMessage] = useState('');
   const requestRef = useRef(0);
   const hasLoadedRef = useRef(false);
 
@@ -257,6 +264,18 @@ function PaymentsInner() {
     } finally {
       setExporting(false);
     }
+  };
+
+  const submitRefundRequest = async () => {
+    if (!selectedPayment) return;
+    setRefundSubmitting(true); setError(''); setRefundMessage('');
+    try {
+      const result = await requestAdminPaymentRefund('', selectedPayment.id, Number(refundAmount), refundReason);
+      setRefundMessage(result.message);
+      setRefundPreview(false); setRefundAmount(''); setRefundReason('');
+      await loadDetail(selectedPayment.id);
+    } catch (err) { setError(err instanceof Error ? err.message : 'Refund request failed.'); }
+    finally { setRefundSubmitting(false); }
   };
 
   const selectedPayment = detail?.payment || payments.find((payment) => payment.id === selectedId);
@@ -348,12 +367,7 @@ function PaymentsInner() {
         <AdminPageHeader
           title="Payments"
           description="Reconcile payment status, receipts, notifications, and provider events without exposing raw provider payloads."
-          action={(
-            <button className="btn btn-outline" type="button" onClick={exportCsv} disabled={exporting}>
-              <Download size={16} />
-              {exporting ? 'Exporting...' : 'Export CSV'}
-            </button>
-          )}
+          action={<div className="flex flex-wrap gap-2"><Link className="btn btn-accent" href="/admin/payments/pricing">Service Pricing</Link><button className="btn btn-outline" type="button" onClick={exportCsv} disabled={exporting}><Download size={16} />{exporting ? 'Exporting...' : 'Export CSV'}</button></div>}
         />
 
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -429,7 +443,7 @@ function PaymentsInner() {
             />
             <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={(page) => updateFilters({ page })} />
             <p className="mt-3 text-xs text-text-light">
-              Showing {payments.length} of {pagination.total} matched payment(s). Refund actions are intentionally not exposed until the full refund workflow is implemented.
+              Showing {payments.length} of {pagination.total} matched payment(s). All amounts and states come from the backend payment record.
             </p>
           </>
         )}
@@ -475,6 +489,27 @@ function PaymentsInner() {
                       {recheckingId === selectedPayment.id ? 'Checking...' : 'Safe Provider Recheck'}
                     </button>
                   </div>
+
+                  {selectedPayment.status === 'success' && (
+                    <section className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4" aria-labelledby="refund-heading">
+                      <h3 id="refund-heading" className="font-bold text-navy">Request a refund</h3>
+                      <p className="mt-1 text-sm text-text-light">This records an audited request only. A different authorized person must approve it before provider processing.</p>
+                      {refundMessage && <p role="status" className="mt-3 text-sm font-semibold text-success">{refundMessage}</p>}
+                      <div className="mt-3 grid gap-3">
+                        <label className="form-group mb-0"><span>Amount in INR</span><input inputMode="decimal" type="number" min="0.01" max={Number(selectedPayment.amount)} step="0.01" value={refundAmount} onChange={(event) => { setRefundAmount(event.target.value); setRefundPreview(false); }} /></label>
+                        <label className="form-group mb-0"><span>Operational reason (minimum 10 characters)</span><textarea maxLength={500} value={refundReason} onChange={(event) => { setRefundReason(event.target.value); setRefundPreview(false); }} /></label>
+                        {!refundPreview ? (
+                          <button type="button" className="btn btn-outline" disabled={Number(refundAmount) <= 0 || Number(refundAmount) > Number(selectedPayment.amount) || refundReason.trim().length < 10} onClick={() => setRefundPreview(true)}>Review refund request</button>
+                        ) : (
+                          <div className="rounded-lg border border-amber-400 bg-white p-3" role="alert">
+                            <p className="font-semibold">Confirm request for {money(refundAmount)}</p>
+                            <p className="mt-1 text-sm">Reason: {refundReason}</p>
+                            <div className="mt-3 flex gap-2"><button type="button" className="btn btn-accent" disabled={refundSubmitting} onClick={submitRefundRequest}>{refundSubmitting ? 'Recording...' : 'Record refund request'}</button><button type="button" className="btn btn-outline" onClick={() => setRefundPreview(false)}>Go back</button></div>
+                          </div>
+                        )}
+                      </div>
+                    </section>
+                  )}
 
                   <div className="mt-6">
                     <h3 className="mb-3 text-lg font-bold text-navy">Timeline</h3>

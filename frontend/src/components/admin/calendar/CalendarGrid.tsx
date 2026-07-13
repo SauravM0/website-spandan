@@ -13,6 +13,7 @@ export default function CalendarGrid({
   appointmentsByDate,
   overridesByDate,
   selectedDate,
+  selectedDates,
   saving,
   onSelectDate,
   onMonthChange,
@@ -23,6 +24,7 @@ export default function CalendarGrid({
   appointmentsByDate: Record<string, any[]>;
   overridesByDate: Record<string, any[]>;
   selectedDate: string;
+  selectedDates: string[];
   saving: boolean;
   onSelectDate: (date: string) => void;
   onMonthChange: (month: string) => void;
@@ -43,7 +45,7 @@ export default function CalendarGrid({
             }).format(monthStart(month))}
           </h2>
           <p className="text-sm text-text-light">
-            Monday to Saturday are working days. Sunday is always closed.
+            Availability follows the selected doctor&apos;s saved weekly schedule.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -77,7 +79,7 @@ export default function CalendarGrid({
               const dayOverrides = overridesByDate[cell.date] || [];
               const status = dayStatus(cell.date, availability[cell.date] || [], dayOverrides, dayAppointments.length);
               const counts = slotsForDay(availability[cell.date] || []);
-              const selected = cell.date === selectedDate;
+              const selected = selectedDates.includes(cell.date);
 
               return (
                 <button

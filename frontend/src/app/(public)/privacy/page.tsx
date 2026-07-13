@@ -376,8 +376,9 @@ export default function PrivacyPolicyPage() {
                 </li>
               </ul>
               <p className="mt-3 text-sm">
-                To exercise any of these rights, please contact us using the details in the 
-                section below. We will respond within the timeframe prescribed by DPDPA 2023.
+                To exercise any of these rights, use our{' '}
+                <Link href="/privacy/rights" className="font-semibold text-accent underline">privacy request form</Link>{' '}
+                or contact us below. We verify identity before taking action on a request.
               </p>
             </section>
 

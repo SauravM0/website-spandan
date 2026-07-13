@@ -1,10 +1,49 @@
+# Dependencies and generated builds
 node_modules/
 dist/
 .next/
 out/
-.env
-.env.local
-*.log
+coverage/
+.nyc_output/
+.turbo/
+.cache/
 *.tsbuildinfo
+
+# Local environment and secret files (keep safe templates)
+.env*
+!.env.example
+!**/.env.example
+
+# Runtime logs and temporary files
+*.log
+*.log.*
+*.tmp
+*.temp
+*.bak
+*.swp
+tmp/
+temp/
+
+# Local editor and Codex/agent state
+.vscode/
+.idea/
+.agents/
+.codex/
+*.code-workspace
+
+# Local planning reports and reference material
+docs/**
+!docs/audit-findings.json
+!docs/delivery-roadmap.json
+!docs/platform-foundation/
+docs/platform-foundation/**
+!docs/platform-foundation/governance.json
+!docs/privacy-security/
+docs/privacy-security/**
+!docs/privacy-security/register.json
+machine/
+
+# OS metadata
 .DS_Store
 Thumbs.db
+desktop.ini

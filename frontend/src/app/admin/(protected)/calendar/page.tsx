@@ -3,7 +3,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createAdminAvailabilityRule,
-  createAdminCalendarOverride,
   createAdminCalendarOverridesBatch,
   deleteAdminCalendarOverride,
   getAdminCalendarView,
@@ -17,37 +16,41 @@ import AgendaList from '@/components/admin/calendar/AgendaList';
 import DayInspector from '@/components/admin/calendar/DayInspector';
 import ScheduleForm from '@/components/admin/calendar/ScheduleForm';
 import AdvancedSettings from '@/components/admin/calendar/AdvancedSettings';
+import ScheduleConflictPanel from '@/components/admin/calendar/ScheduleConflictPanel';
+import { useAdminSession } from '@/components/admin/AdminSessionContext';
 import {
   todayKey,
   monthCells,
-  addMonths,
-  formatShortDate,
-  targetDatesFromScope,
 } from '@/components/admin/calendar/CalendarUtils';
-import type { OverrideAction, ApplyScope, OverrideFormState } from '@/components/admin/calendar/ScheduleForm';
+import type { OverrideAction, OverrideFormState } from '@/components/admin/calendar/ScheduleForm';
 
 export default function AdminCalendarPage() {
+  const { user } = useAdminSession();
   const [doctors, setDoctors] = useState<any[]>([]);
   const [rules, setRules] = useState<any[]>([]);
   const [overrides, setOverrides] = useState<any[]>([]);
   const [appointments, setAppointments] = useState<any[]>([]);
   const [availability, setAvailability] = useState<Record<string, any[]>>({});
   const [calendarDays, setCalendarDays] = useState<any[]>([]);
+  const [scheduleVersion, setScheduleVersion] = useState(1);
+  const [pendingCases, setPendingCases] = useState<any[]>([]);
   const [daySlots, setDaySlots] = useState<any[]>([]);
   const [settings, setSettings] = useState<AppointmentSettings | null>(null);
   const [settingsWarnings, setSettingsWarnings] = useState<string[]>([]);
   const [doctorId, setDoctorId] = useState('');
   const [selectedDate, setSelectedDate] = useState(todayKey());
+  const [selectedDates, setSelectedDates] = useState<string[]>([todayKey()]);
+  const [multiSelect, setMultiSelect] = useState(false);
   const [month, setMonth] = useState(todayKey());
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [applyScope, setApplyScope] = useState<ApplyScope>('day');
   const [action, setAction] = useState<OverrideAction>('custom_hours');
   const [overrideForm, setOverrideForm] = useState<OverrideFormState>({
     start_time: '10:00',
     end_time: '14:00',
+    slot_count: 8,
     reason: 'Clinic work',
     public_note: '',
     internal_note: '',
@@ -77,13 +80,6 @@ export default function AdminCalendarPage() {
 
   const selectedAppointments = appointmentsByDate[selectedDate] || [];
   const selectedOverrides = overridesByDate[selectedDate] || [];
-  const selectedIsSunday = new Date(`${selectedDate}T00:00:00`).getDay() === 0;
-  const selectedHolidayOverride = selectedOverrides.find(
-    (item) => item.override_type === 'unavailable_whole_day'
-  );
-
-  const targetDates = useMemo(() => targetDatesFromScope(cells, selectedDate, applyScope), [cells, selectedDate, applyScope]);
-
   const agendaDays = useMemo(() =>
     (calendarDays.length ? calendarDays : cells.map((cell) => ({
       date: cell.date,
@@ -97,8 +93,11 @@ export default function AdminCalendarPage() {
     setError('');
     try {
       const doctorRows = await getDoctors(false);
-      setDoctors(doctorRows.doctors || []);
-      const firstDoctorId = doctorRows.doctors?.[0]?.id || '';
+      const visibleDoctors = user.role === 'doctor'
+        ? (doctorRows.doctors || []).filter((doctor: any) => doctor.id === user.doctor_id)
+        : doctorRows.doctors || [];
+      setDoctors(visibleDoctors);
+      const firstDoctorId = visibleDoctors[0]?.id || user.doctor_id || '';
       if (firstDoctorId) {
         setDoctorId((current) => current || firstDoctorId);
       } else {
@@ -130,6 +129,8 @@ export default function AdminCalendarPage() {
       setAvailability(calendar.availability || {});
       setDaySlots((calendar.availability || {})[selectedDate] || []);
       setCalendarDays(calendar.days || []);
+      setScheduleVersion(Number(calendar.version || 1));
+      setPendingCases(calendar.pendingConflictCases || []);
     } catch (err) {
       if (requestId !== calendarRequestRef.current) return;
       setError(err instanceof Error ? err.message : 'Could not load calendar.');
@@ -161,6 +162,10 @@ export default function AdminCalendarPage() {
 
   const selectDate = (date: string) => {
     setSelectedDate(date);
+    setSelectedDates((current) => {
+      if (!multiSelect) return [date];
+      return current.includes(date) ? current.filter((item) => item !== date) : [...current, date].sort();
+    });
     if (date < from || date > to) setMonth(date);
   };
 
@@ -168,53 +173,11 @@ export default function AdminCalendarPage() {
   useEffect(() => { loadCalendarData(doctorId); }, [doctorId, from, to]);
   useEffect(() => { loadDaySlots(doctorId, selectedDate); }, [doctorId, selectedDate]);
 
-  const toggleHoliday = async (date: string) => {
-    if (!doctorId) return;
-    const dateOverrides = overridesByDate[date] || [];
-    const holidayOverrides = dateOverrides.filter((item) => item.override_type === 'unavailable_whole_day');
-    const isSunday = new Date(`${date}T00:00:00`).getDay() === 0;
-
-    setSelectedDate(date);
-    if (isSunday) { setMessage('Sunday is always closed.'); return; }
-    const dateAppointments = appointmentsByDate[date] || [];
-    if (holidayOverrides.length === 0 && dateAppointments.length > 0) {
-      if (!window.confirm(`${dateAppointments.length} appointment(s) already exist on this date. Continue?`)) return;
-    }
-
-    setSaving(true);
-    setMessage('');
-    setError('');
-    try {
-      const token = '';
-      if (holidayOverrides.length > 0) {
-        await Promise.all(holidayOverrides.map((item) => deleteAdminCalendarOverride(token, item.id)));
-        setMessage(`${formatShortDate(date)} is open as per schedule.`);
-      } else {
-        await createAdminCalendarOverride(token, {
-          doctor_id: doctorId, exception_date: date, override_type: 'unavailable_whole_day',
-          reason: 'Holiday', public_note: 'Clinic closed',
-        });
-        setMessage(`${formatShortDate(date)} marked as holiday.`);
-      }
-      await Promise.all([loadCalendarData(doctorId), loadDaySlots(doctorId, date)]);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Could not update holiday.');
-    } finally {
-      setSaving(false);
-    }
-  };
-
   const applySchedule = async (event: React.FormEvent) => {
     event.preventDefault();
     if (!doctorId) return;
-    const datesToSave = targetDates.filter(
-      (date) => action !== 'unavailable_whole_day' || new Date(`${date}T00:00:00`).getDay() !== 0
-    );
+    const datesToSave = selectedDates;
     if (datesToSave.length === 0) return;
-    const appointmentTotal = datesToSave.reduce((total, date) => total + (appointmentsByDate[date]?.length || 0), 0);
-    if (action === 'unavailable_whole_day' && appointmentTotal > 0) {
-      if (!window.confirm(`${appointmentTotal} appointment(s) already exist. Continue?`)) return;
-    }
 
     setSaving(true);
     setMessage('');
@@ -227,20 +190,17 @@ export default function AdminCalendarPage() {
         override_type: action,
         start_time: action === 'unavailable_whole_day' ? undefined : overrideForm.start_time,
         end_time: action === 'unavailable_whole_day' ? undefined : overrideForm.end_time,
+        slot_count: action === 'unavailable_whole_day' ? undefined : overrideForm.slot_count,
         reason: overrideForm.reason,
         public_note: overrideForm.public_note,
         internal_note: overrideForm.internal_note,
+        expected_version: scheduleVersion,
       };
-      let result = await createAdminCalendarOverridesBatch(token, payload);
-      if (result.requiresConfirmation) {
-        const conflictText = result.conflicted.map((item) => `${formatShortDate(item.date)} (${item.appointment_count})`).join(', ');
-        if (!window.confirm(`Existing appointment(s) found on: ${conflictText}. Continue?`)) {
-          setMessage('Calendar change cancelled.'); return;
-        }
-        result = await createAdminCalendarOverridesBatch(token, { ...payload, allow_conflicts: true });
-      }
+      const result = await createAdminCalendarOverridesBatch(token, payload);
       const skippedText = result.skipped?.length ? ` ${result.skipped.length} skipped.` : '';
-      setMessage(`Saved ${result.created?.length || 0} calendar change(s).${skippedText}`);
+      setMessage(result.requiresResolution
+        ? `No hours were changed. A resolution case was created for ${result.conflicted.reduce((sum, item) => sum + item.appointment_count, 0)} affected appointment(s).`
+        : `Saved ${result.created?.length || 0} calendar change(s).${skippedText}`);
       await Promise.all([loadCalendarData(doctorId), loadDaySlots(doctorId, selectedDate)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not save calendar change.');
@@ -249,19 +209,18 @@ export default function AdminCalendarPage() {
     }
   };
 
-  const saveRule = async (event: React.FormEvent) => {
+  const saveRule = async (data: { weekday: number; closed: boolean; start_time?: string; end_time?: string; slot_count?: number; effective_from: string }) => {
     if (!doctorId) return;
     setSaving(true);
     setError('');
     try {
       const token = '';
-      const data = event.target as unknown as { weekday: number; start_time: string; end_time: string; effective_from: string };
       await createAdminAvailabilityRule(token, {
-        doctor_id: doctorId, weekday: Number(data.weekday),
-        start_time: data.start_time, end_time: data.end_time,
-        slot_minutes: 30, effective_from: data.effective_from,
+        doctor_id: doctorId,
+        ...data,
+        expected_version: scheduleVersion,
       });
-      setMessage('Weekly hours added.');
+      setMessage('Weekly schedule updated.');
       await Promise.all([loadCalendarData(doctorId), loadDaySlots(doctorId, selectedDate)]);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not add working hours.');
@@ -295,7 +254,7 @@ export default function AdminCalendarPage() {
     setError('');
     try {
       const token = '';
-      await deleteAdminCalendarOverride(token, id);
+      await deleteAdminCalendarOverride(token, id, scheduleVersion);
       setMessage('Calendar change removed.');
       await Promise.all([loadCalendarData(doctorId), loadDaySlots(doctorId, selectedDate)]);
     } catch (err) {
@@ -321,7 +280,7 @@ export default function AdminCalendarPage() {
           <div className="grid w-full gap-3 rounded-lg border border-border bg-white p-3 shadow-sm sm:grid-cols-2 lg:w-auto lg:grid-cols-[260px_180px]">
             <label className="grid gap-1 text-sm font-semibold text-navy">
               Doctor
-              <select className="rounded-md border border-border px-3 py-2" value={doctorId} onChange={(e) => setDoctorId(e.target.value)}>
+              <select className="rounded-md border border-border px-3 py-2" value={doctorId} disabled={user.role === 'doctor'} onChange={(e) => setDoctorId(e.target.value)}>
                 {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name}</option>)}
               </select>
             </label>
@@ -341,6 +300,35 @@ export default function AdminCalendarPage() {
 
         <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_420px]">
           <div>
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 shadow-sm">
+              <div>
+                <p className="text-sm font-black text-navy">Choose dates</p>
+                <p className="text-xs font-semibold text-text-light">
+                  {multiSelect ? `${selectedDates.length} dates selected` : 'Select one date to edit'}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  className={`btn btn-sm ${!multiSelect ? 'btn-accent' : 'btn-outline'}`}
+                  onClick={() => { setMultiSelect(false); setSelectedDates([selectedDate]); }}
+                >
+                  One date
+                </button>
+                <button
+                  type="button"
+                  className={`btn btn-sm ${multiSelect ? 'btn-accent' : 'btn-outline'}`}
+                  onClick={() => { setMultiSelect(true); setSelectedDates([selectedDate]); }}
+                >
+                  Multiple dates
+                </button>
+                {multiSelect && (
+                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedDates([])}>
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
             <AgendaList
               days={agendaDays}
               selectedDate={selectedDate}
@@ -354,9 +342,10 @@ export default function AdminCalendarPage() {
               appointmentsByDate={appointmentsByDate}
               overridesByDate={overridesByDate}
               selectedDate={selectedDate}
+              selectedDates={selectedDates}
               saving={saving}
               onSelectDate={selectDate}
-              onMonthChange={(m) => { setMonth(m); setSelectedDate(m); }}
+              onMonthChange={(m) => { setMonth(m); setSelectedDate(m); setSelectedDates([m]); }}
             />
           </div>
 
@@ -367,22 +356,15 @@ export default function AdminCalendarPage() {
               selectedAppointments={selectedAppointments}
               selectedOverrides={selectedOverrides}
               saving={saving}
-              selectedIsSunday={selectedIsSunday}
-              selectedHolidayOverride={selectedHolidayOverride}
-              onToggleHoliday={toggleHoliday}
               onRemoveOverride={removeOverride}
             >
               <ScheduleForm
-                selectedDate={selectedDate}
-                cells={cells}
-                applyScope={applyScope}
+                selectedDates={selectedDates}
                 action={action}
                 overrideForm={overrideForm}
                 saving={saving}
                 loading={loading}
-                targetDatesLength={targetDates.length}
-                onSetScope={setApplyScope}
-                onSetAction={(a) => { setAction(a); setOverrideForm((f) => ({ ...f, reason: a === 'unavailable_whole_day' ? 'Holiday' : 'Clinic work' })); }}
+                onSetAction={(a) => { setAction(a); setOverrideForm((f) => ({ ...f, reason: a === 'unavailable_whole_day' ? 'Clinic closed' : 'Clinic hours', public_note: a === 'unavailable_whole_day' ? 'Closed' : '' })); }}
                 onUpdateForm={(patch) => setOverrideForm((f) => ({ ...f, ...patch }))}
                 onSubmit={applySchedule}
               />
@@ -394,10 +376,19 @@ export default function AdminCalendarPage() {
               settings={settings}
               settingsWarnings={settingsWarnings}
               saving={saving}
+              canManageBookingPolicy={user.role !== 'doctor'}
               onSaveRule={saveRule}
               onSaveSettings={saveSettings}
               onUpdateSettings={handleUpdateSettings}
             />
+            {pendingCases.length > 0 && (
+              <ScheduleConflictPanel
+                cases={pendingCases}
+                scheduleVersion={scheduleVersion}
+                canResolve={user.role !== 'doctor'}
+                onChanged={() => loadCalendarData(doctorId)}
+              />
+            )}
           </aside>
         </div>
       </div>

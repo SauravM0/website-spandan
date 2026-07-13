@@ -1,17 +1,19 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
 import { authenticate } from '../middleware/auth';
-import { adminOnly } from '../middleware/adminOnly';
 import { validate } from '../middleware/validate';
 import * as adminPackagesController from '../controllers/adminPackagesController';
 import { asyncHandler } from '../middleware/asyncHandler';
+import { requirePermission } from '../middleware/authorize';
+import { PERMISSIONS } from '../security/permissions';
 
 const router = Router();
 
-router.use(authenticate, adminOnly);
+router.use(authenticate);
 
 router.get(
   '/',
+  requirePermission(PERMISSIONS.PACKAGES_READ),
   [
     query('page').optional().isInt({ min: 1 }),
     query('pageSize').optional().isInt({ min: 1, max: 100 }),
@@ -22,10 +24,11 @@ router.get(
   asyncHandler(adminPackagesController.listPackages)
 );
 
-router.get('/:id', asyncHandler(adminPackagesController.getPackageDetail));
+router.get('/:id', requirePermission(PERMISSIONS.PACKAGES_READ), asyncHandler(adminPackagesController.getPackageDetail));
 
 router.put(
   '/:id',
+  requirePermission(PERMISSIONS.PACKAGES_WRITE),
   [
     body('expected_version').isInt({ min: 1 }).withMessage('expected_version is required'),
     body('name').optional().notEmpty().withMessage('name cannot be empty'),

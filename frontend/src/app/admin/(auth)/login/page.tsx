@@ -44,7 +44,9 @@ export default function AdminLoginPage() {
         setError(
           err.status === 429
             ? 'Too many login attempts. Please wait a few minutes and try again.'
-            : 'Email or password is incorrect.'
+            : err.status === 401
+              ? 'Email or password is incorrect.'
+              : 'The login service is unavailable. Please contact the administrator or try again later.'
         );
       } else {
         setError('Unable to sign in right now. Please try again.');
@@ -127,7 +129,7 @@ export default function AdminLoginPage() {
             disabled={submitting}
           >
             {submitting && <Loader2 size={16} className="animate-spin" />}
-            {submitting ? 'Signing in...' : 'Sign In'}
+            {submitting ? 'Signing in...' : 'Sign in'}
           </button>
         </form>
         <p className="mt-4 text-center text-xs text-text-light">

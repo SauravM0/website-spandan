@@ -17,6 +17,9 @@ import {
   Settings,
   X,
   Users,
+  FileCheck,
+  Files,
+  ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import '../../lib/i18n';
@@ -39,6 +42,9 @@ const navGroups = [
     items: [
       { href: '/admin/leads', label: 'Enquiries / Leads', icon: Users, capability: 'admin.leads.read' },
       { href: '/admin/notifications', label: 'Notifications', icon: Bell, capability: 'admin.notifications.read' },
+      { href: '/admin/intake', label: 'Remote Intake', icon: FileCheck, capability: 'admin.intake.read' },
+      { href: '/admin/patients', label: 'Patient Records', icon: Users, capability: 'admin.patients.read' },
+      { href: '/admin/documents', label: 'Medical Documents', icon: Files, capability: 'admin.documents.read' },
     ],
   },
   {
@@ -51,6 +57,7 @@ const navGroups = [
     label: 'Content & Settings',
     items: [
       { href: '/admin/packages', label: 'Packages', icon: Settings, capability: 'admin.packages.read' },
+      { href: '/admin/privacy-security', label: 'Privacy & Security', icon: ShieldCheck, capability: 'admin.privacy_requests.read' },
     ],
   },
 ];

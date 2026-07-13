@@ -56,9 +56,9 @@ export default async function HomePage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(homeStructuredData(payload)) }}
       />
       <HeroSection settings={payload.settings} doctors={payload.doctors} />
-      <TrustStrip />
-      <ServiceCards doctors={payload.doctors} />
       <DoctorCardsSection doctors={payload.doctors} />
+      <ServiceCards doctors={payload.doctors} />
+      <TrustStrip />
       <TeamCardsSection />
       <FeaturedPackages packages={payload.featuredPackages} />
       <EquipmentShowcase />

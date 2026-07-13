@@ -40,14 +40,14 @@ export const metadata: Metadata = {
   },
 };
 
-export default async function VideosPage({ searchParams }: { searchParams?: SearchParams }) {
-  const data = await getVideos();
+export default async function VideosPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
+  const [data, params] = await Promise.all([getVideos(), searchParams]);
   const allVideos: Video[] = data.videos || [];
   const channel = data.channel;
 
-  const currentTopic = singleValue(searchParams?.topic);
-  const currentLang = singleValue(searchParams?.lang);
-  const currentPage = Math.max(1, parseInt(singleValue(searchParams?.page), 10) || 1);
+  const currentTopic = singleValue(params?.topic);
+  const currentLang = singleValue(params?.lang);
+  const currentPage = Math.max(1, parseInt(singleValue(params?.page), 10) || 1);
 
   const topics = extractTopics(allVideos);
   const languages = extractLanguages(allVideos);

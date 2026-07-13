@@ -17,11 +17,19 @@ import adminLeadsRoutes from './routes/adminLeads';
 import adminPackagesRoutes from './routes/adminPackages';
 import operationsRoutes from './routes/operations';
 import adminOperationsRoutes from './routes/adminOperations';
+import remoteIntakeRoutes from './routes/remoteIntake';
+import adminIntakeRoutes from './routes/adminIntake';
+import adminPatientRecordRoutes from './routes/adminPatientRecords';
+import adminMedicationRoutes from './routes/adminMedications';
+import adminMedicalDocumentRoutes from './routes/adminMedicalDocuments';
+import adminObservationRoutes from './routes/adminObservations';
+import adminDeviceIntegrationRoutes from './routes/adminDeviceIntegrations';
 import { startBackgroundJobs } from './services/background';
 import { validateCsrfToken, getCsrfToken } from './middleware/csrf';
 import { requestId } from './middleware/requestId';
 import { query } from './config/database';
 import { logger } from './utils/logger';
+import { publicPrivacyRouter, adminPrivacyRouter } from './routes/privacySecurity';
 
 const app = express();
 
@@ -41,6 +49,7 @@ app.use(cors({
   credentials: true,
 }));
 app.use(express.json({ limit: '1mb' }));
+app.use(validateCsrfToken);
 
 // Global rate limit for all /api routes (backstop)
 const globalLimiter = rateLimit({
@@ -101,10 +110,12 @@ app.use('/api/public/doctors', publicGetLimiter, publicDoctorsRoutes);
 app.use('/api/doctors', publicGetLimiter, doctorsRoutes);
 app.use('/api/public/articles', publicGetLimiter, publicArticlesRoutes);
 app.use('/api/articles', publicGetLimiter, publicArticlesRoutes);
-app.use('/api/public/enquiries', validateCsrfToken, publicEnquiriesRoutes);
-app.use('/api/enquiries', validateCsrfToken, publicEnquiriesRoutes);
+app.use('/api/public/enquiries', publicEnquiriesRoutes);
+app.use('/api/enquiries', publicEnquiriesRoutes);
 app.use('/api/youtube', publicGetLimiter, youtubeRoutes);
 app.use('/api', operationsRoutes);
+app.use('/api/intake', remoteIntakeRoutes);
+app.use('/api/privacy', publicPrivacyRouter);
 
 // === Admin Routes (auth required) ===
 app.use('/api/admin', adminAuthRoutes);
@@ -112,6 +123,13 @@ app.use('/api/auth', adminAuthRoutes);
 app.use('/api/admin/leads', adminLeadsRoutes);
 app.use('/api/admin/packages', adminPackagesRoutes);
 app.use('/api/admin/operations', adminOperationsRoutes);
+app.use('/api/admin/intake', adminIntakeRoutes);
+app.use('/api/admin/patients', adminPatientRecordRoutes);
+app.use('/api/admin/medications', adminMedicationRoutes);
+app.use('/api/admin/documents', adminMedicalDocumentRoutes);
+app.use('/api/admin/observations', adminObservationRoutes);
+app.use('/api/admin/device-integrations', adminDeviceIntegrationRoutes);
+app.use('/api/admin/privacy-security', adminPrivacyRouter);
 
 // Error handler
 app.use(errorHandler);

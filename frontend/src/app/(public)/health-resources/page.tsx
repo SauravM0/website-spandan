@@ -58,8 +58,8 @@ async function getCategories(): Promise<string[]> {
   return Array.from(new Set((data.articles || []).map((article) => article.category).filter(Boolean) as string[])).sort();
 }
 
-export default async function HealthResourcesPage({ searchParams }: { searchParams?: SearchParams }) {
-  const filters = getFilters(searchParams);
+export default async function HealthResourcesPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
+  const filters = getFilters(await searchParams);
   const [data, categories] = await Promise.all([getArticles(filters), getCategories()]);
   const articles = data.articles || [];
 

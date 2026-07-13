@@ -4,7 +4,7 @@ import Footer from '@/components/layout/Footer';
 import ConsentBanner from '@/components/layout/ConsentBanner';
 import StickyCTA from '@/components/home/StickyCTA';
 import SkipLink from '@/components/ui/SkipLink';
-import { Activity, HeartPulse, Microscope, Scale, Stethoscope, Syringe } from 'lucide-react';
+import { clinicSettings } from '@/lib/settings';
 
 export default function PublicLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,16 +16,16 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@type': 'MedicalClinic',
-            name: 'Spandan Super Speciality Clinic',
+            name: clinicSettings.name,
             image: '/logo.png',
-            telephone: '+917798095795',
-            email: 'info@spandanclinic.com',
+            telephone: clinicSettings.phone,
+            email: clinicSettings.email,
             address: {
               '@type': 'PostalAddress',
-              streetAddress: 'Plot No. 63, Alankar Housing Society, Beside Essar Petrol Pump, Gajanan Maharaj Mandir Rd, Pundlik Nagar, Garkheda',
-              addressLocality: 'Chhatrapati Sambhajinagar',
-              addressRegion: 'Maharashtra',
-              postalCode: '431009',
+              streetAddress: clinicSettings.address,
+              addressLocality: clinicSettings.city,
+              addressRegion: clinicSettings.state,
+              postalCode: clinicSettings.pincode,
               addressCountry: 'IN',
             },
             openingHoursSpecification: [
@@ -40,16 +40,6 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
         }}
       />
       <Navbar />
-      <div className="clinical-motifs" aria-hidden="true">
-        <HeartPulse className="clinical-motif clinical-motif-1" />
-        <Stethoscope className="clinical-motif clinical-motif-2" />
-        <Activity className="clinical-motif clinical-motif-3" />
-        <Microscope className="clinical-motif clinical-motif-4" />
-        <Syringe className="clinical-motif clinical-motif-5" />
-        <Scale className="clinical-motif clinical-motif-6" />
-        <HeartPulse className="clinical-motif clinical-motif-7" />
-        <Activity className="clinical-motif clinical-motif-8" />
-      </div>
       <main id="main-content" className="relative flex-1" tabIndex={-1}>{children}</main>
       <Footer />
       <ConsentBanner />

@@ -1,14 +1,14 @@
 'use client';
 
 import React from 'react';
-import { Trash2, XCircle } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
 import { formatDate, formatShortDate, formatTime, dayStatus, slotsForDay } from './CalendarUtils';
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
+function Field({ label, children }: { label: string; children: React.ReactElement<{ className?: string }> }) {
   return (
     <label className="grid gap-1 text-sm font-bold text-navy">
       {label}
-      {React.cloneElement(children as React.ReactElement, {
+      {React.cloneElement(children, {
         className: 'rounded-md border border-border px-3 py-2 text-sm font-semibold text-text',
       })}
     </label>
@@ -30,9 +30,6 @@ export default function DayInspector({
   selectedAppointments,
   selectedOverrides,
   saving,
-  selectedIsSunday,
-  selectedHolidayOverride,
-  onToggleHoliday,
   onRemoveOverride,
   children,
 }: {
@@ -41,9 +38,6 @@ export default function DayInspector({
   selectedAppointments: any[];
   selectedOverrides: any[];
   saving: boolean;
-  selectedIsSunday: boolean;
-  selectedHolidayOverride: any;
-  onToggleHoliday: (date: string) => void;
   onRemoveOverride: (id: string) => void;
   children: React.ReactNode;
 }) {
@@ -74,26 +68,6 @@ export default function DayInspector({
         <Stat label="Open Slots" value={selectedCounts.available} />
         <Stat label="Booked" value={selectedAppointments.length} />
         <Stat label="Blocked" value={selectedCounts.blocked} />
-      </div>
-
-      <div className="mb-4 grid gap-2">
-        <button
-          type="button"
-          onClick={() => onToggleHoliday(selectedDate)}
-          disabled={saving || selectedIsSunday}
-          className={`btn w-full ${
-            selectedHolidayOverride || selectedIsSunday ? 'btn-outline' : 'bg-rose-600 text-white hover:bg-rose-700'
-          }`}
-        >
-          {selectedHolidayOverride || selectedIsSunday ? (
-            <><Trash2 size={17} /> Open This Day</>
-          ) : (
-            <><XCircle size={17} /> Close This Day</>
-          )}
-        </button>
-        {selectedIsSunday && (
-          <p className="text-xs font-semibold text-text-light">Sunday stays closed automatically.</p>
-        )}
       </div>
 
       <div className="mb-4 rounded-lg border border-border bg-bg-alt p-3">

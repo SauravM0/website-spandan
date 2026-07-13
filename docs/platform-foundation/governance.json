@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "timezone": "Asia/Kolkata",
+  "phase": 1,
+  "productionClinicalDataEnabled": false,
+  "owners": {
+    "product": null,
+    "clinicalSafety": null,
+    "privacy": null,
+    "security": null,
+    "data": null,
+    "operations": null,
+    "engineering": "engineering"
+  },
+  "capabilities": [
+    { "name": "public-content", "owner": "engineering", "sourceOfTruth": "PostgreSQL articles/doctors/packages", "status": "active" },
+    { "name": "staff-identity-and-access", "owner": "engineering", "sourceOfTruth": "PostgreSQL staff_users and backend permission policy", "status": "active" },
+    { "name": "scheduling-and-appointments", "owner": "engineering", "sourceOfTruth": "PostgreSQL appointment and calendar tables", "status": "active" },
+    { "name": "payments-and-receipts", "owner": "engineering", "sourceOfTruth": "PostgreSQL payments/attempts/receipts; provider is settlement evidence", "status": "active" },
+    { "name": "notifications", "owner": "engineering", "sourceOfTruth": "PostgreSQL notification_outbox", "status": "active" },
+    { "name": "patient-identity", "owner": null, "sourceOfTruth": "PostgreSQL patients (identity resolution and merge are not approved)", "status": "restricted" },
+    { "name": "consent", "owner": null, "sourceOfTruth": "Versioned booking snapshots only; general consent service not approved", "status": "restricted" },
+    { "name": "clinical-record", "owner": null, "sourceOfTruth": "None; database collection gate is active", "status": "disabled" },
+    { "name": "documents-and-object-storage", "owner": null, "sourceOfTruth": "None", "status": "disabled" },
+    { "name": "device-and-partner-imports", "owner": null, "sourceOfTruth": "None", "status": "disabled" }
+  ],
+  "phaseGates": {
+    "phase2": { "approved": false, "evidence": [] },
+    "phase3": { "approved": false, "evidence": [] },
+    "phase4": { "approved": false, "evidence": [] }
+  }
+}

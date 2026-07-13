@@ -11,14 +11,17 @@ import {
   packageQuoteSchema,
   paymentCreateSchema,
   slotHoldSchema,
+  bookingRecoverySchema,
 } from '../utils/validation';
 import { z } from 'zod';
+import rateLimit from 'express-rate-limit';
 
 const router = Router();
 
 const idParams = z.object({ id: z.string().uuid() });
 const holdPaymentParams = z.object({ holdId: z.string().uuid() });
 const transactionParams = z.object({ transactionId: z.string().min(1).max(120) });
+const recoveryLimiter = rateLimit({ windowMs: 15 * 60 * 1000, max: 10, standardHeaders: true, legacyHeaders: false });
 
 router.get('/appointments/slots', validateZod({ query: availabilityQuerySchema }), asyncHandler(controller.getSlots));
 router.post('/appointments/holds', validateZod({ body: slotHoldSchema }), asyncHandler(controller.holdSlot));
@@ -35,6 +38,7 @@ router.get('/public/doctors/:id/availability', validateZod({ params: doctorAvail
 router.get('/public/appointments/config', asyncHandler(controller.publicAppointmentConfig));
 router.post('/public/appointment-holds', validateZod({ body: slotHoldSchema }), asyncHandler(controller.holdSlot));
 router.get('/public/appointment-holds/:id', validateZod({ params: idParams }), asyncHandler(controller.getHold));
+router.post('/public/appointments/recover', recoveryLimiter, validateZod({ body: bookingRecoverySchema }), asyncHandler(controller.recoverAppointment));
 router.post('/public/appointments/:holdId/payment', validateZod({ params: holdPaymentParams }), asyncHandler(controller.startAppointmentPayment));
 router.post('/public/orders', validateZod({ body: packageOrderSchema }), asyncHandler(controller.createOrder));
 router.post('/public/orders/quote', validateZod({ body: packageQuoteSchema }), asyncHandler(controller.quoteOrder));

@@ -1,0 +1,78 @@
+export const PERMISSIONS = {
+  DASHBOARD_READ: 'admin.dashboard.read',
+  CALENDAR_READ: 'admin.calendar.read',
+  CALENDAR_WRITE: 'admin.calendar.write',
+  APPOINTMENTS_READ: 'admin.appointments.read',
+  APPOINTMENTS_WRITE: 'admin.appointments.write',
+  PACKAGE_ORDERS_READ: 'admin.package_orders.read',
+  PAYMENTS_READ: 'admin.payments.read',
+  PAYMENTS_RECHECK: 'admin.payments.recheck',
+  PAYMENTS_REFUND: 'admin.payments.refund',
+  PRICING_READ: 'admin.pricing.read',
+  PRICING_WRITE: 'admin.pricing.write',
+  NOTIFICATIONS_READ: 'admin.notifications.read',
+  NOTIFICATIONS_WRITE: 'admin.notifications.write',
+  LEADS_READ: 'admin.leads.read',
+  LEADS_WRITE: 'admin.leads.write',
+  PACKAGES_READ: 'admin.packages.read',
+  PACKAGES_WRITE: 'admin.packages.write',
+  CONTENT_WRITE: 'admin.content.write',
+  EXPORT_SENSITIVE: 'admin.export.sensitive',
+  INTAKE_READ: 'admin.intake.read',
+  INTAKE_WRITE: 'admin.intake.write',
+  PATIENTS_READ: 'admin.patients.read',
+  PATIENTS_WRITE: 'admin.patients.write',
+  CLINICAL_READ: 'admin.clinical.read',
+  CLINICAL_WRITE: 'admin.clinical.write',
+  MEDICATION_REPORT: 'admin.medications.report',
+  MEDICATION_RECONCILE: 'admin.medications.reconcile',
+  OBSERVATION_REPORT: 'admin.observations.report',
+  OBSERVATION_VERIFY: 'admin.observations.verify',
+  DEVICE_IMPORT_READ: 'admin.device_imports.read',
+  DEVICE_IMPORT_WRITE: 'admin.device_imports.write',
+  PRESCRIBE: 'admin.prescriptions.write',
+  DOCUMENTS_READ: 'admin.documents.read',
+  DOCUMENTS_UPLOAD: 'admin.documents.upload',
+  DOCUMENTS_REVIEW: 'admin.documents.review',
+  PRIVACY_REQUESTS_READ: 'admin.privacy_requests.read',
+  PRIVACY_REQUESTS_MANAGE: 'admin.privacy_requests.manage',
+  SECURITY_ADMIN: 'admin.security.manage',
+} as const;
+
+export type Permission = typeof PERMISSIONS[keyof typeof PERMISSIONS];
+
+// Prescribing is a future regulated workflow and is intentionally granted to no role.
+const allPermissions = Object.values(PERMISSIONS).filter((permission) => permission !== PERMISSIONS.PRESCRIBE);
+
+const rolePermissions: Readonly<Record<string, readonly Permission[]>> = {
+  admin: allPermissions,
+  system_admin: allPermissions,
+  manager: allPermissions.filter((permission) => ![PERMISSIONS.CONTENT_WRITE, PERMISSIONS.SECURITY_ADMIN, PERMISSIONS.PRIVACY_REQUESTS_MANAGE].includes(permission as any)),
+  staff: [
+    PERMISSIONS.DASHBOARD_READ, PERMISSIONS.CALENDAR_READ, PERMISSIONS.CALENDAR_WRITE,
+    PERMISSIONS.APPOINTMENTS_READ, PERMISSIONS.APPOINTMENTS_WRITE, PERMISSIONS.PACKAGE_ORDERS_READ,
+    PERMISSIONS.NOTIFICATIONS_READ, PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE,
+    PERMISSIONS.INTAKE_READ, PERMISSIONS.INTAKE_WRITE,
+    PERMISSIONS.PATIENTS_READ, PERMISSIONS.PATIENTS_WRITE, PERMISSIONS.CLINICAL_READ, PERMISSIONS.MEDICATION_REPORT, PERMISSIONS.OBSERVATION_REPORT, PERMISSIONS.DEVICE_IMPORT_READ, PERMISSIONS.DEVICE_IMPORT_WRITE,
+    PERMISSIONS.DOCUMENTS_READ, PERMISSIONS.DOCUMENTS_UPLOAD,
+  ],
+  reception: [
+    PERMISSIONS.DASHBOARD_READ, PERMISSIONS.CALENDAR_READ, PERMISSIONS.CALENDAR_WRITE,
+    PERMISSIONS.APPOINTMENTS_READ, PERMISSIONS.APPOINTMENTS_WRITE, PERMISSIONS.PACKAGE_ORDERS_READ,
+    PERMISSIONS.NOTIFICATIONS_READ, PERMISSIONS.LEADS_READ, PERMISSIONS.LEADS_WRITE,
+    PERMISSIONS.INTAKE_READ, PERMISSIONS.INTAKE_WRITE,
+    PERMISSIONS.PATIENTS_READ, PERMISSIONS.PATIENTS_WRITE,
+    PERMISSIONS.DOCUMENTS_READ, PERMISSIONS.DOCUMENTS_UPLOAD,
+  ],
+  doctor: [PERMISSIONS.DASHBOARD_READ, PERMISSIONS.CALENDAR_READ, PERMISSIONS.CALENDAR_WRITE, PERMISSIONS.APPOINTMENTS_READ, PERMISSIONS.INTAKE_READ, PERMISSIONS.PATIENTS_READ, PERMISSIONS.CLINICAL_READ, PERMISSIONS.CLINICAL_WRITE, PERMISSIONS.MEDICATION_REPORT, PERMISSIONS.MEDICATION_RECONCILE, PERMISSIONS.OBSERVATION_REPORT, PERMISSIONS.OBSERVATION_VERIFY, PERMISSIONS.DEVICE_IMPORT_READ, PERMISSIONS.DEVICE_IMPORT_WRITE, PERMISSIONS.DOCUMENTS_READ, PERMISSIONS.DOCUMENTS_UPLOAD, PERMISSIONS.DOCUMENTS_REVIEW],
+  billing: [PERMISSIONS.DASHBOARD_READ, PERMISSIONS.PACKAGE_ORDERS_READ, PERMISSIONS.PAYMENTS_READ, PERMISSIONS.PAYMENTS_RECHECK, PERMISSIONS.PAYMENTS_REFUND, PERMISSIONS.PRICING_READ, PERMISSIONS.EXPORT_SENSITIVE],
+  content_editor: [PERMISSIONS.PACKAGES_READ, PERMISSIONS.PACKAGES_WRITE, PERMISSIONS.CONTENT_WRITE],
+};
+
+export function permissionsForRole(role: string): readonly Permission[] {
+  return rolePermissions[role] ?? [];
+}
+
+export function roleHasPermission(role: string, permission: Permission): boolean {
+  return permissionsForRole(role).includes(permission);
+}

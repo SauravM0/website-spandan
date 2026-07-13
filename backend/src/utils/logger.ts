@@ -1,11 +1,12 @@
 type LogLevel = 'debug' | 'info' | 'warn' | 'error';
+import { redact } from './redaction';
 
 function write(level: LogLevel, message: string, meta: Record<string, unknown> = {}) {
   const entry = {
     level,
     message,
     time: new Date().toISOString(),
-    ...meta,
+    ...(redact(meta) as Record<string, unknown>),
   };
   const line = JSON.stringify(entry);
   if (level === 'error') console.error(line);

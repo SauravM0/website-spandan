@@ -15,11 +15,13 @@ import {
   exportPaymentsCsv,
   getAdminDashboard,
   getAdminCalendarView,
+  getScheduleConflictCase,
   getAdminPaymentDetail,
   getAppointmentConfig,
   getAppointmentHold,
   getPaymentStatus,
   listDoctorAvailability,
+  getPublicDoctorAvailabilityView,
   listPackageCommerceCatalog,
   listAvailabilityRules,
   listAppointments,
@@ -34,6 +36,11 @@ import {
   updateAppointmentConfig,
   updatePaymentStatus,
   appointmentConfigWarnings,
+  recoverAppointmentBooking,
+  listPaymentExceptions,
+  requestPaymentRefund,
+  recordScheduleConflictResolutions,
+  applyScheduleConflictCase,
 } from '../services/operations';
 import {
   bulkRetryNotifications,
@@ -48,6 +55,7 @@ import { buildReceiptPdf } from '../services/receiptPdf';
 import { normalizePhonePeState, verifyPhonePeWebhookAuthorization } from '../services/phonePe';
 import { sendApiError } from '../utils/errors';
 import { config } from '../config';
+import { createBillableService, getPublicConsultationPrice, listBillableServices, updateBillableService } from '../services/servicePricing';
 
 function handleError(res: Response, err: unknown) {
   const error = err as Error & { status?: number; code?: string };
@@ -78,8 +86,7 @@ export async function getPublicDoctorAvailability(req: AuthenticatedRequest, res
     const doctorId = req.params.id;
     const from = String(req.query.from || req.query.date);
     const to = String(req.query.to || req.query.date || req.query.from);
-    const availability = await listDoctorAvailability(doctorId, from, to);
-    res.json({ availability });
+    res.json(await getPublicDoctorAvailabilityView(doctorId, from, to));
   } catch (err) {
     handleError(res, err);
   }
@@ -87,7 +94,11 @@ export async function getPublicDoctorAvailability(req: AuthenticatedRequest, res
 
 export async function holdSlot(req: AuthenticatedRequest, res: Response) {
   try {
-    const hold = await createSlotHold(req.body);
+    const hold = await createSlotHold({
+      ...req.body,
+      idempotency_key: req.header('idempotency-key') || undefined,
+      correlation_id: res.locals.requestId,
+    });
     res.status(201).json({ hold });
   } catch (err) {
     handleError(res, err);
@@ -107,12 +118,28 @@ export async function getHold(req: AuthenticatedRequest, res: Response) {
   }
 }
 
+export async function recoverAppointment(req: AuthenticatedRequest, res: Response) {
+  try {
+    const booking = await recoverAppointmentBooking(req.body.reference, req.body.phone);
+    if (!booking) {
+      // Deliberately indistinguishable: do not disclose whether a reference or patient exists.
+      sendApiError(res, 404, 'BOOKING_NOT_FOUND', 'Booking details could not be verified');
+      return;
+    }
+    res.json({ booking });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
 export async function bookAppointment(req: AuthenticatedRequest, res: Response) {
   try {
     const appointment = await createAppointment({
       ...req.body,
       source: req.user ? 'admin' : 'public',
       created_by_staff_id: req.user?.id,
+      idempotency_key: req.header('idempotency-key') || undefined,
+      correlation_id: res.locals.requestId,
     });
     res.status(201).json({ appointment });
   } catch (err) {
@@ -149,12 +176,17 @@ export async function packageCatalog(_req: AuthenticatedRequest, res: Response) 
 export async function publicAppointmentConfig(_req: AuthenticatedRequest, res: Response) {
   try {
     const settings = await getAppointmentConfig();
+    const price = await getPublicConsultationPrice(
+      _req.query.doctor_id ? String(_req.query.doctor_id) : undefined,
+      _req.query.appointment_type ? String(_req.query.appointment_type) : 'new'
+    );
     res.json({
       config: {
         clinic_timezone: 'Asia/Kolkata',
         clinic_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()),
-        fee: config.appointmentConsultationFee,
+        fee: Number(price.price),
         currency: 'INR',
+        service: { id: price.id, code: price.code, name: price.name, version: price.version },
         policy_version: 'appointment-policy-2026-07-07',
         consent_version: 'appointment-consent-2026-07-07',
         minimum_booking_notice_minutes: settings.minimum_booking_notice_minutes,
@@ -168,9 +200,28 @@ export async function publicAppointmentConfig(_req: AuthenticatedRequest, res: R
   }
 }
 
+export async function adminBillableServices(_req: AuthenticatedRequest, res: Response) {
+  try { res.json({ services: await listBillableServices() }); }
+  catch (err) { handleError(res, err); }
+}
+
+export async function adminCreateBillableService(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user?.id) { sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required'); return; }
+    res.status(201).json({ service: await createBillableService(req.body, req.user.id) });
+  } catch (err) { handleError(res, err); }
+}
+
+export async function adminUpdateBillableService(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user?.id) { sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required'); return; }
+    res.json({ service: await updateBillableService(req.params.id, req.body, req.user.id) });
+  } catch (err) { handleError(res, err); }
+}
+
 export async function startPayment(req: AuthenticatedRequest, res: Response) {
   try {
-    const payment = await createPayment(req.body);
+    const payment = await createPayment({ ...req.body, idempotency_key: req.header('idempotency-key') || undefined });
     res.status(201).json({ payment });
   } catch (err) {
     handleError(res, err);
@@ -179,7 +230,7 @@ export async function startPayment(req: AuthenticatedRequest, res: Response) {
 
 export async function startOrderPayment(req: AuthenticatedRequest, res: Response) {
   try {
-    const payment = await createOrderPayment(req.params.id);
+    const payment = await createPayment({ order_id: req.params.id, idempotency_key: req.header('idempotency-key') || undefined });
     res.status(201).json({ payment });
   } catch (err) {
     handleError(res, err);
@@ -188,7 +239,7 @@ export async function startOrderPayment(req: AuthenticatedRequest, res: Response
 
 export async function startAppointmentPayment(req: AuthenticatedRequest, res: Response) {
   try {
-    const payment = await createAppointmentPayment(req.params.holdId);
+    const payment = await createAppointmentPayment(req.params.holdId, req.header('idempotency-key') || undefined);
     res.status(201).json({ payment });
   } catch (err) {
     handleError(res, err);
@@ -387,11 +438,11 @@ export async function adminAvailabilityRules(req: AuthenticatedRequest, res: Res
 
 export async function adminCreateAvailabilityRule(req: AuthenticatedRequest, res: Response) {
   try {
-    if (req.user?.role === 'doctor') {
-      res.status(403).json({ error: 'Doctor users cannot change availability rules' });
+    if (req.user?.role === 'doctor' && req.body.doctor_id !== req.user.doctor_id) {
+      sendApiError(res, 403, 'DOCTOR_CALENDAR_SCOPE_DENIED', 'Doctors may only change their own weekly schedule');
       return;
     }
-    res.status(201).json({ rule: await createAvailabilityRule(req.body) });
+    res.status(201).json({ rule: await createAvailabilityRule({ ...req.body, actor_staff_id: req.user?.id }) });
   } catch (err) {
     handleError(res, err);
   }
@@ -445,8 +496,8 @@ export async function adminCalendarView(req: AuthenticatedRequest, res: Response
 
 export async function adminCreateCalendarOverride(req: AuthenticatedRequest, res: Response) {
   try {
-    if (req.user?.role === 'doctor') {
-      res.status(403).json({ error: 'Doctor users cannot change calendar overrides' });
+    if (req.user?.role === 'doctor' && req.body.doctor_id !== req.user.doctor_id) {
+      sendApiError(res, 403, 'DOCTOR_CALENDAR_SCOPE_DENIED', 'Doctors may only change their own calendar');
       return;
     }
     res.status(201).json({ override: await createCalendarOverride(req.body) });
@@ -457,15 +508,15 @@ export async function adminCreateCalendarOverride(req: AuthenticatedRequest, res
 
 export async function adminCreateCalendarOverridesBatch(req: AuthenticatedRequest, res: Response) {
   try {
-    if (req.user?.role === 'doctor') {
-      res.status(403).json({ error: 'Doctor users cannot change calendar overrides' });
+    if (req.user?.role === 'doctor' && req.body.doctor_id !== req.user.doctor_id) {
+      sendApiError(res, 403, 'DOCTOR_CALENDAR_SCOPE_DENIED', 'Doctors may only change their own calendar');
       return;
     }
     const result = await createCalendarOverridesBatch({
       ...req.body,
       actor_staff_id: req.user?.id,
     });
-    res.status(result.requiresConfirmation ? 200 : 201).json(result);
+    res.status(result.requiresResolution ? 202 : 201).json(result);
   } catch (err) {
     handleError(res, err);
   }
@@ -473,11 +524,62 @@ export async function adminCreateCalendarOverridesBatch(req: AuthenticatedReques
 
 export async function adminDeleteCalendarOverride(req: AuthenticatedRequest, res: Response) {
   try {
-    if (req.user?.role === 'doctor') {
-      res.status(403).json({ error: 'Doctor users cannot change calendar overrides' });
+    res.json({ override: await deleteCalendarOverride(
+      req.params.id,
+      Number(req.query.expected_version),
+      req.user?.id,
+      req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined
+    ) });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminScheduleConflictCase(req: AuthenticatedRequest, res: Response) {
+  try {
+    const conflictCase = await getScheduleConflictCase(
+      req.params.id,
+      req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined
+    );
+    if (!conflictCase) {
+      sendApiError(res, 404, 'SCHEDULE_CONFLICT_NOT_FOUND', 'Schedule conflict case not found');
       return;
     }
-    res.json({ override: await deleteCalendarOverride(req.params.id) });
+    res.json({ conflictCase });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminResolveScheduleConflict(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (req.user?.role === 'doctor') {
+      res.status(403).json({ error: 'Doctor users cannot resolve schedule conflicts' });
+      return;
+    }
+    const conflictCase = await recordScheduleConflictResolutions({
+      caseId: req.params.id,
+      resolutions: req.body.resolutions,
+      actorStaffId: req.user?.id,
+    });
+    res.json({ conflictCase });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminApplyScheduleConflict(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (req.user?.role === 'doctor') {
+      res.status(403).json({ error: 'Doctor users cannot apply schedule conflicts' });
+      return;
+    }
+    const result = await applyScheduleConflictCase({
+      caseId: req.params.id,
+      expectedVersion: req.body.expected_version,
+      actorStaffId: req.user?.id,
+    });
+    res.json(result);
   } catch (err) {
     handleError(res, err);
   }
@@ -498,7 +600,13 @@ export async function adminUpdateAppointmentStatus(req: AuthenticatedRequest, re
 
 export async function adminOrders(_req: AuthenticatedRequest, res: Response) {
   try {
-    res.json({ orders: await listPackageOrders() });
+    const req = _req;
+    res.json(await listPackageOrders({
+      status: req.query.status ? String(req.query.status) : undefined,
+      search: req.query.search ? String(req.query.search) : undefined,
+      cursor: req.query.cursor ? String(req.query.cursor) : undefined,
+      pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
+    }));
   } catch (err) {
     handleError(res, err);
   }
@@ -548,6 +656,25 @@ export async function adminPaymentRecheck(req: AuthenticatedRequest, res: Respon
   } catch (err) {
     handleError(res, err);
   }
+}
+
+export async function adminPaymentExceptions(req: AuthenticatedRequest, res: Response) {
+  try {
+    res.json({ exceptions: await listPaymentExceptions(String(req.query.status || 'open'), Number(req.query.limit || 50)) });
+  } catch (err) { handleError(res, err); }
+}
+
+export async function adminPaymentRefundRequest(req: AuthenticatedRequest, res: Response) {
+  try {
+    const idempotencyKey = req.header('idempotency-key');
+    if (!idempotencyKey) { sendApiError(res, 400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required'); return; }
+    if (!req.user?.id) { sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required'); return; }
+    const refund = await requestPaymentRefund({
+      paymentId: req.params.id, amount: req.body.amount, reason: req.body.reason,
+      idempotencyKey, actorStaffId: req.user.id,
+    });
+    res.status(202).json({ refund, message: 'Refund request recorded for independent approval and provider processing.' });
+  } catch (err) { handleError(res, err); }
 }
 
 export async function adminPaymentsExport(_req: AuthenticatedRequest, res: Response) {

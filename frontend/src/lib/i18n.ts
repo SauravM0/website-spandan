@@ -19,4 +19,8 @@ i18n
     },
   });
 
+i18n.on('languageChanged', (language) => {
+  if (typeof document !== 'undefined') document.documentElement.lang = language;
+});
+
 export default i18n;

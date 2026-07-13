@@ -39,7 +39,6 @@ export const config = {
   corsOrigin: corsOrigins[0],
   corsOrigins,
   frontendUrl,
-  appointmentConsultationFee: parseFloat(process.env.APPOINTMENT_CONSULTATION_FEE || '700'),
   receiptBrandName: process.env.RECEIPT_BRAND_NAME || 'Spandan Super Speciality Clinic',
   phonePe: {
     enabled: process.env.PHONEPE_ENABLED === 'true',
@@ -65,6 +64,31 @@ export const config = {
     pass: process.env.SMTP_PASS || '',
   },
   notificationEmail: process.env.NOTIFICATION_EMAIL || '',
+  intake: {
+    encryptionKey: process.env.INTAKE_ENCRYPTION_KEY || jwtSecret,
+    tokenTtlHours: parseInt(process.env.INTAKE_TOKEN_TTL_HOURS || '72', 10),
+    draftRetentionDays: parseInt(process.env.INTAKE_DRAFT_RETENTION_DAYS || '30', 10),
+    uploadBaseUrl: process.env.INTAKE_UPLOAD_BASE_URL || '',
+  },
+  patientRecord: {
+    clinicalWritesEnabled: process.env.CLINICAL_RECORD_WRITES_ENABLED === 'true',
+  },
+  observations: {
+    enabled: process.env.CLINICAL_OBSERVATIONS_ENABLED === 'true',
+  },
+  deviceIntegrations: {
+    enabled: process.env.DEVICE_IMPORTS_ENABLED === 'true',
+  },
+  documents: {
+    enabled: process.env.MEDICAL_DOCUMENTS_ENABLED === 'true',
+    storageDir: process.env.DOCUMENT_STORAGE_DIR || '.private-documents',
+    encryptionKey: process.env.DOCUMENT_ENCRYPTION_KEY || '',
+    maxBytes: parseInt(process.env.DOCUMENT_MAX_BYTES || String(10 * 1024 * 1024), 10),
+    scannerMode: process.env.DOCUMENT_SCANNER_MODE || 'disabled',
+    scannerHost: process.env.DOCUMENT_SCANNER_HOST || '127.0.0.1',
+    scannerPort: parseInt(process.env.DOCUMENT_SCANNER_PORT || '3310',10),
+    scannerTimeoutMs: parseInt(process.env.DOCUMENT_SCANNER_TIMEOUT_MS || '15000',10),
+  },
   whatsapp: {
     enabled: process.env.WHATSAPP_NOTIFICATIONS_ENABLED === 'true',
     provider: process.env.WHATSAPP_PROVIDER || 'meta',

@@ -4,6 +4,8 @@ import { config } from '../config';
 import { isWhatsAppConfigured, sendWhatsAppEnquiryNotification } from './whatsapp';
 import { processNotificationOutbox } from './notifications';
 import { logger } from '../utils/logger';
+import { processJobs as processDocumentJobs } from './medicalDocuments';
+import { reconcilePendingPayments } from './operations';
 
 let whatsappNotificationJobRunning = false;
 let notificationOutboxJobRunning = false;
@@ -69,6 +71,9 @@ async function sendPendingWhatsAppNotifications(): Promise<void> {
 }
 
 export function startBackgroundJobs(): void {
+  let paymentReconciliationRunning = false;
+  let documentJobRunning=false;
+  cron.schedule('* * * * *',async()=>{if(documentJobRunning)return;documentJobRunning=true;try{await processDocumentJobs();}catch(err){logger.error('Document processing failed',{error:(err as Error).message});}finally{documentJobRunning=false;}});
   cron.schedule('* * * * *', async () => {
     if (notificationOutboxJobRunning) return;
     notificationOutboxJobRunning = true;
@@ -83,7 +88,19 @@ export function startBackgroundJobs(): void {
       notificationOutboxJobRunning = false;
     }
   });
+
+  cron.schedule('*/5 * * * *', async () => {
+    if (paymentReconciliationRunning) return;
+    paymentReconciliationRunning = true;
+    try {
+      const result = await reconcilePendingPayments(25);
+      if (result.checked || result.exceptions) logger.info('Payment reconciliation completed', result);
+    } catch (err) {
+      logger.error('Payment reconciliation failed', { error_code: 'PAYMENT_RECONCILIATION_FAILED' });
+    } finally { paymentReconciliationRunning = false; }
+  });
   processNotificationOutbox().catch((err) => logger.error('Initial notification outbox processing failed', { error: err.message }));
+  processDocumentJobs().catch((err)=>logger.error('Initial document processing failed',{error:err.message}));
 
   if (isWhatsAppConfigured()) {
     cron.schedule('* * * * *', sendPendingWhatsAppNotifications);
@@ -131,6 +148,14 @@ export function startBackgroundJobs(): void {
     } catch (err) {
       logger.error('Lead archive cleanup failed', { error: (err as Error).message });
     }
+  });
+
+  cron.schedule('*/15 * * * *', async () => {
+    try {
+      const expired = await query(`UPDATE intake_invitations SET status='expired',updated_at=NOW() WHERE status='active' AND expires_at<=NOW()`);
+      const sessions = await query(`UPDATE verified_contact_sessions SET session_token_hash=NULL,updated_at=NOW() WHERE session_token_hash IS NOT NULL AND session_expires_at<=NOW()`);
+      if (expired.rowCount || sessions.rowCount) logger.info('Remote intake security cleanup complete', { invitations_expired: expired.rowCount || 0, sessions_closed: sessions.rowCount || 0 });
+    } catch (err) { logger.error('Remote intake cleanup failed', { error: (err as Error).message }); }
   });
 
   if (config.env === 'development') {

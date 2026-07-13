@@ -6,6 +6,7 @@ import { findStaffUserByAuthId, StaffUser } from '../models';
 export interface AuthenticatedRequest extends Request {
   user?: StaffUser;
   sessionExpiresAt?: string | null;
+  sessionId?: string;
 }
 
 const STAFF_CACHE_TTL_MS = 30_000;
@@ -66,7 +67,14 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
       role?: string;
       doctor_id?: string;
       exp?: number;
+      sid?: string;
     };
+    if (!decoded.sid) { res.status(401).json({ error: 'Session upgrade required' }); return; }
+    const session = await import('../config/database').then(({ query }) => query(
+      `SELECT id FROM staff_sessions WHERE id=$1 AND staff_user_id=$2 AND revoked_at IS NULL AND expires_at>NOW()`,
+      [decoded.sid, decoded.userId]
+    ));
+    if (!session.rows[0]) { res.status(401).json({ error: 'Session expired or revoked' }); return; }
     const user = await getCachedStaffUser(decoded.userId);
     if (!user || !user.is_active) {
       res.status(401).json({ error: 'User not found or inactive' });
@@ -74,6 +82,7 @@ export async function authenticate(req: AuthenticatedRequest, res: Response, nex
     }
     req.user = user;
     req.sessionExpiresAt = decoded.exp ? new Date(decoded.exp * 1000).toISOString() : null;
+    req.sessionId = decoded.sid;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });

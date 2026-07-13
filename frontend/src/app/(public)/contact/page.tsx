@@ -1,11 +1,9 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import dynamic from 'next/dynamic';
 import EnquiryForm from '@/components/forms/EnquiryForm';
+import LazyMap from '@/components/contact/LazyMap';
 import { clinicSettings } from '@/lib/settings';
 import { Phone, MessageCircle, MapPin, Clock, AlertTriangle, SendHorizontal } from 'lucide-react';
-
-const LazyMap = dynamic(() => import('@/components/contact/LazyMap'), { ssr: false });
 
 export const metadata: Metadata = {
   title: `Contact Us | ${clinicSettings.name}`,

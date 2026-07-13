@@ -45,19 +45,19 @@ export default function SlotCalendar({
   calendarMonth,
   onMonthChange,
   monthAvailability,
+  monthDays,
   selectedDate,
   onDateSelect,
 }: {
   calendarMonth: string;
   onMonthChange: (month: string) => void;
   monthAvailability: Record<string, any[]>;
+  monthDays: Record<string, { status: string; available_slots: number; opening_time: string | null; closing_time: string | null }>;
   selectedDate: string;
   onDateSelect: (date: string) => void;
 }) {
   const today = clinicToday();
   const cells = useMemo(() => monthCells(calendarMonth), [calendarMonth]);
-  const isSunday = (d: string) => new Date(`${d}T00:00:00`).getDay() === 0;
-
   return (
     <div className="soft-card p-4">
       <div className="mb-3 flex items-center justify-between gap-3">
@@ -86,9 +86,12 @@ export default function SlotCalendar({
       </div>
       <div className="grid grid-cols-7 gap-1">
         {cells.map((cell) => {
-          const count = availableCount(monthAvailability[cell.date] || []);
+          const daySlots = monthAvailability[cell.date] || [];
+          const day = monthDays[cell.date];
+          const count = day?.available_slots ?? availableCount(daySlots);
           const isPast = cell.date < today;
-          const disabled = isPast || count === 0 || isSunday(cell.date);
+          const status = day?.status || (isPast ? 'past' : count > 0 ? 'open' : 'closed');
+          const disabled = status !== 'open';
           const selected = selectedDate === cell.date;
           return (
             <button
@@ -108,7 +111,17 @@ export default function SlotCalendar({
                 {new Date(`${cell.date}T00:00:00`).getDate()}
               </span>
               <span className="mt-1 block text-[10px] font-bold leading-tight">
-                {isSunday(cell.date) ? 'Holiday' : count > 0 ? `${count} slots` : 'No slots'}
+                {status === 'past'
+                  ? 'Past'
+                  : status === 'open'
+                    ? `${count} slots`
+                    : status === 'fully_booked'
+                      ? 'Fully booked'
+                      : status === 'booking_not_open'
+                        ? 'Not open yet'
+                        : status === 'booking_closed'
+                          ? 'Booking closed'
+                          : 'Closed'}
               </span>
             </button>
           );

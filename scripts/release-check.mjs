@@ -4,10 +4,13 @@ const isWindows = process.platform === 'win32';
 const npm = isWindows ? 'cmd.exe' : 'npm';
 
 const steps = [
+  ['platform:check', ['run', 'platform:check']],
+  ['privacy-security:check', ['run', 'privacy-security:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],
   ['backend:build', ['run', 'backend:build']],
+  ['frontend:test', ['run', 'frontend:test']],
   ['frontend:build', ['run', 'frontend:build']],
 ];
 

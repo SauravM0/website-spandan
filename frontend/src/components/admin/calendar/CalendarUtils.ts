@@ -89,17 +89,12 @@ export function dayStatus(
   overrides: { override_type: string }[] = [],
   appointmentCount = 0
 ) {
-  const day = new Date(`${date}T00:00:00`).getDay();
   const hasWholeDayBlock = overrides.some((item) => item.override_type === 'unavailable_whole_day');
   const hasPartialBlock = overrides.some((item) => item.override_type === 'block_time_range');
-  const hasCustomHours = overrides.some((item) =>
-    ['custom_hours', 'add_extra_hours'].includes(item.override_type)
-  );
   const counts = slotsForDay(slots);
 
-  if (hasWholeDayBlock) return { label: 'Unavailable', tone: 'danger' as const, Icon: 'XCircle' as const };
-  if (day === 0 && !hasCustomHours) return { label: 'Sunday closed', tone: 'danger' as const, Icon: 'Sun' as const };
-  if (counts.total === 0) return { label: 'No hours', tone: 'muted' as const, Icon: 'Lock' as const };
+  if (hasWholeDayBlock) return { label: 'Closed', tone: 'danger' as const, Icon: 'XCircle' as const };
+  if (counts.total === 0) return { label: 'Closed', tone: 'muted' as const, Icon: 'Lock' as const };
   if (counts.available === 0) return { label: 'Full', tone: 'danger' as const, Icon: 'XCircle' as const };
   if (hasPartialBlock || counts.blocked > 0) return { label: 'Partial', tone: 'warm' as const, Icon: 'Clock3' as const };
   if (appointmentCount > 0) return { label: 'Has bookings', tone: 'info' as const, Icon: 'CheckCircle2' as const };
@@ -122,9 +117,9 @@ export function targetDatesFromScope(
     const day = new Date(`${selectedDate}T00:00:00`).getDay();
     const mondayOffset = (day + 6) % 7;
     const monday = addDays(selectedDate, -mondayOffset);
-    return Array.from({ length: 6 }, (_, index) => addDays(monday, index));
+    return Array.from({ length: 7 }, (_, index) => addDays(monday, index));
   }
   return cells
-    .filter((cell) => cell.inMonth && new Date(`${cell.date}T00:00:00`).getDay() !== 0)
+    .filter((cell) => cell.inMonth)
     .map((cell) => cell.date);
 }

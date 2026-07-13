@@ -6,43 +6,9 @@ import { query } from '../config/database';
 import { findStaffUserByEmail } from '../models';
 import { badRequest, unauthorized } from '../utils/errors';
 import { AuthenticatedRequest } from '../middleware/auth';
-
-const roleCapabilities: Record<string, string[]> = {
-  admin: [
-    'admin.dashboard.read',
-    'admin.calendar.read',
-    'admin.calendar.write',
-    'admin.appointments.read',
-    'admin.appointments.write',
-    'admin.package_orders.read',
-    'admin.payments.read',
-    'admin.notifications.read',
-    'admin.notifications.write',
-    'admin.leads.read',
-    'admin.leads.write',
-    'admin.packages.read',
-    'admin.packages.write',
-  ],
-  staff: [
-    'admin.dashboard.read',
-    'admin.calendar.read',
-    'admin.appointments.read',
-    'admin.appointments.write',
-    'admin.package_orders.read',
-    'admin.notifications.read',
-    'admin.leads.read',
-    'admin.leads.write',
-  ],
-  doctor: [
-    'admin.dashboard.read',
-    'admin.calendar.read',
-    'admin.appointments.read',
-  ],
-};
-
-function capabilitiesForRole(role: string): string[] {
-  return roleCapabilities[role] || roleCapabilities.staff;
-}
+import { permissionsForRole } from '../security/permissions';
+import crypto from 'crypto';
+import { hashTelemetry } from '../utils/redaction';
 
 function publicStaffUser(user: {
   id: string;
@@ -57,7 +23,7 @@ function publicStaffUser(user: {
     full_name: user.full_name,
     role: user.role,
     doctor_id: user.doctor_id,
-    capabilities: capabilitiesForRole(user.role),
+    capabilities: permissionsForRole(user.role),
     session_expires_at: sessionExpiresAt || null,
   };
 }
@@ -72,7 +38,7 @@ function adminCookieOptions() {
   } as const;
 }
 
-async function auditLogin(req: Request, action: 'auth.login_success' | 'auth.login_failed', actorStaffId: string | null, email: string) {
+async function auditLogin(req: Request, action: string, actorStaffId: string | null, email: string) {
   try {
     await query(
       `INSERT INTO audit_log (actor_staff_id, action, entity_type, entity_id, metadata)
@@ -82,9 +48,9 @@ async function auditLogin(req: Request, action: 'auth.login_success' | 'auth.log
         action,
         actorStaffId,
         JSON.stringify({
-          email,
-          ip: req.ip,
-          user_agent: req.get('user-agent') || null,
+          email_domain: email.includes('@') ? email.split('@')[1] : null,
+          ip_hash: hashTelemetry(req.ip),
+          user_agent_hash: hashTelemetry(req.get('user-agent')),
         }),
       ]
     );
@@ -123,20 +89,21 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
 
-  const token = jwt.sign(
-    { userId: user.id, role: user.role, doctor_id: user.doctor_id },
-    config.jwtSecret,
-    { expiresIn: config.jwtExpiresIn as any }
+  const sessionId = crypto.randomUUID();
+  const expiresAt = new Date(Date.now() + config.adminSessionCookieMaxAgeMs);
+  await query(
+    `INSERT INTO staff_sessions(id,staff_user_id,expires_at,ip_hash,user_agent_hash)
+     VALUES($1,$2,$3,$4,$5)`,
+    [sessionId, user.id, expiresAt, hashTelemetry(req.ip), hashTelemetry(req.get('user-agent'))]
   );
-
-  await auditLogin(req, 'auth.login_success', user.id, email);
+  const token = jwt.sign({ userId:user.id, sid:sessionId, role:user.role, doctor_id:user.doctor_id }, config.jwtSecret, { expiresIn: config.jwtExpiresIn as any });
+  await auditLogin(req, 'auth.login_success', user.id, user.email);
   res.cookie(config.adminSessionCookieName, token, adminCookieOptions());
-  res.json({
-    user: publicStaffUser(user),
-  });
+  res.json({ user: publicStaffUser(user, expiresAt.toISOString()) });
 }
 
-export async function logout(_req: Request, res: Response): Promise<void> {
+export async function logout(req: AuthenticatedRequest, res: Response): Promise<void> {
+  if (req.sessionId) await query(`UPDATE staff_sessions SET revoked_at=COALESCE(revoked_at,NOW()),revoke_reason='logout' WHERE id=$1`, [req.sessionId]);
   res.clearCookie(config.adminSessionCookieName, {
     path: '/api',
     sameSite: config.adminSessionCookieSameSite,

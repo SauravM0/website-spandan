@@ -3,7 +3,6 @@ import rateLimit from 'express-rate-limit';
 import { login, logout, me } from '../controllers/adminAuthController';
 import { authenticate } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { validateCsrfToken } from '../middleware/csrf';
 import { sendApiError } from '../utils/errors';
 
 const router = Router();
@@ -19,7 +18,7 @@ const loginLimiter = rateLimit({
 });
 
 router.post('/login', loginLimiter, asyncHandler(login));
-router.post('/logout', validateCsrfToken, asyncHandler(logout));
+router.post('/logout', authenticate, asyncHandler(logout));
 router.get('/me', authenticate, asyncHandler(me));
 
 export default router;
