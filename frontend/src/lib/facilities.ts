@@ -1,4 +1,9 @@
-export type FacilityCategory = 'Environment' | 'Cardiac diagnostics' | 'Diabetes and endocrine diagnostics' | 'Sleep and therapy support';
+export type FacilityCategory =
+  | 'Environment'
+  | 'Laboratory diagnostics'
+  | 'Cardiac diagnostics'
+  | 'Diabetes and endocrine diagnostics'
+  | 'Sleep and therapy support';
 
 export type FacilityMedia = {
   src: string;
@@ -24,7 +29,7 @@ export type FacilityRecord = {
 
 export const facilityReview = {
   owner: 'Clinic administration',
-  reviewedAt: '2026-07-07',
+  reviewedAt: '2026-07-14',
 };
 
 export const facilities: FacilityRecord[] = [
@@ -43,6 +48,101 @@ export const facilities: FacilityRecord[] = [
     order: 1,
   },
   {
+    id: 'abbott-afinion-2',
+    category: 'Laboratory diagnostics',
+    name: 'Abbott Afinion 2 Analyzer',
+    publicDescription: 'A compact point-of-care analyzer used for selected diabetes and metabolic investigations configured by the clinic.',
+    purpose: 'Supports selected near-patient investigations so results can be considered alongside consultation and clinical history.',
+    process: 'Clinic staff collect the test-specific sample and process it using the appropriate cartridge when that investigation is available.',
+    preparation: 'Preparation and sample requirements depend on the selected test. Confirm instructions with the clinic before visiting.',
+    bookingRequirement: 'Call first to confirm the requested test, cartridge availability, preparation, and sample timing.',
+    media: {
+      src: '/equipment/abbott-afinion-2.png',
+      alt: 'Abbott Afinion 2 point-of-care analyzer used at Spandan Clinic',
+      width: 1254,
+      height: 1254,
+    },
+    published: true,
+    verifiedAt: '2026-07-14',
+    order: 2,
+  },
+  {
+    id: 'bio-rad-d-10',
+    category: 'Laboratory diagnostics',
+    name: 'Bio-Rad D-10 Hemoglobin Testing System',
+    publicDescription: 'A dedicated hemoglobin testing system used for selected HbA1c and hemoglobin investigations offered by the clinic.',
+    purpose: 'Supports laboratory assessment of long-term glucose control and selected hemoglobin investigations when advised.',
+    process: 'A trained team member collects and processes the required blood sample using the clinic\'s active assay program.',
+    preparation: 'Sample and preparation requirements depend on the requested investigation. Carry previous reports when relevant.',
+    bookingRequirement: 'Confirm the exact investigation and sample timing with the clinic before arrival.',
+    media: {
+      src: '/equipment/bio-rad-d-10.png',
+      alt: 'Bio-Rad D-10 hemoglobin testing system used at Spandan Clinic',
+      width: 1254,
+      height: 1254,
+    },
+    published: true,
+    verifiedAt: '2026-07-14',
+    order: 3,
+  },
+  {
+    id: 'erba-em-200',
+    category: 'Laboratory diagnostics',
+    name: 'Erba Mannheim EM 200',
+    publicDescription: 'An automated clinical chemistry analyzer used for selected biochemistry investigations available through the clinic.',
+    purpose: 'Supports consistent processing of selected clinical chemistry and metabolic investigations.',
+    process: 'The requested test is checked against the clinic\'s active laboratory menu before the appropriate sample is collected and processed.',
+    preparation: 'Some investigations may require fasting or timing instructions. Confirm the exact requirement before visiting.',
+    bookingRequirement: 'Call first to confirm whether the requested investigation is processed in clinic and whether preparation is required.',
+    media: {
+      src: '/equipment/erba-mannheim-em-200.png',
+      alt: 'Erba Mannheim EM 200 clinical chemistry analyzer used at Spandan Clinic',
+      width: 1254,
+      height: 1254,
+    },
+    published: true,
+    verifiedAt: '2026-07-14',
+    order: 4,
+  },
+  {
+    id: 'horiba-abx-micros-es-60',
+    category: 'Laboratory diagnostics',
+    name: 'HORIBA Medical ABX Micros ES 60',
+    publicDescription: 'An automated hematology analyzer used for selected complete blood count and blood-cell investigations.',
+    purpose: 'Supports selected hematology investigations requested as part of clinical assessment and follow-up.',
+    process: 'A trained team member collects a blood sample and processes it according to the requested investigation and laboratory protocol.',
+    preparation: 'Preparation is test-specific. Confirm instructions and bring relevant prescriptions or previous reports.',
+    bookingRequirement: 'Confirm the requested test and current sample-collection timing before travelling.',
+    media: {
+      src: '/equipment/horiba-abx-micros-es-60.png',
+      alt: 'HORIBA Medical ABX Micros ES 60 hematology analyzer used at Spandan Clinic',
+      width: 1254,
+      height: 1254,
+    },
+    published: true,
+    verifiedAt: '2026-07-14',
+    order: 5,
+  },
+  {
+    id: 'roche-cobas-e-411',
+    category: 'Laboratory diagnostics',
+    name: 'Roche cobas e 411 with Hitachi',
+    publicDescription: 'An automated immunoassay analyzer used for selected thyroid, hormone, and other immunoassay investigations.',
+    purpose: 'Supports selected immunoassay investigations used in specialist assessment and follow-up.',
+    process: 'The clinic confirms that the requested assay is active before collecting and processing the appropriate sample.',
+    preparation: 'Preparation and timing vary by investigation and medicine use. Ask the clinic for test-specific instructions.',
+    bookingRequirement: 'Call first to confirm the exact assay, preparation, sample timing, and current availability.',
+    media: {
+      src: '/equipment/roche-cobas-e-411.png',
+      alt: 'Roche cobas e 411 immunoassay analyzer used at Spandan Clinic',
+      width: 1254,
+      height: 1254,
+    },
+    published: true,
+    verifiedAt: '2026-07-14',
+    order: 6,
+  },
+  {
     id: 'inbody',
     category: 'Diabetes and endocrine diagnostics',
     name: 'InBody body composition analysis',
@@ -54,7 +154,7 @@ export const facilities: FacilityRecord[] = [
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
-    order: 2,
+    order: 10,
   },
   {
     id: 'cgms',
@@ -68,7 +168,7 @@ export const facilities: FacilityRecord[] = [
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
-    order: 3,
+    order: 11,
   },
   {
     id: 'abpm',
@@ -82,7 +182,7 @@ export const facilities: FacilityRecord[] = [
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
-    order: 4,
+    order: 12,
   },
   {
     id: 'holter',
@@ -96,7 +196,7 @@ export const facilities: FacilityRecord[] = [
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
-    order: 5,
+    order: 13,
   },
   {
     id: 'sleep-study',
@@ -110,7 +210,7 @@ export const facilities: FacilityRecord[] = [
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
-    order: 6,
+    order: 14,
   },
   {
     id: 'insulin-pump',
@@ -124,7 +224,7 @@ export const facilities: FacilityRecord[] = [
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
-    order: 7,
+    order: 15,
   },
 ];
 

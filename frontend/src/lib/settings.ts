@@ -23,6 +23,9 @@ export const clinicSettings = {
   consultationFee: 700,
   social: {
     whatsapp: 'https://wa.me/917798095795',
+    instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL || '',
+    linkedin: process.env.NEXT_PUBLIC_LINKEDIN_URL || '',
+    facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL || '',
   },
 };
 

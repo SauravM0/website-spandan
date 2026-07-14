@@ -292,9 +292,13 @@ export default async function AboutPage() {
               {doctors.slice(0, 2).map((doctor) => (
                 <Link key={doctor.slug} href={`/doctors/${doctor.slug}`} className="soft-card block p-6">
                   <div className="flex items-start gap-4">
-                    <span className="flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-bg-alt text-accent">
+                    <span className="flex aspect-[4/5] w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-bg-alt text-accent">
                       {doctor.photo_url || doctor.image_url ? (
-                        <img src={doctor.photo_url || doctor.image_url || undefined} alt={doctor.name} className="h-full w-full object-cover" />
+                        <img
+                          src={doctor.photo_url || doctor.image_url || undefined}
+                          alt={`${doctor.name} portrait`}
+                          className="h-full w-full object-cover object-top"
+                        />
                       ) : (
                         <UsersRound size={24} aria-hidden="true" />
                       )}

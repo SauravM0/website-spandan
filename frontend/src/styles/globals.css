@@ -298,6 +298,123 @@
     border-color: rgba(236, 72, 153, 0.26);
   }
 
+  .home-bento-section {
+    position: relative;
+    overflow: hidden;
+    background:
+      radial-gradient(circle at 9% 13%, rgba(252, 231, 243, 0.82), transparent 28%),
+      radial-gradient(circle at 91% 8%, rgba(219, 234, 254, 0.88), transparent 30%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.86));
+  }
+
+  .home-bento-heading-link {
+    @apply inline-flex min-h-[44px] items-center gap-2 self-start rounded-full px-1 text-sm font-bold text-accent transition md:self-auto;
+  }
+
+  .home-bento-heading-link:hover {
+    color: var(--color-navy);
+    gap: 0.75rem;
+  }
+
+  .home-bento-grid {
+    @apply grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-12 lg:grid-flow-row-dense lg:auto-rows-[250px];
+  }
+
+  .home-bento-card {
+    @apply relative block min-h-[210px] overflow-hidden bg-white transition duration-300;
+    border: 1px solid rgba(43, 138, 198, 0.25);
+    border-radius: 22px;
+    box-shadow: 0 12px 34px rgba(23, 58, 94, 0.075);
+  }
+
+  .home-bento-card:hover {
+    border-color: rgba(43, 138, 198, 0.48);
+    transform: translateY(-4px);
+    box-shadow: 0 22px 48px rgba(43, 138, 198, 0.15);
+  }
+
+  .home-bento-card:focus-visible,
+  .home-bento-heading-link:focus-visible {
+    outline: 3px solid rgba(43, 138, 198, 0.45);
+    outline-offset: 3px;
+  }
+
+  .home-bento-label {
+    @apply inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-[0.08em];
+  }
+
+  .home-bento-label > svg {
+    @apply rounded-lg bg-blue-50 p-1;
+    width: 27px;
+    height: 27px;
+  }
+
+  .home-bento-video .home-bento-label > svg {
+    background: rgba(255, 255, 255, 0.14);
+  }
+
+  .home-bento-cta {
+    @apply relative z-10 mt-5 inline-flex items-center gap-2 text-sm font-bold text-accent transition-all;
+  }
+
+  .group:hover .home-bento-cta {
+    gap: 0.7rem;
+  }
+
+  .home-bento-facilities {
+    min-height: 440px;
+    background:
+      linear-gradient(145deg, rgba(239, 246, 255, 0.98), rgba(255, 255, 255, 0.96)),
+      #ffffff;
+  }
+
+  .home-bento-machine-lines {
+    position: absolute;
+    inset: 38% -12% auto 12%;
+    height: 150px;
+    opacity: 0.32;
+    background: repeating-radial-gradient(ellipse at 80% 100%, transparent 0 11px, rgba(74, 144, 226, 0.18) 12px 13px);
+    transform: rotate(-6deg);
+  }
+
+  .home-bento-video {
+    min-height: 260px;
+    border-color: rgba(23, 58, 94, 0.4);
+  }
+
+  .home-bento-video-fallback {
+    background:
+      linear-gradient(120deg, rgba(43, 138, 198, 0.42), transparent),
+      radial-gradient(circle at 85% 20%, rgba(236, 72, 153, 0.34), transparent 32%),
+      #173a5e;
+  }
+
+  .home-bento-small-machine {
+    background: linear-gradient(145deg, rgba(239, 246, 255, 0.84), #ffffff 58%);
+  }
+
+  .home-bento-gallery {
+    min-height: 230px;
+    background: linear-gradient(120deg, #ffffff 0 47%, rgba(239, 246, 255, 0.85));
+  }
+
+  .home-bento-posters {
+    @apply absolute bottom-[-20px] right-[-16px] hidden h-[210px] w-[55%] items-end justify-center gap-2 sm:flex;
+    transform: rotate(2deg);
+  }
+
+  .home-bento-poster {
+    @apply flex h-[172px] w-[105px] items-start rounded-xl p-4 text-[11px] font-extrabold leading-snug shadow-lg transition duration-500;
+  }
+
+  .group:hover .home-bento-poster {
+    transform: translateY(-5px);
+  }
+
+  .home-bento-poster-blue { background: #dbeafe; color: #173a5e; transform: rotate(-7deg); }
+  .home-bento-poster-pink { background: #fce7f3; color: #be185d; transform: translateY(-8px) rotate(2deg); }
+  .home-bento-poster-navy { background: #4a90e2; color: #ffffff; transform: rotate(8deg); }
+
   .icon-chip {
     @apply inline-flex items-center justify-center text-accent;
     border-radius: 16px;
@@ -390,6 +507,11 @@
   .clinical-motif-8 {
     display: none;
   }
+}
+
+@media (min-width: 1024px) {
+  .home-bento-video { min-height: 250px; }
+  .home-bento-facilities { min-height: 516px; }
 }
 
 @media (prefers-reduced-motion: reduce) {

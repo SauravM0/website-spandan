@@ -23,15 +23,19 @@ async function applySingleMigration() {
   const pool = new Pool({ connectionString: process.env.DATABASE_URL });
   const client = await pool.connect();
   try {
-    const preflight = await client.query(
-      `SELECT current_database() AS database_name,
-              to_regclass('public.calendar_exceptions') AS calendar_exceptions,
-              to_regclass('public.doctor_schedule_versions') AS doctor_schedule_versions,
-              to_regclass('public.schedule_conflict_cases') AS schedule_conflict_cases`
-    );
+    const preflight = await client.query(`SELECT current_database() AS database_name`);
     const state = preflight.rows[0];
-    if (!state.calendar_exceptions || !state.doctor_schedule_versions || !state.schedule_conflict_cases) {
-      throw new Error('Required earlier calendar migrations are missing; migration 027 was not applied');
+
+    if (file === '027_doctor_calendar_slot_control.sql') {
+      const calendarState = await client.query(
+        `SELECT to_regclass('public.calendar_exceptions') AS calendar_exceptions,
+                to_regclass('public.doctor_schedule_versions') AS doctor_schedule_versions,
+                to_regclass('public.schedule_conflict_cases') AS schedule_conflict_cases`
+      );
+      const calendar = calendarState.rows[0];
+      if (!calendar.calendar_exceptions || !calendar.doctor_schedule_versions || !calendar.schedule_conflict_cases) {
+        throw new Error('Required earlier calendar migrations are missing; migration 027 was not applied');
+      }
     }
 
     await client.query('BEGIN');
@@ -43,30 +47,52 @@ async function applySingleMigration() {
       throw error;
     }
 
-    const verification = await client.query(
-      `SELECT
-         EXISTS (
-           SELECT 1 FROM information_schema.columns
-           WHERE table_schema = 'public'
-             AND table_name = 'calendar_exceptions'
-             AND column_name = 'slot_minutes'
-             AND data_type = 'integer'
-         ) AS slot_minutes_exists,
-         EXISTS (
-           SELECT 1 FROM pg_constraint
-           WHERE conname = 'calendar_exceptions_slot_minutes_check'
-             AND conrelid = 'public.calendar_exceptions'::regclass
-         ) AS slot_constraint_exists`
-    );
-    const verified = verification.rows[0];
-    if (!verified.slot_minutes_exists || !verified.slot_constraint_exists) {
-      throw new Error('Migration ran but verification failed');
+    if (file === '027_doctor_calendar_slot_control.sql') {
+      const verification = await client.query(
+        `SELECT
+           EXISTS (
+             SELECT 1 FROM information_schema.columns
+             WHERE table_schema = 'public'
+               AND table_name = 'calendar_exceptions'
+               AND column_name = 'slot_minutes'
+               AND data_type = 'integer'
+           ) AS slot_minutes_exists,
+           EXISTS (
+             SELECT 1 FROM pg_constraint
+             WHERE conname = 'calendar_exceptions_slot_minutes_check'
+               AND conrelid = 'public.calendar_exceptions'::regclass
+           ) AS slot_constraint_exists`
+      );
+      const verified = verification.rows[0];
+      if (!verified.slot_minutes_exists || !verified.slot_constraint_exists) {
+        throw new Error('Migration ran but verification failed');
+      }
+      console.log('Verified: calendar_exceptions.slot_minutes integer column');
+      console.log('Verified: calendar_exceptions_slot_minutes_check constraint');
+    }
+
+    if (file === '029_doctor_profile_photos.sql') {
+      const verification = await client.query(
+        `SELECT slug, photo_url
+         FROM doctors
+         WHERE slug IN ('dr-tukaram-aute', 'dr-pratibha-aute')
+         ORDER BY slug`
+      );
+      const expected = new Map([
+        ['dr-pratibha-aute', '/doctors/dr-pratibha-pawal-aute.png'],
+        ['dr-tukaram-aute', '/doctors/dr-tukaram-sonaji-aute.png'],
+      ]);
+      if (
+        verification.rows.length !== expected.size ||
+        verification.rows.some((row) => expected.get(row.slug) !== row.photo_url)
+      ) {
+        throw new Error('Migration ran but doctor photo verification failed');
+      }
+      console.log('Verified: both doctor photo URLs');
     }
 
     console.log(`Connected to database: ${state.database_name}`);
     console.log(`Applied migration: ${file}`);
-    console.log('Verified: calendar_exceptions.slot_minutes integer column');
-    console.log('Verified: calendar_exceptions_slot_minutes_check constraint');
   } finally {
     client.release();
     await pool.end();

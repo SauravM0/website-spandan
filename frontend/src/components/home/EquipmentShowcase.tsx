@@ -25,8 +25,8 @@ export default function EquipmentShowcase() {
               Clinic diagnostics are shown as availability information, not as a substitute for medical advice.
             </p>
           </div>
-          <Link href="/facilities" className="btn btn-outline self-start md:self-auto">
-            View Facilities
+          <Link href="/explore#equipment" className="btn btn-outline self-start md:self-auto">
+            Explore All
           </Link>
         </div>
 

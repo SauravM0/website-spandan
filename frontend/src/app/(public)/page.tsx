@@ -4,10 +4,9 @@ import HeroSection from '@/components/home/HeroSection';
 import TrustStrip from '@/components/home/TrustStrip';
 import ServiceCards from '@/components/home/ServiceCards';
 import FeaturedPackages from '@/components/home/FeaturedPackages';
-import EquipmentShowcase from '@/components/home/EquipmentShowcase';
 import DoctorCardsSection from '@/components/home/DoctorCards';
 import TeamCardsSection from '@/components/home/TeamCards';
-import HomeResources from '@/components/home/HomeResources';
+import ExploreBento from '@/components/home/ExploreBento';
 import LocationCTA from '@/components/home/LocationCTA';
 import { getHomePayload } from '@/lib/home';
 
@@ -61,8 +60,7 @@ export default async function HomePage() {
       <TrustStrip />
       <TeamCardsSection />
       <FeaturedPackages packages={payload.featuredPackages} />
-      <EquipmentShowcase />
-      <HomeResources article={payload.featuredArticle} video={payload.featuredVideo} />
+      <ExploreBento article={payload.featuredArticle} video={payload.featuredVideo} />
       <LocationCTA settings={payload.settings} />
     </>
   );

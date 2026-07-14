@@ -2,6 +2,8 @@
   "site_name": "Spandan Super Speciality Clinic",
   "tagline": "Your Health, Our Priority",
   "nav_home": "Home",
+  "nav_explore": "Explore",
+  "nav_publications": "Publications",
   "nav_packages": "Health Packages",
   "nav_doctors": "Our Doctors",
   "nav_tools": "Health Tools",

@@ -18,6 +18,7 @@ import { clinicSettings } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
 import type { PublicPackageSummary } from '@/components/packages/PackageCard';
 import type { PublicArticleSummary, PublicDoctorSummary } from '@/lib/home';
+import { publicationAuthor, researchPublications } from '@/lib/publications';
 
 type BiographySection = {
   heading: string;
@@ -187,6 +188,7 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
   const expertise = doctor.expertise?.length ? doctor.expertise : ['Specialist consultation', 'Report review', 'Follow-up planning'];
   const sections = doctor.biography_sections?.length ? doctor.biography_sections : [];
   const reviewed = formatReviewDate(doctor.reviewed_at);
+  const hasResearchPublications = doctor.slug === publicationAuthor.slug;
 
   return (
     <>
@@ -203,10 +205,10 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
           </Link>
 
           <div className="mt-8 grid gap-8 lg:grid-cols-[0.78fr_1.22fr] lg:items-center">
-            <div className="soft-card max-w-[320px] overflow-hidden">
-              <div className="aspect-[4/3] bg-blue-50/70">
+            <div className="soft-card w-full max-w-[320px] overflow-hidden">
+              <div className="aspect-[4/5] bg-blue-50/70">
                 {imageSrc ? (
-                  <img src={imageSrc} alt={doctor.name} className="h-full w-full object-cover" />
+                  <img src={imageSrc} alt={`${doctor.name} portrait`} className="h-full w-full object-cover object-top" />
                 ) : (
                   <div className="flex h-full w-full items-center justify-center text-accent">
                     <UserRound size={72} aria-hidden="true" />
@@ -317,7 +319,7 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
               Related links are informational and may still need doctor advice before booking.
             </p>
           </div>
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className={`grid gap-6 ${hasResearchPublications ? 'lg:grid-cols-4' : 'lg:grid-cols-3'}`}>
             <article className="soft-card p-6">
               <Microscope className="mb-4 text-accent" size={24} aria-hidden="true" />
               <h3 className="text-lg font-bold text-navy">Diagnostics</h3>
@@ -326,6 +328,17 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
               </p>
               <Link href="/facilities" className="btn btn-outline mt-5">View Facilities</Link>
             </article>
+
+            {hasResearchPublications && (
+              <article className="soft-card p-6">
+                <BookOpen className="mb-4 text-accent" size={24} aria-hidden="true" />
+                <h3 className="text-lg font-bold text-navy">Research publications</h3>
+                <p className="mt-2 text-sm leading-relaxed text-text-light">
+                  Browse {researchPublications.length} endocrinology publications and case reports associated with this profile.
+                </p>
+                <Link href="/publications" className="btn btn-outline mt-5">View Publications</Link>
+              </article>
+            )}
 
             <article className="soft-card p-6">
               <ClipboardList className="mb-4 text-accent" size={24} aria-hidden="true" />

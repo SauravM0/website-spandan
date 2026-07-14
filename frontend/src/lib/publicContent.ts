@@ -37,7 +37,7 @@ export const publicContent = validatePublicContent({
   services: [
     { id: 'cardiology', name: 'Cardiology', summary: 'Consultation and cardiac review.', href: '/doctors', appointmentPath: '/book-appointment' },
     { id: 'endocrinology', name: 'Endocrinology', summary: 'Diabetes and thyroid consultation.', href: '/doctors', appointmentPath: '/book-appointment' },
-    { id: 'diagnostics', name: 'Diagnostics', summary: 'Clinic diagnostic facilities and preparation information.', href: '/facilities', appointmentPath: '/contact' },
+    { id: 'diagnostics', name: 'Diagnostics', summary: 'Clinic laboratory equipment, diagnostic facilities, and preparation information.', href: '/explore#equipment', appointmentPath: '/contact' },
   ],
   trustStatements: [
     { id: 'published-profiles', text: 'Doctor qualifications are shown on published profiles.', evidence: 'published-doctor-profile' },

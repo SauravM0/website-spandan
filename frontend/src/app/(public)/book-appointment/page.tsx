@@ -82,10 +82,16 @@ export default function BookAppointmentPage() {
   const [bookingConfig, setBookingConfig] = React.useState<PublicAppointmentConfig | null>(null);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const requestedReason = params.get('reason')?.trim().replace(/[\r\n]+/g, ' ').slice(0, 120);
+    if (requestedReason) {
+      dispatch({ type: 'UPDATE_FIELD', name: 'reason_for_visit', value: requestedReason });
+    }
+
     getDoctors()
       .then((data) => {
         const doctors = data.doctors || [];
-        const requestedDoctor = new URLSearchParams(window.location.search).get('doctor');
+        const requestedDoctor = params.get('doctor');
         const matchedDoctor = requestedDoctor
           ? doctors.find((doctor: any) => doctor.id === requestedDoctor || doctor.slug === requestedDoctor)
           : null;
@@ -278,9 +284,23 @@ export default function BookAppointmentPage() {
                       onClick={() => update('doctor_id', doctor.id)}
                       className={`rounded-3xl border p-4 text-left transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_16px_34px_rgba(43,138,198,0.12)] ${form.doctor_id === doctor.id ? 'border-accent bg-blue-50 text-navy shadow-[0_10px_24px_rgba(43,138,198,0.12)]' : 'border-primary/20 bg-white text-navy shadow-[0_8px_20px_rgba(23,58,94,0.06)]'}`}
                     >
-                      <UserRound className="mb-3 text-primary" size={26} />
-                      <span className="block font-semibold text-navy">{doctor.name}</span>
-                      <span className="text-sm text-text-light">{doctor.speciality}</span>
+                      <span className="mb-3 flex items-center gap-3">
+                        <span className="flex aspect-[4/5] w-14 shrink-0 items-center justify-center overflow-hidden rounded-xl bg-blue-50 text-primary">
+                          {doctor.photo_url ? (
+                            <img
+                              src={doctor.photo_url}
+                              alt={`${doctor.name} portrait`}
+                              className="h-full w-full object-cover object-top"
+                            />
+                          ) : (
+                            <UserRound size={26} aria-hidden="true" />
+                          )}
+                        </span>
+                        <span>
+                          <span className="block font-semibold text-navy">{doctor.name}</span>
+                          <span className="text-sm text-text-light">{doctor.speciality}</span>
+                        </span>
+                      </span>
                       <span className="mt-2 block text-xs font-semibold text-success">In-person consultation</span>
                     </button>
                   ))}

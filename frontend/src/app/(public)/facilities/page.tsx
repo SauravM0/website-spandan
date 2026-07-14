@@ -32,6 +32,7 @@ export const metadata: Metadata = {
 
 const categoryOrder: FacilityCategory[] = [
   'Environment',
+  'Laboratory diagnostics',
   'Cardiac diagnostics',
   'Diabetes and endocrine diagnostics',
   'Sleep and therapy support',
@@ -79,7 +80,7 @@ function FacilityFeature({ facility }: { facility: FacilityRecord }) {
   const Icon = facilityIcons[facility.id] || Microscope;
 
   return (
-    <article className="soft-card overflow-hidden">
+    <article id={facility.id} className="soft-card scroll-mt-28 overflow-hidden">
       <div className="grid gap-0 lg:grid-cols-[0.82fr_1.18fr]">
         <div className="aspect-[4/3] lg:aspect-auto">
           <FacilityMediaBlock facility={facility} />
@@ -228,7 +229,7 @@ export default function FacilitiesPage() {
 
           <div className="grid gap-10">
             {grouped.map((group) => (
-              <div key={group.category}>
+              <div key={group.category} id={group.category.toLowerCase().replace(/\s+/g, '-')} className="scroll-mt-28">
                 <h3 className="mb-4 text-xl font-bold text-navy">{group.category}</h3>
                 <div className="grid gap-6">
                   {group.records.map((facility) => (

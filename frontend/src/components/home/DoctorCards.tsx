@@ -9,14 +9,16 @@ export default function DoctorCardsSection({ doctors }: { doctors: Doctor[] }) {
 
   return (
     <section className="section">
-      <div className="container">
-        <div className="mb-12 text-center">
+      <div className="mx-auto max-w-[1320px] px-6">
+        <div className="mb-10 text-center sm:mb-12">
           <h2 className="heading-section mb-2 text-navy">Our Specialist Doctors</h2>
-          <p className="text-lg text-text-light">Choose the right specialist and continue into confirmed slot booking.</p>
+          <p className="mx-auto max-w-2xl text-base text-text-light sm:text-lg">
+            Choose the right specialist and continue into confirmed slot booking.
+          </p>
         </div>
 
         {doctors.length > 0 && (
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-6 xl:grid-cols-2">
             {doctors.slice(0, 2).map((doc) => (
               <DoctorCard key={doc.slug} doctor={doc} variant="home" />
             ))}

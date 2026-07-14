@@ -71,7 +71,7 @@ function createInitialForm(): BookingForm {
     city: '',
     state: 'Maharashtra',
     pin_code: '',
-    reason_for_visit: '',
+    reason_for_visit: 'Consultation',
     email: '',
     guardian_name: '',
     guardian_relation: '',

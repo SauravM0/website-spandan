@@ -16,13 +16,15 @@ const languages = [
 const primaryLinks = [
   { href: '/doctors', label: 'nav_doctors' },
   { href: '/packages', label: 'nav_packages' },
-  { href: '/health-resources', label: 'nav_articles' },
+  { href: '/explore', label: 'nav_explore' },
   { href: '/contact', label: 'nav_contact' },
 ];
 
 const secondaryLinks = [
   { href: '/about', label: 'nav_about' },
   { href: '/facilities', label: 'nav_facilities' },
+  { href: '/health-resources', label: 'nav_articles' },
+  { href: '/publications', label: 'nav_publications' },
   { href: '/tools', label: 'nav_tools' },
   { href: '/videos', label: 'nav_videos' },
 ];
@@ -35,9 +37,12 @@ export default function Navbar() {
   const drawerRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
 
   const navLabel = (key: string) => {
     const translated = t(key);
+    if (translated === key && key === 'nav_explore') return 'Explore';
+    if (translated === key && key === 'nav_publications') return 'Publications';
     return translated === key && key === 'nav_tools' ? 'Health Tools' : translated;
   };
 
@@ -80,6 +85,26 @@ export default function Navbar() {
     setDrawerOpen(false);
   }, [typeof window !== 'undefined' ? window.location.pathname : '']);
 
+  useEffect(() => {
+    if (!moreOpen) return;
+
+    const closeOnOutsideClick = (event: PointerEvent) => {
+      if (!moreRef.current?.contains(event.target as Node)) {
+        setMoreOpen(false);
+      }
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setMoreOpen(false);
+    };
+
+    document.addEventListener('pointerdown', closeOnOutsideClick);
+    window.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('pointerdown', closeOnOutsideClick);
+      window.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [moreOpen]);
+
   return (
     <header className="sticky top-0 z-50 bg-white shadow-[0_10px_30px_rgba(23,58,94,0.08)]">
       <div className="mx-auto flex h-[72px] max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -106,8 +131,8 @@ export default function Navbar() {
               {navLabel(link.label)}
             </Link>
           ))}
-          <div className="relative">
-            <button type="button" onClick={() => setMoreOpen((open) => !open)} className="flex min-h-[44px] items-center gap-1 rounded-2xl px-3 text-sm font-medium text-text transition-colors hover:bg-bg-alt hover:text-accent" aria-expanded={moreOpen}>
+          <div ref={moreRef} className="relative">
+            <button type="button" onClick={() => { setLanguageOpen(false); setMoreOpen((open) => !open); }} className="flex min-h-[44px] items-center gap-1 rounded-2xl px-3 text-sm font-medium text-text transition-colors hover:bg-bg-alt hover:text-accent" aria-expanded={moreOpen} aria-haspopup="true">
               {t('nav_more')} <ChevronDown size={15} aria-hidden="true" />
             </button>
             {moreOpen && (
@@ -121,7 +146,7 @@ export default function Navbar() {
           <div className="relative ml-1">
             <button
               type="button"
-              onClick={() => setLanguageOpen((v) => !v)}
+              onClick={() => { setMoreOpen(false); setLanguageOpen((v) => !v); }}
               className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl text-text transition-all duration-300 hover:bg-bg-alt hover:text-accent"
               aria-label="Change language"
               aria-expanded={languageOpen}
@@ -159,7 +184,7 @@ export default function Navbar() {
             className="btn btn-accent ml-2 min-h-[44px] px-4 text-sm"
           >
             <CalendarCheck size={16} />
-            {t('nav_book') || 'Book Appointment'}
+            {t('Book') || 'Book Appointment'}
           </Link>
         </nav>
       </div>

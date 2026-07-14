@@ -32,10 +32,12 @@ export default function Footer() {
           <div>
             <h4 className="mb-4 text-lg font-semibold text-navy">Quick Links</h4>
             <div className="flex flex-col gap-2 text-sm">
+              <Link href="/explore" className="transition-colors duration-300 hover:text-accent">Explore</Link>
               <Link href="/doctors" className="transition-colors duration-300 hover:text-accent">{t('nav_doctors')}</Link>
               <Link href="/packages" className="transition-colors duration-300 hover:text-accent">{t('nav_packages')}</Link>
               <Link href="/facilities" className="transition-colors duration-300 hover:text-accent">{t('nav_facilities')}</Link>
               <Link href="/health-resources" className="transition-colors duration-300 hover:text-accent">{t('nav_articles')}</Link>
+              <Link href="/publications" className="transition-colors duration-300 hover:text-accent">Publications</Link>
               <Link href="/privacy" className="transition-colors duration-300 hover:text-accent">Privacy Policy</Link>
               <Link href="/terms" className="transition-colors duration-300 hover:text-accent">Terms of Use</Link>
               <Link href="/terms#refunds" className="transition-colors duration-300 hover:text-accent">Refund Policy</Link>

@@ -11,6 +11,14 @@ type HeroSectionProps = {
 };
 
 export default function HeroSection({ settings, doctors }: HeroSectionProps) {
+  const heroDoctorOrder = ['dr-tukaram-aute', 'dr-pratibha-aute'];
+  const heroDoctors = [...doctors].sort((left, right) => {
+    const leftPosition = heroDoctorOrder.indexOf(left.slug);
+    const rightPosition = heroDoctorOrder.indexOf(right.slug);
+    return (leftPosition === -1 ? heroDoctorOrder.length : leftPosition) -
+      (rightPosition === -1 ? heroDoctorOrder.length : rightPosition);
+  });
+
   return (
     <section className="soft-page-hero text-navy">
       <div className="container grid min-h-[620px] items-center gap-10 py-12 sm:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:py-20">
@@ -85,10 +93,9 @@ export default function HeroSection({ settings, doctors }: HeroSectionProps) {
               <HeroVideo />
             </div>
             <div className="grid gap-3 p-5 text-navy sm:grid-cols-2">
-              {doctors.length ? doctors.map((doctor) => (
-                <Link key={doctor.slug} href={`/doctors/${doctor.slug}`} className="rounded-2xl border border-primary/10 bg-blue-50/70 p-3 shadow-[0_8px_22px_rgba(43,138,198,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-pink-300/40 hover:bg-white hover:shadow-[0_12px_28px_rgba(43,138,198,0.12)]">
-                  <span className="block text-sm font-bold">{doctor.name}</span>
-                  <span className="mt-1 block text-xs text-text-light">{doctor.speciality}</span>
+              {heroDoctors.length ? heroDoctors.map((doctor) => (
+                <Link key={doctor.slug} href={`/doctors/${doctor.slug}`} className="flex min-h-14 items-center rounded-2xl border border-primary/10 bg-blue-50/70 p-4 shadow-[0_8px_22px_rgba(43,138,198,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-pink-300/40 hover:bg-white hover:shadow-[0_12px_28px_rgba(43,138,198,0.12)]">
+                  <span className="text-sm font-bold">{doctor.name}</span>
                 </Link>
               )) : (
                 <div className="rounded-2xl border border-primary/10 bg-blue-50/70 p-3 shadow-[0_8px_22px_rgba(43,138,198,0.07)] sm:col-span-2">
