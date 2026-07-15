@@ -30,9 +30,13 @@ test('package ordering remains validated and snapshots server-side prices', () =
 
 test('payment creation remains validated and success cannot regress to failure', () => {
   const routes = read('src/routes/operations.ts');
+  const service = read('src/services/operations.ts');
+  const provider = read('src/services/phonePe.ts');
   assert.match(routes, /router\.post\('\/payments\/create', validateZod\(\{ body: paymentCreateSchema \}\)/);
   assert.equal(paymentCreateSchema.safeParse({}).success, false);
   assert.throws(() => assertPaymentTransition('success', 'failed'));
+  assert.match(service, /!config\.phonePe\.enabled && !config\.payments\.mockEnabled/);
+  assert.match(provider, /!config\.phonePe\.enabled \|\| !webhookUsername \|\| !webhookPassword\) return false/);
 });
 
 test('admin login remains cookie-based and backed by revocable sessions', () => {
@@ -57,6 +61,8 @@ test('provider and clinical write capabilities remain disabled by default', () =
   const example = read('.env.example');
   for (const gate of [
     'PHONEPE_ENABLED=false',
+    'PAYMENT_MOCK_ENABLED=false',
+    'EMAIL_NOTIFICATIONS_ENABLED=false',
     'CLINICAL_RECORD_WRITES_ENABLED=false',
     'CLINICAL_OBSERVATIONS_ENABLED=false',
     'DEVICE_IMPORTS_ENABLED=false',

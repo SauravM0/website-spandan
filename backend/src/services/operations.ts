@@ -14,6 +14,7 @@ import { queueReceiptEmailForPayment } from './notifications';
 import { assertBookingTransition, bookingStateForPayment, isBookingState } from '../domain/appointmentBooking';
 import { assertPaymentTransition, providerEventHash, validateRefundAmount } from '../domain/paymentLifecycle';
 import { resolveServicePrice } from './servicePricing';
+import { AppError } from '../utils/errors';
 
 type Queryable = {
   query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
@@ -1210,6 +1211,9 @@ export async function listPackageCommerceCatalog() {
 }
 
 export async function createPayment(input: { order_id?: string; appointment_id?: string; idempotency_key?: string }) {
+  if (!config.phonePe.enabled && !config.payments.mockEnabled) {
+    throw new AppError(503, 'PAYMENT_PROVIDER_DISABLED', 'Online payment is temporarily unavailable. No payment was created.');
+  }
   if (input.idempotency_key) {
     const replay = await query('SELECT * FROM payments WHERE idempotency_key = $1', [input.idempotency_key]);
     if (replay.rows[0]) return replay.rows[0];
@@ -1303,7 +1307,7 @@ export async function createPayment(input: { order_id?: string; appointment_id?:
       [input.appointment_id]
     );
   }
-  if (!config.phonePe.enabled) {
+  if (!config.phonePe.enabled && config.payments.mockEnabled) {
     return updatePaymentStatus(merchantTransactionId, 'success', {
       mode: 'mock',
       verified_at: new Date().toISOString(),

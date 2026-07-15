@@ -47,9 +47,7 @@ export function amountToPaisa(amount: number): number {
 
 export function verifyPhonePeWebhookAuthorization(headerValue?: string): boolean {
   const { webhookUsername, webhookPassword } = config.phonePe;
-  if (!webhookUsername || !webhookPassword) {
-    return !config.phonePe.enabled;
-  }
+  if (!config.phonePe.enabled || !webhookUsername || !webhookPassword) return false;
   if (!headerValue) return false;
   const expected = crypto.createHash('sha256').update(`${webhookUsername}:${webhookPassword}`).digest('hex');
   const actual = headerValue

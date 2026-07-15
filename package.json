@@ -23,6 +23,7 @@
     "baseline:check": "node scripts/production-baseline-check.mjs",
     "environments:check": "node scripts/environment-isolation-check.mjs",
     "frontend-runtime:check": "node scripts/frontend-runtime-check.mjs",
+    "secrets:check": "node scripts/secret-context-check.mjs",
     "release:check": "node scripts/release-check.mjs",
     "release:check:full": "node scripts/release-check.mjs",
     "roadmap:status": "node scripts/roadmap-status.mjs",

@@ -6,8 +6,11 @@ const { Client } = require('pg');
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
 
 async function upsertAdmin() {
-  const email = process.env.ADMIN_EMAIL || 'admin@spandanclinic.com';
-  const password = process.env.ADMIN_PASSWORD || 'admin123';
+  const email = String(process.env.ADMIN_EMAIL || '').trim().toLowerCase();
+  const password = String(process.env.ADMIN_PASSWORD || '');
+  if (!email || password.length < 14) {
+    throw new Error('ADMIN_EMAIL and a unique ADMIN_PASSWORD of at least 14 characters are required');
+  }
 
   const hashed = await bcrypt.hash(password, 12);
   const client = new Client({ connectionString: process.env.DATABASE_URL });
@@ -17,7 +20,7 @@ async function upsertAdmin() {
     VALUES ($1, $2, $3, $4, true)
     ON CONFLICT (email) DO UPDATE SET password_hash = EXCLUDED.password_hash, is_active = true`;
 
-  await client.query(sql, [email.toLowerCase().trim(), hashed, 'Admin', 'admin']);
+  await client.query(sql, [email, hashed, 'Admin', 'admin']);
   console.log('Admin upserted:', email);
   await client.end();
 }

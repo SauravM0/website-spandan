@@ -1,6 +1,9 @@
 import dotenv from 'dotenv';
 import { validateEnvironmentIsolation } from './environment';
+import { validateSecurityConfiguration } from './security';
 dotenv.config();
+
+validateSecurityConfiguration(process.env);
 
 const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, '');
 const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
@@ -16,23 +19,6 @@ const supabaseProjectRef = process.env.SUPABASE_PROJECT_REF || '';
 const dataPolicy = process.env.DATA_POLICY || (deploymentEnvironment === 'production' ? 'production-patient-data' : 'synthetic-only');
 const jwtSecret = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION_MUST_BE_AT_LEAST_32_CHARS';
 const frontendUrl = normalizeOrigin(process.env.FRONTEND_URL || 'http://localhost:3000');
-const requiredInProduction = [
-  ['DATABASE_URL', process.env.DATABASE_URL],
-  ['JWT_SECRET', process.env.JWT_SECRET],
-  ['CORS_ORIGIN', process.env.CORS_ORIGIN],
-  ['FRONTEND_URL', process.env.FRONTEND_URL],
-];
-
-if (env === 'production') {
-  const missing = requiredInProduction.filter(([, value]) => !value).map(([name]) => name);
-  if (missing.length > 0) {
-    throw new Error(`Missing production environment variables: ${missing.join(', ')}`);
-  }
-  if (jwtSecret.includes('CHANGE_ME') || jwtSecret.length < 32) {
-    throw new Error('JWT_SECRET must be set to a strong secret in production');
-  }
-}
-
 validateEnvironmentIsolation({
   runtimeEnvironment: env,
   deploymentEnvironment,
@@ -51,6 +37,7 @@ export const config = {
   port: parseInt(process.env.PORT || '4000', 10),
   databaseUrl,
   jwtSecret,
+  jwtSecretVersion: process.env.JWT_SECRET_VERSION || 'v1',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   adminSessionCookieName: process.env.ADMIN_SESSION_COOKIE_NAME || 'admin_session',
   adminSessionCookieMaxAgeMs: parseInt(process.env.ADMIN_SESSION_COOKIE_MAX_AGE_MS || String(24 * 60 * 60 * 1000), 10),
@@ -76,7 +63,11 @@ export const config = {
     webhookUsername: process.env.PHONEPE_WEBHOOK_USERNAME || '',
     webhookPassword: process.env.PHONEPE_WEBHOOK_PASSWORD || '',
   },
+  payments: {
+    mockEnabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
+  },
   smtp: {
+    enabled: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
     host: process.env.SMTP_HOST || '',
     port: parseInt(process.env.SMTP_PORT || '587', 10),
     user: process.env.SMTP_USER || '',
@@ -84,7 +75,8 @@ export const config = {
   },
   notificationEmail: process.env.NOTIFICATION_EMAIL || '',
   intake: {
-    encryptionKey: process.env.INTAKE_ENCRYPTION_KEY || jwtSecret,
+    encryptionKey: process.env.INTAKE_ENCRYPTION_KEY || (env === 'production' ? '' : 'development-only-intake-key-not-for-production'),
+    keyVersion: process.env.INTAKE_ENCRYPTION_KEY_VERSION || 'v1',
     tokenTtlHours: parseInt(process.env.INTAKE_TOKEN_TTL_HOURS || '72', 10),
     draftRetentionDays: parseInt(process.env.INTAKE_DRAFT_RETENTION_DAYS || '30', 10),
     uploadBaseUrl: process.env.INTAKE_UPLOAD_BASE_URL || '',
@@ -102,6 +94,7 @@ export const config = {
     enabled: process.env.MEDICAL_DOCUMENTS_ENABLED === 'true',
     storageDir: process.env.DOCUMENT_STORAGE_DIR || '.private-documents',
     encryptionKey: process.env.DOCUMENT_ENCRYPTION_KEY || '',
+    keyVersion: process.env.DOCUMENT_ENCRYPTION_KEY_VERSION || 'v1',
     maxBytes: parseInt(process.env.DOCUMENT_MAX_BYTES || String(10 * 1024 * 1024), 10),
     scannerMode: process.env.DOCUMENT_SCANNER_MODE || 'disabled',
     scannerHost: process.env.DOCUMENT_SCANNER_HOST || '127.0.0.1',

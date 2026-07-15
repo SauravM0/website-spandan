@@ -26,9 +26,11 @@
     "migrationCount": 31,
     "migrationHead": "031_custom_diagnostic_packages.sql"
   },
-  "productionRequiredEnvironment": ["DATABASE_URL", "JWT_SECRET", "CORS_ORIGIN", "FRONTEND_URL", "DEPLOYMENT_ENV", "ENVIRONMENT_NAME", "SUPABASE_PROJECT_REF", "DATA_POLICY"],
+  "productionRequiredEnvironment": ["DATABASE_URL", "JWT_SECRET", "JWT_SECRET_VERSION", "INTAKE_ENCRYPTION_KEY", "INTAKE_ENCRYPTION_KEY_VERSION", "CORS_ORIGIN", "FRONTEND_URL", "DEPLOYMENT_ENV", "ENVIRONMENT_NAME", "SUPABASE_PROJECT_REF", "DATA_POLICY"],
   "intentionalFeatureGates": {
     "PHONEPE_ENABLED": false,
+    "PAYMENT_MOCK_ENABLED": false,
+    "EMAIL_NOTIFICATIONS_ENABLED": false,
     "CLINICAL_RECORD_WRITES_ENABLED": false,
     "CLINICAL_OBSERVATIONS_ENABLED": false,
     "DEVICE_IMPORTS_ENABLED": false,

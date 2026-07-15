@@ -47,6 +47,7 @@ docs/work-packages/**
 !docs/work-packages/WP02-immutable-baseline.md
 !docs/work-packages/WP03-environment-isolation.md
 !docs/work-packages/WP04-frontend-production-runtime.md
+!docs/work-packages/WP05-configuration-secrets-hardening.md
 !docs/production-baseline.json
 machine/
 

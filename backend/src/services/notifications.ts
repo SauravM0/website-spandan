@@ -25,7 +25,7 @@ type NotificationFilters = {
 const MAX_NOTIFICATION_ATTEMPTS = 3;
 
 function getTransporter() {
-  if (!config.smtp.host || !config.smtp.user) {
+  if (!config.smtp.enabled) {
     return null;
   }
   return nodemailer.createTransport({

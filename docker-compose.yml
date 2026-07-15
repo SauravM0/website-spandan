@@ -4,7 +4,7 @@ services:
     environment:
       POSTGRES_DB: spandan_clinic
       POSTGRES_USER: spandan
-      POSTGRES_PASSWORD: spandan_secret_dev
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the root .env file}
     ports:
       - '5432:5432'
     volumes:
@@ -21,7 +21,7 @@ services:
       - '4000:4000'
     environment:
       NODE_ENV: development
-      DATABASE_URL: postgresql://spandan:spandan_secret_dev@db:5432/spandan_clinic
+      DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL in the root .env file}
       JWT_SECRET: ${JWT_SECRET:-dev-only-secret-replace-before-production-12345}
       CORS_ORIGIN: http://localhost:3000,http://localhost
       FRONTEND_URL: http://localhost

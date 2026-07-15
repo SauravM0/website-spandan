@@ -4,7 +4,7 @@ import { query } from '../config/database';
 import { requireApprovedVendor } from '../security/vendorGate';
 
 function getTransporter() {
-  if (!config.smtp.host || !config.smtp.user) {
+  if (!config.smtp.enabled) {
     return null;
   }
   return nodemailer.createTransport({
