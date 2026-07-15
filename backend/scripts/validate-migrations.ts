@@ -1,56 +1,70 @@
-import fs from 'fs';
-import path from 'path';
+import path from 'node:path';
+import { discoverMigrations } from '../src/migrations/runner';
 
 const migrationsDir = path.resolve(__dirname, '../migrations');
-const files = fs
-  .readdirSync(migrationsDir)
-  .filter((file) => file.endsWith('.sql'))
-  .sort();
-const seenPrefixes = new Map<string, string>();
 const errors: string[] = [];
 
-if (files.length === 0) {
-  errors.push('No migration files found.');
-}
-
-for (const file of files) {
-  const prefix = file.match(/^(\d{3})_/)?.[1];
-  if (!prefix) {
-    errors.push(
-      `${file}: migration filename must start with a three-digit prefix, for example 011_example.sql.`
-    );
-    continue;
+try {
+  const migrations = discoverMigrations(migrationsDir);
+  for (const migration of migrations) {
+    if (
+      /\bDROP\s+(TABLE|SCHEMA|DATABASE)\b/i.test(migration.sql) &&
+      !/--\s*allow-destructive-migration/i.test(migration.sql)
+    ) {
+      errors.push(
+        `${migration.filename}: destructive DROP requires an "-- allow-destructive-migration" comment.`
+      );
+    }
+    if (
+      /\bDELETE\s+FROM\b/i.test(migration.sql) &&
+      !/\bWHERE\b/i.test(migration.sql) &&
+      !/--\s*allow-full-delete/i.test(migration.sql)
+    ) {
+      errors.push(
+        `${migration.filename}: DELETE without WHERE requires an "-- allow-full-delete" comment.`
+      );
+    }
+    if (/\b(?:CREATE\s+INDEX|REINDEX)\s+CONCURRENTLY\b/i.test(migration.sql)) {
+      errors.push(
+        `${migration.filename}: concurrent index operations are incompatible with transactional migrations.`
+      );
+    }
+    if (/\b(?:VACUUM|CHECKPOINT|CREATE\s+DATABASE|DROP\s+DATABASE)\b/i.test(migration.sql)) {
+      errors.push(
+        `${migration.filename}: contains a command that cannot run in a migration transaction.`
+      );
+    }
+    if (migration.version >= 32) {
+      const phase = migration.sql.match(
+        /^--\s*migration-phase:\s*(expand|migrate|contract)\s*$/im
+      )?.[1];
+      if (!phase) {
+        errors.push(
+          `${migration.filename}: migrations from version 032 require a migration-phase marker.`
+        );
+      }
+      if (
+        /\b(?:DROP\s+(?:COLUMN|TABLE)|ALTER\s+COLUMN\s+\S+\s+SET\s+NOT\s+NULL)\b/i.test(
+          migration.sql
+        ) &&
+        phase !== 'contract'
+      ) {
+        errors.push(
+          `${migration.filename}: compatibility-breaking SQL is allowed only in contract phase.`
+        );
+      }
+      if (phase === 'contract' && !/^--\s*compatibility-approved:\s*WP\d+/im.test(migration.sql)) {
+        errors.push(
+          `${migration.filename}: contract phase requires a compatibility approval reference.`
+        );
+      }
+    }
   }
 
-  const previous = seenPrefixes.get(prefix);
-  if (previous) {
-    errors.push(`${file}: duplicate migration prefix ${prefix}; already used by ${previous}.`);
-  }
-  seenPrefixes.set(prefix, file);
-
-  const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8').trim();
-  if (!sql) {
-    errors.push(`${file}: migration is empty.`);
-  }
-  if (
-    /\bDROP\s+(TABLE|SCHEMA|DATABASE)\b/i.test(sql) &&
-    !/--\s*allow-destructive-migration/i.test(sql)
-  ) {
-    errors.push(`${file}: destructive DROP requires an "-- allow-destructive-migration" comment.`);
-  }
-  if (
-    /\bDELETE\s+FROM\b/i.test(sql) &&
-    !/\bWHERE\b/i.test(sql) &&
-    !/--\s*allow-full-delete/i.test(sql)
-  ) {
-    errors.push(`${file}: DELETE without WHERE requires an "-- allow-full-delete" comment.`);
-  }
-}
-
-if (errors.length > 0) {
+  if (errors.length) throw new Error(errors.join('\n'));
+  console.log(`Validated ${migrations.length} contiguous transactional migration(s).`);
+} catch (error) {
   console.error('Migration validation failed:');
-  for (const error of errors) console.error(`- ${error}`);
-  process.exit(1);
+  for (const message of (error as Error).message.split('\n')) console.error(`- ${message}`);
+  process.exitCode = 1;
 }
-
-console.log(`Validated ${files.length} migration(s).`);

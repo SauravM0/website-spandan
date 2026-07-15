@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "ledger": {
+    "table": "schema_migrations",
+    "appendOnly": true,
+    "requiredColumns": [
+      "version",
+      "checksum",
+      "filename",
+      "duration_ms",
+      "execution_mode",
+      "applied_at"
+    ]
+  },
+  "locking": {
+    "type": "postgres-advisory-session-lock",
+    "key": 781542991,
+    "defaultTimeoutMs": 120000
+  },
+  "transactions": {
+    "scope": "one-per-migration",
+    "continueAfterFailure": false
+  },
+  "compatibility": {
+    "strategy": "expand-migrate-contract",
+    "phaseMarkerRequiredFromVersion": 32,
+    "contractApprovalRequired": true
+  },
+  "legacyAdoption": {
+    "reviewedBaselineVersion": 31,
+    "explicitEnvironmentVariable": "MIGRATION_BASELINE_VERSION",
+    "automaticAdoption": false
+  },
+  "execution": {
+    "mode": "one-off-deployment-job",
+    "productionCommand": "node dist/migrate.js",
+    "runDuringApiStartup": false,
+    "applicationImageContainsRunner": true
+  }
+}

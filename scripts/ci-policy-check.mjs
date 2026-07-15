@@ -39,6 +39,9 @@ const requiredWorkflowText = [
   'npm run backend:typecheck',
   'npm run frontend:typecheck',
   'npm run migrations:validate',
+  'npm run migrations:check',
+  'npm --prefix backend run migrate:production',
+  'Verify repeat migration is a no-op',
   'npm --prefix backend run test:integration',
   'npm --prefix frontend run test:e2e',
   'actions/dependency-review-action@',
@@ -53,7 +56,7 @@ for (const required of requiredWorkflowText) {
 
 const negativeFixtures = {
   type: '__ci_type_failure__.ts',
-  migration: '999_ci_empty.sql',
+  migration: '032_ci_missing_phase.sql',
   secret: 'ci-secret-fixture.txt',
   rbac: 'deny-by-default RBAC regression',
   e2e: '__ci_failure__.spec.ts',

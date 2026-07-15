@@ -20,6 +20,7 @@
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml,css}\"",
     "lint": "eslint . --max-warnings=0",
     "migrations:validate": "cd backend && npm run migrations:validate",
+    "migrations:check": "node scripts/migration-policy-check.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
     "baseline:check": "node scripts/production-baseline-check.mjs",

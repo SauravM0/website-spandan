@@ -88,8 +88,12 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm --prefix backend ci
+      - run: npm run migrations:check
       - run: npm run migrations:validate
-      - run: npm run migrate
+      - run: npm --prefix backend run build
+      - run: npm --prefix backend run migrate:production
+      - name: Verify repeat migration is a no-op
+        run: npm --prefix backend run migrate:production
       - run: npm --prefix backend run test:integration
 
   security:
@@ -116,6 +120,7 @@ jobs:
       - run: npm run secrets:check
       - run: npm run containers:check
       - run: npm run ci:check
+      - run: npm run migrations:check
       - run: npm audit --audit-level=high --workspaces=false
       - run: npm --prefix backend audit --audit-level=high
       - run: npm --prefix frontend audit --audit-level=high
@@ -226,9 +231,9 @@ jobs:
       - name: Reject an invalid migration
         shell: bash
         run: |
-          touch backend/migrations/999_ci_empty.sql
+          printf 'SELECT 1;\n' > backend/migrations/032_ci_missing_phase.sql
           if npm run migrations:validate; then exit 1; fi
-          rm backend/migrations/999_ci_empty.sql
+          rm backend/migrations/032_ci_missing_phase.sql
       - name: Reject a committed secret
         shell: bash
         run: |

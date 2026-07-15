@@ -1,37 +1,6 @@
-import fs from 'fs';
-import path from 'path';
-import { Pool } from 'pg';
-import dotenv from 'dotenv';
+import { migrateMain } from '../src/migrate';
 
-dotenv.config({ path: path.resolve(__dirname, '../.env') });
-
-async function migrate() {
-  const pool = new Pool({ connectionString: process.env.DATABASE_URL });
-  const migrationsDir = path.resolve(__dirname, '../migrations');
-  const files = fs
-    .readdirSync(migrationsDir)
-    .filter((f) => f.endsWith('.sql'))
-    .sort();
-
-  console.log(`Found ${files.length} migration(s)`);
-
-  for (const file of files) {
-    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf-8');
-    console.log(`Running migration: ${file}`);
-    try {
-      await pool.query(sql);
-      console.log(`  OK ${file} applied successfully`);
-    } catch (err: any) {
-      console.error(`  FAIL ${file} failed:`, err.message);
-      throw err;
-    }
-  }
-
-  await pool.end();
-  console.log('All migrations complete.');
-}
-
-migrate().catch((err) => {
-  console.error('Migration failed:', err);
-  process.exit(1);
+migrateMain().catch((error) => {
+  console.error('Migration failed:', (error as Error).message);
+  process.exitCode = 1;
 });

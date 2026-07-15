@@ -12,6 +12,7 @@ const steps = [
   ['secrets:check', ['run', 'secrets:check']],
   ['containers:check', ['run', 'containers:check']],
   ['ci:check', ['run', 'ci:check']],
+  ['migrations:check', ['run', 'migrations:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],
