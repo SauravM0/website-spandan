@@ -83,15 +83,6 @@ async function getRelatedContent(doctor: PublicDoctorDetail) {
   return { relatedPackages, relatedArticles };
 }
 
-export async function generateStaticParams() {
-  const data = await serverApiGet<{ doctors: PublicDoctorSummary[] }>(
-    '/public/doctors',
-    { doctors: [] },
-    { next: { revalidate: 3600, tags: ['public-doctors'] } }
-  );
-  return (data.doctors || []).map((doctor) => ({ slug: doctor.slug }));
-}
-
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const data = await getDoctor(params.slug);
   const doctor = data.doctor;

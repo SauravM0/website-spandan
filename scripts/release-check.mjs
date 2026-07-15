@@ -8,6 +8,7 @@ const steps = [
   ['privacy-security:check', ['run', 'privacy-security:check']],
   ['baseline:check', ['run', 'baseline:check']],
   ['environments:check', ['run', 'environments:check']],
+  ['frontend-runtime:check', ['run', 'frontend-runtime:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],

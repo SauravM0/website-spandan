@@ -1,6 +1,7 @@
 import type { Doctor, PackageSummary, PackageDetail, PackageTestSummary, DashboardData, AppointmentHold, Appointment, LeadEnquiry, LeadDetail, Notification, PaginatedResponse, AdminUser } from './types';
+import { BROWSER_API_BASE, browserApiUrl } from './apiUrl';
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+const API_URL = BROWSER_API_BASE;
 const DEFAULT_GET_CACHE_MS = 15_000;
 const DEFAULT_TIMEOUT_MS = 30_000;
 
@@ -530,8 +531,7 @@ export async function emailReceipt(receiptId: string, email?: string) {
 
 export function getBackendAssetUrl(path?: string | null) {
   if (!path) return '';
-  if (/^https?:\/\//.test(path)) return path;
-  return `${API_URL}${path.startsWith('/api') ? path.slice(4) : path}`;
+  return browserApiUrl(path);
 }
 
 export async function getAdminDashboard(token = '') {
@@ -906,18 +906,6 @@ export async function deadLetterAdminNotification(token: string | undefined, id:
       body: JSON.stringify({ reason }),
     }
   );
-}
-
-/** Server component helper: GET with timeout, no auth or CSRF. */
-export async function serverApiGet<T>(endpoint: string, revalidate = 60): Promise<T> {
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    next: { revalidate },
-    signal: timeoutSignal(),
-  });
-  if (!res.ok) {
-    throw new Error(`Server fetch failed: ${endpoint} (${res.status})`);
-  }
-  return res.json();
 }
 
 export async function getIntakeInvitation(token: string) {

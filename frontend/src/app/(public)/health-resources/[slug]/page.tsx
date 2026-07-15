@@ -25,12 +25,6 @@ function formatDate(value?: string | null): string | null {
   return new Intl.DateTimeFormat('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value));
 }
 
-export async function generateStaticParams() {
-  const data = await serverApiGet('/articles', { articles: [] });
-  const slugs = (data.articles || []).map((article: any) => ({ slug: article.slug }));
-  return slugs.length > 0 ? slugs : [{ slug: 'placeholder' }];
-}
-
 async function getArticle(slug: string) {
   return serverApiGet<{ article: ArticleDetailPayload | null }>(
     `/articles/${slug}`,

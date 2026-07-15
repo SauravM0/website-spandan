@@ -1,4 +1,5 @@
-export const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
+import { connection } from 'next/server';
+import { getInternalApiBase } from './apiUrl';
 
 export async function serverApiGet<T>(
   endpoint: string,
@@ -6,7 +7,9 @@ export async function serverApiGet<T>(
   init?: RequestInit
 ): Promise<T> {
   try {
-    const res = await fetch(`${API_URL}${endpoint}`, init);
+    // Private service discovery exists at container runtime, not during the image build.
+    await connection();
+    const res = await fetch(`${getInternalApiBase()}${endpoint}`, init);
     if (!res.ok) return fallback;
     return res.json();
   } catch {

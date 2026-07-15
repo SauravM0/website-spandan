@@ -39,11 +39,6 @@ async function getAllPackageDetails() {
   return results.map((result) => result.package).filter(Boolean) as PublicPackageDetail[];
 }
 
-export async function generateStaticParams() {
-  const data = await getPackageCatalog();
-  return (data.packages || []).map((pkg) => ({ slug: pkg.slug }));
-}
-
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const data = await getPackage(slug);

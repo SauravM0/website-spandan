@@ -18,6 +18,7 @@ import {
   ResponsiveDataView,
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
+import { browserApiUrl } from '@/lib/apiUrl';
 
 const statuses = [
   '',
@@ -38,8 +39,6 @@ const sortOptions = [
   ['amount_desc', 'Highest amount'],
   ['amount_asc', 'Lowest amount'],
 ];
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api';
-
 type PaymentFilters = {
   status: string;
   from: string;
@@ -54,8 +53,7 @@ type PaymentFilters = {
 
 function receiptUrl(path?: string | null) {
   if (!path) return '';
-  if (/^https?:\/\//.test(path)) return path;
-  return `${API_URL}${path.startsWith('/api') ? path.slice(4) : path}`;
+  return browserApiUrl(path);
 }
 
 function money(value: unknown) {

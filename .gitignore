@@ -46,6 +46,7 @@ docs/work-packages/**
 !docs/work-packages/WP01-production-governance.md
 !docs/work-packages/WP02-immutable-baseline.md
 !docs/work-packages/WP03-environment-isolation.md
+!docs/work-packages/WP04-frontend-production-runtime.md
 !docs/production-baseline.json
 machine/
 
