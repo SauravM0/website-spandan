@@ -7,6 +7,7 @@ const steps = [
   ['platform:check', ['run', 'platform:check']],
   ['privacy-security:check', ['run', 'privacy-security:check']],
   ['baseline:check', ['run', 'baseline:check']],
+  ['environments:check', ['run', 'environments:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],

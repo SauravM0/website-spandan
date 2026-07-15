@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { validateEnvironmentIsolation } from './environment';
 dotenv.config();
 
 const normalizeOrigin = (origin: string) => origin.trim().replace(/\/+$/, '');
@@ -8,6 +9,11 @@ const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
   .filter(Boolean);
 
 const env = process.env.NODE_ENV || 'development';
+const deploymentEnvironment = process.env.DEPLOYMENT_ENV || (env === 'test' ? 'test' : 'development');
+const databaseUrl = process.env.DATABASE_URL || 'postgresql://localhost:5432/spandan_clinic';
+const environmentName = process.env.ENVIRONMENT_NAME || `spandan-${deploymentEnvironment}`;
+const supabaseProjectRef = process.env.SUPABASE_PROJECT_REF || '';
+const dataPolicy = process.env.DATA_POLICY || (deploymentEnvironment === 'production' ? 'production-patient-data' : 'synthetic-only');
 const jwtSecret = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION_MUST_BE_AT_LEAST_32_CHARS';
 const frontendUrl = normalizeOrigin(process.env.FRONTEND_URL || 'http://localhost:3000');
 const requiredInProduction = [
@@ -27,10 +33,23 @@ if (env === 'production') {
   }
 }
 
+validateEnvironmentIsolation({
+  runtimeEnvironment: env,
+  deploymentEnvironment,
+  environmentName,
+  databaseUrl,
+  supabaseProjectRef,
+  dataPolicy,
+});
+
 export const config = {
   env,
+  deploymentEnvironment,
+  environmentName,
+  supabaseProjectRef,
+  dataPolicy,
   port: parseInt(process.env.PORT || '4000', 10),
-  databaseUrl: process.env.DATABASE_URL || 'postgresql://localhost:5432/spandan_clinic',
+  databaseUrl,
   jwtSecret,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   adminSessionCookieName: process.env.ADMIN_SESSION_COOKIE_NAME || 'admin_session',

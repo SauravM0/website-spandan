@@ -21,6 +21,7 @@
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
     "baseline:check": "node scripts/production-baseline-check.mjs",
+    "environments:check": "node scripts/environment-isolation-check.mjs",
     "release:check": "node scripts/release-check.mjs",
     "release:check:full": "node scripts/release-check.mjs",
     "roadmap:status": "node scripts/roadmap-status.mjs",

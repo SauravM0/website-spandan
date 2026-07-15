@@ -26,7 +26,7 @@
     "migrationCount": 31,
     "migrationHead": "031_custom_diagnostic_packages.sql"
   },
-  "productionRequiredEnvironment": ["DATABASE_URL", "JWT_SECRET", "CORS_ORIGIN", "FRONTEND_URL"],
+  "productionRequiredEnvironment": ["DATABASE_URL", "JWT_SECRET", "CORS_ORIGIN", "FRONTEND_URL", "DEPLOYMENT_ENV", "ENVIRONMENT_NAME", "SUPABASE_PROJECT_REF", "DATA_POLICY"],
   "intentionalFeatureGates": {
     "PHONEPE_ENABLED": false,
     "CLINICAL_RECORD_WRITES_ENABLED": false,

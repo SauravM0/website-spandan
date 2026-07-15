@@ -45,6 +45,7 @@ docs/privacy-security/**
 docs/work-packages/**
 !docs/work-packages/WP01-production-governance.md
 !docs/work-packages/WP02-immutable-baseline.md
+!docs/work-packages/WP03-environment-isolation.md
 !docs/production-baseline.json
 machine/
 

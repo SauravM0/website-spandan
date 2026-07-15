@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "provider": "render",
+  "databaseProvider": "supabase",
+  "environments": [
+    {
+      "name": "development",
+      "environmentName": "spandan-development",
+      "dataPolicy": "synthetic-only",
+      "supabaseProjectRefSecret": "SPANDAN_DEVELOPMENT_SUPABASE_PROJECT_REF",
+      "renderEnvironment": "spandan-development",
+      "productionTrafficAllowed": false
+    },
+    {
+      "name": "staging",
+      "environmentName": "spandan-staging",
+      "dataPolicy": "synthetic-only",
+      "supabaseProjectRefSecret": "SPANDAN_STAGING_SUPABASE_PROJECT_REF",
+      "renderEnvironment": "spandan-staging",
+      "productionTrafficAllowed": false
+    },
+    {
+      "name": "production",
+      "environmentName": "spandan-production",
+      "dataPolicy": "production-patient-data",
+      "supabaseProjectRefSecret": "SPANDAN_PRODUCTION_SUPABASE_PROJECT_REF",
+      "renderEnvironment": "spandan-production",
+      "productionTrafficAllowed": true
+    }
+  ],
+  "credentialFamilies": ["database", "phonepe", "smtp", "whatsapp", "storage", "monitoring"],
+  "rules": {
+    "productionDataInLowerEnvironments": "forbidden",
+    "lowerEnvironmentData": "synthetic-only",
+    "sharedProviderCredentials": "forbidden",
+    "productionSecretsInCi": "forbidden"
+  }
+}
