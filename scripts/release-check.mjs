@@ -6,6 +6,7 @@ const npm = isWindows ? 'cmd.exe' : 'npm';
 const steps = [
   ['platform:check', ['run', 'platform:check']],
   ['privacy-security:check', ['run', 'privacy-security:check']],
+  ['baseline:check', ['run', 'baseline:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],

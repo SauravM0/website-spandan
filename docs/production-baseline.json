@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "recordedAt": "2026-07-15",
+  "baselineCommit": "ad934e066a5f2ed855039ccfab8767ced7e0a39b",
+  "baselineTag": "production-baseline-2026-07-15",
+  "architecture": "modular-monolith",
+  "runtime": {
+    "frontend": "Next.js 16 server application",
+    "backend": "Express 4 API",
+    "database": "PostgreSQL through pg Pool",
+    "timezone": "Asia/Kolkata"
+  },
+  "apiContracts": {
+    "publicBooking": ["POST /api/appointments/holds", "POST /api/appointments", "POST /api/public/appointments/:holdId/payment"],
+    "publicPackages": ["GET /api/package-orders/catalog", "POST /api/package-orders/quote", "POST /api/package-orders"],
+    "publicPayments": ["POST /api/payments/create", "POST /api/webhooks/phonepe", "GET /api/public/checkout/:transactionId/status"],
+    "adminSession": ["POST /api/admin/login", "GET /api/admin/me", "POST /api/admin/logout"],
+    "adminOperations": ["GET /api/admin/operations/dashboard", "GET /api/admin/operations/appointments", "PATCH /api/admin/operations/appointments/:id/status", "GET /api/admin/operations/package-orders", "GET /api/admin/operations/payments"]
+  },
+  "stateContracts": {
+    "booking": ["draft", "slot_held", "payment_required", "payment_pending", "confirmed", "hold_expired", "payment_failed", "cancelled", "refund_pending", "refunded"],
+    "paymentActive": ["created", "pending", "verification_required"],
+    "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
+  },
+  "schema": {
+    "migrationCount": 31,
+    "migrationHead": "031_custom_diagnostic_packages.sql"
+  },
+  "productionRequiredEnvironment": ["DATABASE_URL", "JWT_SECRET", "CORS_ORIGIN", "FRONTEND_URL"],
+  "intentionalFeatureGates": {
+    "PHONEPE_ENABLED": false,
+    "CLINICAL_RECORD_WRITES_ENABLED": false,
+    "CLINICAL_OBSERVATIONS_ENABLED": false,
+    "DEVICE_IMPORTS_ENABLED": false,
+    "MEDICAL_DOCUMENTS_ENABLED": false
+  },
+  "evidence": [
+    "backend/src/routes/operations.ts",
+    "backend/src/routes/adminOperations.ts",
+    "backend/src/domain/appointmentBooking.ts",
+    "backend/src/domain/paymentLifecycle.ts",
+    "backend/src/config/index.ts",
+    "backend/.env.example"
+  ]
+}
