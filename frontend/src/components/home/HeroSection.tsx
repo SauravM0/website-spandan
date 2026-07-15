@@ -94,9 +94,9 @@ export default function HeroSection({ settings, doctors }: HeroSectionProps) {
             </div>
             <div className="grid gap-3 p-5 text-navy sm:grid-cols-2">
               {heroDoctors.length ? heroDoctors.map((doctor) => (
-                <Link key={doctor.slug} href={`/doctors/${doctor.slug}`} className="flex min-h-14 items-center rounded-2xl border border-primary/10 bg-blue-50/70 p-4 shadow-[0_8px_22px_rgba(43,138,198,0.07)] transition-all duration-300 hover:-translate-y-0.5 hover:border-pink-300/40 hover:bg-white hover:shadow-[0_12px_28px_rgba(43,138,198,0.12)]">
+                <p key={doctor.slug} className="flex min-h-14 items-center p-4">
                   <span className="text-sm font-bold">{doctor.name}</span>
-                </Link>
+                </p>
               )) : (
                 <div className="rounded-2xl border border-primary/10 bg-blue-50/70 p-3 shadow-[0_8px_22px_rgba(43,138,198,0.07)] sm:col-span-2">
                   <span className="block text-sm font-bold">{settings.name}</span>

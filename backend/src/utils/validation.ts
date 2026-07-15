@@ -177,6 +177,35 @@ export const packageQuoteSchema = z.object({
     .max(20),
 });
 
+export const diagnosticTestFiltersSchema = z.object({
+  search: z.string().max(100).transform(stripHtml).optional(),
+  category: z.string().max(80).transform(stripHtml).optional(),
+});
+
+export const customTestOrderSchema = z.object({
+  purchaser_name: z.string().min(2).max(100).transform(stripHtml),
+  phone: z.string().regex(indianPhoneRegex, 'Must be a valid Indian phone number'),
+  email: z.string().email().optional(),
+  preferred_date: dateSchema.optional(),
+  clinical_notes: z.string().max(1000).transform(stripHtml).optional(),
+  source_language: languageSchema.optional(),
+  consent: z.literal(true, { errorMap: () => ({ message: 'Consent must be exactly true' }) }),
+  test_ids: z
+    .array(z.string().regex(uuidRegex, 'Must be a valid UUID'))
+    .min(1, 'Select at least one diagnostic test')
+    .max(30, 'A custom package can contain up to 30 tests')
+    .refine((ids) => new Set(ids).size === ids.length, 'Tests must not be duplicated'),
+  patient: patientSchema,
+});
+
+export const diagnosticTestUpdateSchema = z.object({
+  expected_version: z.number().int().positive(),
+  price: z.coerce.number().min(0).max(1000000).multipleOf(0.01),
+  price_confirmed: z.boolean(),
+  is_active: z.boolean(),
+  preparation_instructions: z.string().max(1000).transform(stripHtml).nullable().optional(),
+});
+
 export const paymentCreateSchema = z
   .object({
     order_id: z.string().regex(uuidRegex, 'Must be a valid UUID').optional(),

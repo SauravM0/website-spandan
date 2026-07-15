@@ -119,17 +119,15 @@ export async function getPublicPackageSummaries(options: {
        true AS published,
        true AS bookable,
        p.updated_at AS reviewed_at,
-       COALESCE(tests.key_inclusions, ARRAY[]::text[]) AS key_inclusions
+       COALESCE(tests.key_inclusions, ARRAY[]::text[]) AS key_inclusions,
+       COALESCE(tests.inclusion_count, 0) AS inclusion_count
      FROM packages p
      LEFT JOIN LATERAL (
-       SELECT ARRAY_AGG(test_name ORDER BY sort_order ASC, test_name ASC) AS key_inclusions
-       FROM (
-         SELECT test_name, sort_order
-         FROM package_tests
-         WHERE package_id = p.id
-         ORDER BY sort_order ASC, test_name ASC
-         LIMIT 5
-       ) included_tests
+       SELECT
+         ARRAY_AGG(test_name ORDER BY sort_order ASC, test_name ASC) AS key_inclusions,
+         COUNT(*)::int AS inclusion_count
+       FROM package_tests
+       WHERE package_id = p.id
      ) tests ON true
      WHERE ${conditions.join(' AND ')}
      ORDER BY p.display_order ASC, p.name ASC

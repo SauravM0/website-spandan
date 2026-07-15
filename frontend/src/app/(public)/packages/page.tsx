@@ -10,13 +10,13 @@ import { clinicSettings } from '@/lib/settings';
 export const metadata: Metadata = {
   title: 'Health Checkup Packages | Spandan Super Speciality Clinic',
   description:
-    'Compare active health checkup packages by suitability, included tests, preparation, and current package price at Spandan Clinic.',
+    'Compare five health checkup packages by offer price and included tests and services at Spandan Clinic.',
   alternates: {
     canonical: '/packages',
   },
   openGraph: {
     title: 'Health Packages at Spandan Super Speciality Clinic',
-    description: 'Compare active diagnostic packages with current prices and preparation guidance.',
+    description: 'Compare five clinic health packages with current offer prices and complete inclusion details.',
   },
 };
 
@@ -24,7 +24,7 @@ async function getPackages() {
   return serverApiGet<{ packages: PublicPackageSummary[] }>(
     '/packages',
     { packages: [] },
-    { next: { revalidate: 3600, tags: ['public-packages'] } }
+    { cache: 'no-store' }
   );
 }
 
@@ -79,9 +79,8 @@ export default async function PackagesPage() {
             </p>
             <h1 className="heading-display">Health Packages</h1>
             <p className="mt-4 text-base leading-relaxed text-text-light md:text-lg">
-              Compare active packages by clinical suitability, key inclusions, preparation needs, and
-              current clinic-approved price. A package is a screening aid, not a diagnosis; the clinic
-              team can help you choose when symptoms, age, or doctor advice are unclear.
+              Compare current offer prices and package highlights. Open any package to review every
+              included test and service, then continue scrolling to compare all five packages.
             </p>
             <div className="mt-7 grid gap-3 text-sm sm:grid-cols-3">
               <p className="soft-card p-3">

@@ -30,6 +30,8 @@ import { requestId } from './middleware/requestId';
 import { query } from './config/database';
 import { logger } from './utils/logger';
 import { publicPrivacyRouter, adminPrivacyRouter } from './routes/privacySecurity';
+import diagnosticTestsRoutes from './routes/diagnosticTests';
+import adminDiagnosticTestsRoutes from './routes/adminDiagnosticTests';
 
 const app = express();
 
@@ -114,6 +116,7 @@ app.use('/api/public/enquiries', publicEnquiriesRoutes);
 app.use('/api/enquiries', publicEnquiriesRoutes);
 app.use('/api/youtube', publicGetLimiter, youtubeRoutes);
 app.use('/api', operationsRoutes);
+app.use('/api', diagnosticTestsRoutes);
 app.use('/api/intake', remoteIntakeRoutes);
 app.use('/api/privacy', publicPrivacyRouter);
 
@@ -129,6 +132,7 @@ app.use('/api/admin/medications', adminMedicationRoutes);
 app.use('/api/admin/documents', adminMedicalDocumentRoutes);
 app.use('/api/admin/observations', adminObservationRoutes);
 app.use('/api/admin/device-integrations', adminDeviceIntegrationRoutes);
+app.use('/api/admin/diagnostic-tests', adminDiagnosticTestsRoutes);
 app.use('/api/admin/privacy-security', adminPrivacyRouter);
 
 // Error handler

@@ -113,21 +113,18 @@ function HomeDoctorCard({ doctor }: { doctor: PublicDoctorSummary }) {
           </p>
         </div>
 
-        <div className="mt-auto grid gap-3 pt-6 min-[440px]:grid-cols-2">
-          <Link href={`/doctors/${doctor.slug}`} className="btn btn-outline btn-sm w-full">
-            View profile
-          </Link>
+        <div className="mt-auto flex justify-end pt-6">
           {canBook ? (
             <Link
               href={`/book-appointment?doctor=${encodeURIComponent(doctorReference)}`}
-              className="btn btn-accent btn-sm w-full"
+              className="btn btn-accent btn-sm w-full min-[440px]:w-auto min-[440px]:min-w-44"
               aria-label={`Book an appointment with ${doctor.name}`}
             >
               <CalendarCheck size={16} aria-hidden="true" />
               Book appointment
             </Link>
           ) : (
-            <Link href="/contact" className="btn btn-outline btn-sm w-full">
+            <Link href="/contact" className="btn btn-outline btn-sm w-full min-[440px]:w-auto min-[440px]:min-w-44">
               Contact clinic
             </Link>
           )}

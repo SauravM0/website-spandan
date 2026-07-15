@@ -43,8 +43,8 @@ export type HomePayload = {
 export async function getHomePayload(): Promise<HomePayload> {
   const [doctorData, featuredPackageData, packageData, articleData] = await Promise.all([
     serverApiGet<{ doctors: PublicDoctorSummary[] }>('/doctors', { doctors: [] }, { next: { revalidate: 3600, tags: ['public-doctors'] } }),
-    serverApiGet<{ packages: PublicPackageSummary[] }>('/packages/featured', { packages: [] }, { next: { revalidate: 3600, tags: ['public-packages'] } }),
-    serverApiGet<{ packages: PublicPackageSummary[] }>('/packages', { packages: [] }, { next: { revalidate: 3600, tags: ['public-packages'] } }),
+    serverApiGet<{ packages: PublicPackageSummary[] }>('/packages/featured', { packages: [] }, { cache: 'no-store' }),
+    serverApiGet<{ packages: PublicPackageSummary[] }>('/packages', { packages: [] }, { cache: 'no-store' }),
     serverApiGet<{ articles: PublicArticleSummary[] }>('/articles', { articles: [] }, { next: { revalidate: 3600, tags: ['public-articles'] } }),
   ]);
 

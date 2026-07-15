@@ -4,6 +4,7 @@ import {
   getDoctorBriefById,
 } from '../models';
 import { isValidSlug } from '../utils/slug';
+import { canonicalPackageSlug } from '../utils/packageSlugs';
 import { notFound } from '../utils/errors';
 
 export async function featured(_req: Request, res: Response): Promise<void> {
@@ -18,13 +19,14 @@ export async function listPackages(_req: Request, res: Response): Promise<void> 
 }
 
 export async function getPackageDetail(req: Request, res: Response): Promise<void> {
-  const { slug } = req.params;
+  const requestedSlug = req.params.slug;
 
   // Validate slug pattern before querying
-  if (!isValidSlug(slug)) {
+  if (!isValidSlug(requestedSlug)) {
     notFound(res, 'Package not found');
     return;
   }
+  const slug = canonicalPackageSlug(requestedSlug);
 
   const summaries = await getPublicPackageSummaries();
   const summary = summaries.find((item) => item.slug === slug);

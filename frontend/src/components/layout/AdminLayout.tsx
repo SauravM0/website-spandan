@@ -19,6 +19,7 @@ import {
   Users,
   FileCheck,
   Files,
+  FlaskConical,
   ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -57,6 +58,7 @@ const navGroups = [
     label: 'Content & Settings',
     items: [
       { href: '/admin/packages', label: 'Packages', icon: Settings, capability: 'admin.packages.read' },
+      { href: '/admin/diagnostic-tests', label: 'Diagnostic Tests', icon: FlaskConical, capability: 'admin.pricing.read' },
       { href: '/admin/privacy-security', label: 'Privacy & Security', icon: ShieldCheck, capability: 'admin.privacy_requests.read' },
     ],
   },

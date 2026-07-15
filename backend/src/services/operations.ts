@@ -19,7 +19,7 @@ type Queryable = {
   query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
 };
 
-type PatientInput = {
+export type PatientInput = {
   full_name: string;
   phone: string;
   email?: string;
@@ -230,7 +230,7 @@ async function nextReceiptNumber(db: Queryable): Promise<string> {
   return `SPD-${new Date().getFullYear()}-${String(result.rows[0].value).padStart(6, '0')}`;
 }
 
-async function createPatient(client: PoolClient, input: PatientInput): Promise<string> {
+export async function createPatient(client: PoolClient, input: PatientInput): Promise<string> {
   const result = await client.query(
     `INSERT INTO patients (full_name, phone, email, date_of_birth, age_years, gender, address)
      VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -2988,11 +2988,17 @@ export async function listPackageOrders(filters: PackageOrderFilters = {}) {
   const result = await query(
     `SELECT po.id, po.order_number, po.purchaser_name, po.phone, po.preferred_date,
             po.total_amount, po.status, po.fulfilment_status, po.created_at,
-            COUNT(poi.id)::int AS item_count
+            po.order_type, po.price_status,
+            CASE WHEN po.order_type = 'custom_tests'
+              THEN (SELECT COUNT(*)::int FROM custom_test_order_items ctoi WHERE ctoi.order_id = po.id)
+              ELSE (SELECT COUNT(*)::int FROM package_order_items poi WHERE poi.order_id = po.id)
+            END AS item_count,
+            CASE WHEN po.order_type = 'custom_tests'
+              THEN (SELECT ARRAY_AGG(ctoi.test_name_snapshot ORDER BY ctoi.sort_order) FROM custom_test_order_items ctoi WHERE ctoi.order_id = po.id)
+              ELSE ARRAY[]::TEXT[]
+            END AS test_names
      FROM package_orders po
-     LEFT JOIN package_order_items poi ON poi.order_id = po.id
      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
-     GROUP BY po.id
      ORDER BY po.created_at DESC, po.id DESC
      LIMIT $${values.length}`,
     values

@@ -1,324 +1,202 @@
-import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import {
-  ArrowLeft,
-  BookOpen,
-  CalendarCheck,
-  Clock,
-  FileText,
-  HeartPulse,
-  HelpCircle,
-  IndianRupee,
-  ShieldCheck,
-  Stethoscope,
-} from 'lucide-react';
-import EnquiryForm from '@/components/forms/EnquiryForm';
-import TestListCard, { type PackageTestItem } from '@/components/packages/TestListCard';
-import PrepInstructions from '@/components/packages/PrepInstructions';
+import { ArrowLeft, BadgePercent, CalendarCheck, HelpCircle } from 'lucide-react';
+import PackageDetailSection, {
+  orderPackagesSelectedFirst,
+  packageInclusionCount,
+  type PublicPackageDetail,
+} from '@/components/packages/PackageDetailSection';
 import {
   formatPackageMoney,
   packageCategoryLabel,
-  packageSuitability,
   type PublicPackageSummary,
 } from '@/components/packages/PackageCard';
 import { clinicSettings } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
 
-type PackageDoctor = {
-  id: string;
-  name: string;
-  speciality: string;
-  slug: string;
-};
-
-type PublicPackageDetail = PublicPackageSummary & {
-  description?: string | null;
-  image_url?: string | null;
-  gallery_urls?: string[] | null;
-  tests?: PackageTestItem[] | null;
-  exclusions?: string | null;
-  medical_disclaimer?: string | null;
-  terms_text?: string | null;
-  no_refund_text?: string | null;
-  primary_doctor?: PackageDoctor | null;
-};
-
 async function getPackage(slug: string) {
   return serverApiGet<{ package: PublicPackageDetail | null }>(
     `/packages/${slug}`,
     { package: null },
-    { next: { revalidate: 3600, tags: ['public-packages'] } }
+    { cache: 'no-store' }
   );
+}
+
+async function getPackageCatalog() {
+  return serverApiGet<{ packages: PublicPackageSummary[] }>(
+    '/packages',
+    { packages: [] },
+    { cache: 'no-store' }
+  );
+}
+
+async function getAllPackageDetails() {
+  const catalog = await getPackageCatalog();
+  const results = await Promise.all(
+    (catalog.packages || []).map((pkg) => getPackage(pkg.slug))
+  );
+  return results.map((result) => result.package).filter(Boolean) as PublicPackageDetail[];
 }
 
 export async function generateStaticParams() {
-  const data = await serverApiGet<{ packages: { slug: string }[] }>(
-    '/packages',
-    { packages: [] },
-    { next: { revalidate: 3600, tags: ['public-packages'] } }
-  );
+  const data = await getPackageCatalog();
   return (data.packages || []).map((pkg) => ({ slug: pkg.slug }));
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const data = await getPackage(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const data = await getPackage(slug);
   const pkg = data.package;
   if (!pkg) return { title: 'Package Not Found | Spandan Clinic' };
 
   return {
     title: `${pkg.name} | Health Package | Spandan Super Speciality Clinic`,
-    description: pkg.short_description || `Review current price, inclusions, preparation, and booking details for ${pkg.name}.`,
-    alternates: {
-      canonical: `/packages/${pkg.slug}`,
-    },
+    description: `Review the current offer price and all ${packageInclusionCount(pkg)} inclusions in the ${pkg.name}.`,
+    alternates: { canonical: `/packages/${pkg.slug}` },
     openGraph: {
       title: `${pkg.name} | Spandan Clinic`,
-      description: pkg.short_description || undefined,
-      images: pkg.image_url ? [{ url: pkg.image_url, alt: pkg.name }] : [{ url: '/logo.png', alt: clinicSettings.name }],
+      description: `View package pricing and every included test and service.`,
     },
   };
 }
 
-function formatOfferDate(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' });
-}
-
-function formatReviewDate(value: string | null | undefined) {
-  if (!value) return null;
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' });
-}
-
 function packageJsonLd(pkg: PublicPackageDetail) {
-  const price = Number(pkg.current_price ?? pkg.base_price ?? 0);
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: pkg.name,
-    description: pkg.short_description || packageSuitability(pkg),
     category: packageCategoryLabel(pkg),
-    image: pkg.image_url || '/logo.png',
     offers: {
       '@type': 'Offer',
       priceCurrency: 'INR',
-      price,
+      price: Number(pkg.current_price ?? pkg.base_price ?? 0),
       availability: pkg.bookable === false ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
       url: `/book-package?package=${pkg.id}`,
-      seller: {
-        '@type': 'MedicalClinic',
-        name: clinicSettings.name,
-      },
+      seller: { '@type': 'MedicalClinic', name: clinicSettings.name },
     },
   };
 }
 
-function PricePanel({ pkg }: { pkg: PublicPackageDetail }) {
-  const currentPrice = pkg.current_price ?? pkg.base_price;
-  const hasOffer = Number(pkg.original_price || 0) > Number(currentPrice || 0);
-  const offerDate = formatOfferDate(pkg.offer_valid_until);
-  const reviewedDate = formatReviewDate(pkg.reviewed_at);
-  const bookable = pkg.bookable !== false;
-
-  return (
-    <aside className="soft-card p-5 lg:sticky lg:top-28">
-      <p className="flex items-center gap-1 text-xs font-bold uppercase text-text-light">
-        <IndianRupee size={14} aria-hidden="true" />
-        Current package price
-      </p>
-      <p className="mt-2 text-3xl font-bold text-navy">{formatPackageMoney(currentPrice)}</p>
-      {hasOffer && (
-        <div className="mt-2 text-sm">
-          <p className="text-text-light line-through">{formatPackageMoney(pkg.original_price)}</p>
-          <p className="font-semibold text-amber-900">{pkg.discount_label || 'Offer price'}</p>
-          {offerDate && <p className="text-xs text-amber-900">Valid until {offerDate}</p>}
-        </div>
-      )}
-      {reviewedDate && <p className="mt-3 text-xs text-text-light">Price reviewed {reviewedDate}</p>}
-
-      {bookable ? (
-        <Link href={`/book-package?package=${pkg.id}`} className="btn btn-accent mt-5 w-full">
-          <CalendarCheck size={18} aria-hidden="true" />
-          Book Package
-        </Link>
-      ) : (
-        <span className="btn mt-5 w-full cursor-not-allowed bg-blue-50 text-text-light shadow-none">
-          Currently unavailable
-        </span>
-      )}
-
-      <Link href="#package-enquiry" className="btn btn-outline mt-3 w-full">
-        Ask Before Booking
-      </Link>
-
-      <div className="mt-5 rounded-2xl bg-blue-50/70 p-3 text-sm text-text-light">
-        Checkout refetches current package price, tax, fees, and availability before payment.
-      </div>
-    </aside>
-  );
+function shortJumpLabel(name: string) {
+  return name
+    .replace('Diabetic and Cardiac Package', 'Diabetic + Cardiac')
+    .replace('Advanced Cardiac Package', 'Advanced Cardiac')
+    .replace('Full Body Check-up Package', 'Full Body')
+    .replace(' Package', '');
 }
 
-export default async function PackageDetail({ params }: { params: { slug: string } }) {
-  const data = await getPackage(params.slug);
-  const pkg = data.package;
+export default async function PackageDetail({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const [selectedResult, allPackages] = await Promise.all([
+    getPackage(slug),
+    getAllPackageDetails(),
+  ]);
+  const selected = selectedResult.package;
 
-  if (!pkg) notFound();
+  if (!selected) notFound();
 
-  const tests = pkg.tests || [];
-  const category = packageCategoryLabel(pkg);
-  const reviewedDate = formatReviewDate(pkg.reviewed_at);
+  const orderedPackages = orderPackagesSelectedFirst(allPackages, selected);
+  const currentPrice = selected.current_price ?? selected.base_price;
+  const hasOffer = Number(selected.original_price || 0) > Number(currentPrice || 0);
+  const selectedCount = packageInclusionCount(selected);
 
   return (
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(packageJsonLd(pkg)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(packageJsonLd(selected)) }}
       />
 
-      <section className="soft-page-hero py-14">
+      <section className="soft-page-hero py-12 sm:py-14">
         <div className="container">
-          <Link href="/packages" className="inline-flex items-center gap-2 text-sm text-accent transition hover:text-primary">
+          <Link href="/packages" className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-primary">
             <ArrowLeft size={16} aria-hidden="true" />
-            Back to packages
+            Back to health packages
           </Link>
 
-          <div className="mt-8 grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+          <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_420px] lg:items-center">
             <div>
-              <p className="mb-4 inline-flex rounded-full bg-white px-4 py-2 text-sm font-semibold capitalize text-pink-700 shadow-[0_8px_20px_rgba(236,72,153,0.12)]">
-                {category}
+              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-pink-700">
+                {packageCategoryLabel(selected)} package
               </p>
-              <h1 className="text-3xl font-bold sm:text-4xl">{pkg.name}</h1>
-              <p className="mt-4 max-w-3xl text-base leading-relaxed text-text-light sm:text-lg">
-                {pkg.short_description || packageSuitability(pkg)}
+              <h1 className="heading-display text-navy">{selected.name}</h1>
+              <p className="mt-4 text-base font-medium text-text-light sm:text-lg">
+                Review all {selectedCount} included tests and services, then continue down the page to compare every other package.
               </p>
-              {reviewedDate && <p className="mt-4 text-sm text-text-light">Package reviewed {reviewedDate}</p>}
             </div>
-            <div className="soft-card p-5 text-navy">
-              <p className="text-sm font-bold uppercase text-text-light">Current price</p>
-              <p className="mt-2 text-3xl font-bold">{formatPackageMoney(pkg.current_price ?? pkg.base_price)}</p>
-              <Link href={`/book-package?package=${pkg.id}`} className="btn btn-accent mt-5 w-full">
+
+            <aside className="soft-card p-5 sm:p-6">
+              <div className="flex flex-wrap items-end gap-3">
+                <p className="text-4xl font-extrabold text-navy">{formatPackageMoney(currentPrice)}</p>
+                {hasOffer && (
+                  <p className="pb-1 text-sm text-text-light line-through">
+                    {formatPackageMoney(selected.original_price)}
+                  </p>
+                )}
+              </div>
+              <div className="mt-3 flex flex-wrap items-center gap-3">
+                {hasOffer && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-3 py-1 text-sm font-bold text-pink-800">
+                    <BadgePercent size={15} aria-hidden="true" />
+                    {selected.discount_label || 'Offer'}
+                  </span>
+                )}
+                <span className="text-sm font-semibold text-text-light">{selectedCount} inclusions</span>
+              </div>
+              <Link href={`/book-package?package=${selected.id}`} className="btn btn-accent mt-5 w-full">
                 <CalendarCheck size={18} aria-hidden="true" />
-                Book Package
+                Book package
               </Link>
-            </div>
+            </aside>
           </div>
         </div>
       </section>
 
-      <section className="section">
-        <div className="container grid gap-8 lg:grid-cols-[1fr_360px] lg:items-start">
+      <nav className="sticky top-20 z-30 border-y border-primary/10 bg-white/95 py-3 shadow-[0_8px_24px_rgba(23,58,94,0.08)] backdrop-blur" aria-label="Jump to package">
+        <div className="container flex items-center gap-3 overflow-x-auto pb-1">
+          <span className="shrink-0 text-sm font-extrabold text-navy">Jump to package</span>
+          {orderedPackages.map((pkg) => (
+            <Link
+              key={pkg.slug}
+              href={`#package-${pkg.slug}`}
+              className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition hover:border-accent hover:text-accent ${
+                pkg.slug === selected.slug
+                  ? 'border-accent bg-blue-50 text-accent'
+                  : 'border-primary/20 bg-white text-navy'
+              }`}
+            >
+              {shortJumpLabel(pkg.name)}
+            </Link>
+          ))}
+        </div>
+      </nav>
+
+      <section className="section bg-bg-alt">
+        <div className="container">
           <div className="grid gap-8">
-            <section className="soft-card p-6">
-              <div className="mb-4 flex items-start gap-3">
-                <HeartPulse className="mt-1 shrink-0 text-accent" size={24} aria-hidden="true" />
-                <div>
-                  <h2 className="text-2xl font-bold text-navy">Suitability and limits</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-text-light">{packageSuitability(pkg)}</p>
-                </div>
-              </div>
-              {pkg.description && <p className="mt-4 text-sm leading-relaxed text-text-light">{pkg.description}</p>}
-              <div className="mt-5 grid gap-3 md:grid-cols-2">
-                <div className="rounded-2xl bg-blue-50/70 p-4">
-                  <h3 className="text-sm font-bold uppercase text-text-light">Exclusions</h3>
-                  <p className="mt-2 text-sm text-navy">{pkg.exclusions || 'No additional exclusions are published for this package.'}</p>
-                </div>
-                <div className="rounded-2xl bg-blue-50/70 p-4">
-                  <h3 className="text-sm font-bold uppercase text-text-light">Clinical note</h3>
-                  <p className="mt-2 text-sm text-navy">
-                    {pkg.medical_disclaimer || 'This package supports screening or follow-up planning and does not guarantee diagnosis or treatment outcome.'}
-                  </p>
-                </div>
-              </div>
-            </section>
-
-            <TestListCard tests={tests} />
-
-            <PrepInstructions
-              instructions={pkg.prep_instructions}
-              fastingRequired={pkg.fasting_required}
-              fastingDuration={pkg.fasting_duration}
-            />
-
-            <section className="grid gap-4 md:grid-cols-3">
-              <article className="soft-card p-5">
-                <Clock className="mb-4 text-accent" size={22} aria-hidden="true" />
-                <h2 className="text-lg font-bold text-navy">Visit process</h2>
-                <p className="mt-2 text-sm leading-relaxed text-text-light">
-                  Select a package, assign patient details, choose a preferred date if requested, then review price and terms before payment.
-                </p>
-              </article>
-              <article className="soft-card p-5">
-                <FileText className="mb-4 text-accent" size={22} aria-hidden="true" />
-                <h2 className="text-lg font-bold text-navy">Reports</h2>
-                <p className="mt-2 text-sm leading-relaxed text-text-light">
-                  {pkg.report_turnaround || 'Report timing is confirmed by the clinic based on package tests and lab workflow.'}
-                </p>
-              </article>
-              <article className="soft-card p-5">
-                <Stethoscope className="mb-4 text-accent" size={22} aria-hidden="true" />
-                <h2 className="text-lg font-bold text-navy">Follow-up</h2>
-                <p className="mt-2 text-sm leading-relaxed text-text-light">
-                  {pkg.consultation_included ? 'Doctor consultation is listed as included for this package.' : 'Consultation, if needed, is booked separately unless listed by the clinic.'}
-                </p>
-              </article>
-            </section>
-
-            <section className="soft-card p-6">
-              <div className="flex items-start gap-3">
-                <ShieldCheck className="mt-1 shrink-0 text-accent" size={24} aria-hidden="true" />
-                <div>
-                  <h2 className="text-xl font-bold text-navy">Policy summary</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-text-light">
-                    {pkg.terms_text || 'Package booking, payment, date changes, and refunds follow clinic policy shown before payment.'}
-                  </p>
-                  {pkg.no_refund_text && <p className="mt-2 text-sm leading-relaxed text-text-light">{pkg.no_refund_text}</p>}
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <Link href="/terms" className="btn btn-outline btn-sm">Terms</Link>
-                    <Link href="/privacy" className="btn btn-outline btn-sm">Privacy</Link>
+            {orderedPackages.map((pkg, index) => (
+              <div key={pkg.slug}>
+                {index === 1 && (
+                  <div className="mb-8 flex items-center gap-4" aria-hidden="true">
+                    <span className="h-px flex-1 bg-primary/20" />
+                    <span className="text-center text-lg font-extrabold text-navy">Continue comparing all packages</span>
+                    <span className="h-px flex-1 bg-primary/20" />
                   </div>
-                </div>
+                )}
+                <PackageDetailSection pkg={pkg} selected={index === 0} />
               </div>
-            </section>
-
-            <section className="soft-card p-6">
-              <div className="flex items-start gap-3">
-                <BookOpen className="mt-1 shrink-0 text-accent" size={24} aria-hidden="true" />
-                <div>
-                  <h2 className="text-xl font-bold text-navy">Related doctor or resource</h2>
-                  {pkg.primary_doctor ? (
-                    <p className="mt-2 text-sm leading-relaxed text-text-light">
-                      Related specialist: <Link href={`/doctors/${pkg.primary_doctor.slug}`} className="font-semibold text-accent hover:underline">{pkg.primary_doctor.name}</Link>, {pkg.primary_doctor.speciality}.
-                    </p>
-                  ) : (
-                    <p className="mt-2 text-sm leading-relaxed text-text-light">
-                      Ask the clinic whether a doctor consultation is recommended before or after this package.
-                    </p>
-                  )}
-                  <Link href="/health-resources" className="btn btn-outline mt-4">Browse Health Resources</Link>
-                </div>
-              </div>
-            </section>
-
-            <section id="package-enquiry" className="soft-card scroll-mt-24 p-4 sm:p-6">
-              <div className="mb-6 flex items-start gap-3">
-                <HelpCircle className="mt-1 shrink-0 text-accent" size={24} aria-hidden="true" />
-                <div>
-                  <h2 className="text-xl font-bold text-navy">Need help before booking?</h2>
-                  <p className="mt-2 text-sm leading-relaxed text-text-light">
-                    Use enquiry for guidance. Use booking when you are ready to select patients, review terms, and pay.
-                  </p>
-                </div>
-              </div>
-              <EnquiryForm packageId={pkg.id} packageName={pkg.name} enquiryType="package" />
-            </section>
+            ))}
           </div>
 
-          <PricePanel pkg={pkg} />
+          <div className="soft-card mx-auto mt-10 max-w-3xl p-6 text-center">
+            <HelpCircle className="mx-auto text-accent" size={28} aria-hidden="true" />
+            <h2 className="mt-3 text-xl font-extrabold text-navy">Need help choosing a package?</h2>
+            <p className="mt-2 text-sm leading-relaxed text-text-light">
+              Ask the clinic team for guidance before booking if you are unsure which package matches your needs.
+            </p>
+            <Link href="/contact" className="btn btn-outline mt-5">Ask the clinic</Link>
+          </div>
         </div>
       </section>
     </>

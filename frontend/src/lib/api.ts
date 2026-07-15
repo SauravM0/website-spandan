@@ -176,6 +176,89 @@ export async function getPackageCommerceCatalog() {
   return fetchAPI<{ packages: PackageSummary[] }>('/package-orders/catalog');
 }
 
+export type DiagnosticTest = {
+  id: string;
+  source_number: number;
+  slug: string;
+  name: string;
+  aliases: string[];
+  category: string;
+  price: number;
+  price_confirmed: boolean;
+  preparation_instructions: string | null;
+  sample_type: string | null;
+  report_turnaround: string | null;
+  requires_clinic_confirmation: boolean;
+};
+
+export async function getDiagnosticTests(filters: { search?: string; category?: string } = {}) {
+  return fetchAPI<{ tests: DiagnosticTest[]; categories: string[]; total: number }>(
+    `/diagnostic-tests${toQuery(filters)}`
+  );
+}
+
+export async function createCustomTestOrder(data: {
+  purchaser_name: string;
+  phone: string;
+  email?: string;
+  preferred_date?: string;
+  clinical_notes?: string;
+  source_language?: 'en' | 'hi' | 'mr';
+  consent: true;
+  test_ids: string[];
+  patient: {
+    full_name: string;
+    phone: string;
+    email?: string;
+    age_years?: number;
+    gender?: string;
+  };
+}) {
+  clearApiCache('/admin/operations/package-orders');
+  return fetchAPI<{
+    order: {
+      id: string;
+      order_number: string;
+      status: string;
+      price_status: 'pending' | 'confirmed';
+      total_amount: number;
+      test_count: number;
+      payment_required: boolean;
+    };
+    message: string;
+  }>('/custom-test-orders', {
+    method: 'POST',
+    headers: { 'Idempotency-Key': idempotencyKey() },
+    body: JSON.stringify(data),
+  });
+}
+
+export type AdminDiagnosticTest = DiagnosticTest & {
+  is_active: boolean;
+  version: number;
+  display_order: number;
+  updated_at: string;
+};
+
+export async function getAdminDiagnosticTests(filters: { search?: string; category?: string } = {}) {
+  return fetchAPI<{ tests: AdminDiagnosticTest[] }>(`/admin/diagnostic-tests${toQuery(filters)}`);
+}
+
+export async function updateAdminDiagnosticTest(id: string, data: {
+  expected_version: number;
+  price: number;
+  price_confirmed: boolean;
+  is_active: boolean;
+  preparation_instructions?: string | null;
+}) {
+  clearApiCache('/admin/diagnostic-tests');
+  clearApiCache('/diagnostic-tests');
+  return fetchAPI<{ test: AdminDiagnosticTest }>(`/admin/diagnostic-tests/${encodeURIComponent(id)}`, {
+    method: 'PATCH',
+    body: JSON.stringify(data),
+  });
+}
+
 export async function getFeaturedPackages() {
   return fetchAPI<{ packages: PackageSummary[] }>('/packages/featured');
 }

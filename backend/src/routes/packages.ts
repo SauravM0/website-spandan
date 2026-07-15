@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { body } from 'express-validator';
 import * as packageController from '../controllers/packageController';
+import * as publicPackagesController from '../controllers/publicPackagesController';
 import { authenticate } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { validate } from '../middleware/validate';
@@ -9,9 +10,9 @@ import { PERMISSIONS } from '../security/permissions';
 
 const router = Router();
 
-router.get('/', asyncHandler(packageController.list));
-router.get('/featured', asyncHandler(packageController.featured));
-router.get('/:slug', asyncHandler(packageController.getBySlug));
+router.get('/', asyncHandler(publicPackagesController.listPackages));
+router.get('/featured', asyncHandler(publicPackagesController.featured));
+router.get('/:slug', asyncHandler(publicPackagesController.getPackageDetail));
 
 router.post(
   '/',

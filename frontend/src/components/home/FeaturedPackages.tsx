@@ -12,7 +12,7 @@ export default function FeaturedPackages({ packages }: { packages: PublicPackage
           <div>
             <h2 className="heading-section mb-2 text-navy">Featured Health Packages</h2>
             <p className="max-w-2xl text-text-light">
-              Compare common health packages by price, preparation, and key included tests.
+              Compare current offer prices and package highlights before viewing every inclusion.
             </p>
           </div>
           <Link href="/packages" className="btn btn-outline self-start md:self-auto">
