@@ -3,13 +3,78 @@
   "timezone": "Asia/Kolkata",
   "reviewCadence": "quarterly-and-on-material-change",
   "productionDataDefault": "blocked-until-owner-and-approval",
+  "accountModel": {
+    "mode": "single-administrator",
+    "administrator": "sole-clinic-admin",
+    "productionAccountCount": 1
+  },
   "dataClasses": [
-    {"name":"public-content","classification":"public","owner":"engineering","purpose":"patient education and service discovery","access":"public read; content role write","retention":"while current plus version history","encryption":"TLS; platform storage encryption","sharing":[],"deletion":"archive after content-owner approval"},
-    {"name":"identity-contact","classification":"sensitive-personal","owner":null,"purpose":"identity verification, care coordination and requested contact","access":"scoped reception/clinical staff","retention":"unapproved—no automated deletion","encryption":"TLS; database/storage encryption required","sharing":["approved notification vendors only"],"deletion":"rights case plus legal/clinical review"},
-    {"name":"clinical-record","classification":"restricted-health","owner":null,"purpose":"direct care only","access":"context-scoped clinical roles","retention":"unapproved—collection remains gated","encryption":"TLS; database/storage encryption; separate document key","sharing":["none without approved workflow"],"deletion":"never automated; legal hold and clinical-safety review"},
-    {"name":"payment-record","classification":"restricted-financial","owner":null,"purpose":"payment, reconciliation, receipt and statutory evidence","access":"billing/admin roles","retention":"requires qualified tax/legal confirmation","encryption":"TLS; database/storage encryption; provider tokenization","sharing":["approved payment processor"],"deletion":"never before retention and dispute review"},
-    {"name":"authentication-security","classification":"confidential-security","owner":"engineering","purpose":"staff access and abuse detection","access":"system/security administrators","retention":"sessions until expiry plus approved security retention","encryption":"password hash; encrypted MFA secret; hashed telemetry","sharing":[],"deletion":"scheduled after approved security retention"},
-    {"name":"audit-evidence","classification":"confidential-audit","owner":"engineering","purpose":"accountability, investigation and safety evidence","access":"security/privacy reviewers","retention":"minimum period requires counsel approval","encryption":"TLS/storage encryption; append-only integrity hash","sharing":["authority/counsel only after approved decision"],"deletion":"prohibited during legal hold"}
+    {
+      "name": "public-content",
+      "classification": "public",
+      "owner": "sole-clinic-admin",
+      "purpose": "patient education and service discovery",
+      "access": "public read; sole clinic administrator write",
+      "retention": "while current plus version history",
+      "encryption": "TLS; platform storage encryption",
+      "sharing": [],
+      "deletion": "archive after content-owner approval"
+    },
+    {
+      "name": "identity-contact",
+      "classification": "sensitive-personal",
+      "owner": "sole-clinic-admin",
+      "purpose": "identity verification, care coordination and requested contact",
+      "access": "sole clinic administrator",
+      "retention": "unapproved—no automated deletion",
+      "encryption": "TLS; database/storage encryption required",
+      "sharing": ["approved notification vendors only"],
+      "deletion": "rights case plus legal/clinical review"
+    },
+    {
+      "name": "clinical-record",
+      "classification": "restricted-health",
+      "owner": "sole-clinic-admin",
+      "purpose": "direct care only",
+      "access": "disabled for production collection until external approval",
+      "retention": "unapproved—collection remains gated",
+      "encryption": "TLS; database/storage encryption; separate document key",
+      "sharing": ["none without approved workflow"],
+      "deletion": "never automated; legal hold and clinical-safety review"
+    },
+    {
+      "name": "payment-record",
+      "classification": "restricted-financial",
+      "owner": "sole-clinic-admin",
+      "purpose": "payment, reconciliation, receipt and statutory evidence",
+      "access": "sole clinic administrator",
+      "retention": "requires qualified tax/legal confirmation",
+      "encryption": "TLS; database/storage encryption; provider tokenization",
+      "sharing": ["approved payment processor"],
+      "deletion": "never before retention and dispute review"
+    },
+    {
+      "name": "authentication-security",
+      "classification": "confidential-security",
+      "owner": "sole-clinic-admin",
+      "purpose": "staff access and abuse detection",
+      "access": "sole clinic administrator",
+      "retention": "sessions until expiry plus approved security retention",
+      "encryption": "password hash; encrypted MFA secret; hashed telemetry",
+      "sharing": [],
+      "deletion": "scheduled after approved security retention"
+    },
+    {
+      "name": "audit-evidence",
+      "classification": "confidential-audit",
+      "owner": "sole-clinic-admin",
+      "purpose": "accountability, investigation and safety evidence",
+      "access": "sole clinic administrator and authorized external reviewer",
+      "retention": "minimum period requires counsel approval",
+      "encryption": "TLS/storage encryption; append-only integrity hash",
+      "sharing": ["authority/counsel only after approved decision"],
+      "deletion": "prohibited during legal hold"
+    }
   ],
   "vendors": [
     {"name":"PhonePe","data":"payment minimum necessary","status":"blocked-until-database-review-approved"},
@@ -17,6 +82,15 @@
     {"name":"WhatsApp provider","data":"notification minimum necessary","status":"blocked-until-database-review-approved"},
     {"name":"YouTube privacy-enhanced embed","data":"viewer network metadata","status":"public-content-review-required"}
   ],
-  "approvedOwners": {"privacy":null,"security":null,"clinicalSafety":null,"legal":null,"operations":null}
+  "approvedOwners": {
+    "privacy": "sole-clinic-admin",
+    "security": "sole-clinic-admin",
+    "clinicalSafety": "sole-clinic-admin",
+    "legal": "sole-clinic-admin",
+    "operations": "sole-clinic-admin"
+  },
+  "externalReviewGates": {
+    "legal": {"required":true,"approved":false,"approver":null,"evidence":[]},
+    "clinicalSafety": {"required":true,"approved":false,"approver":null,"evidence":[]}
+  }
 }
-

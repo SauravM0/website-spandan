@@ -7,6 +7,8 @@ const validStatuses = new Set(['active', 'restricted', 'disabled']);
 
 if (governance.schemaVersion !== 1) errors.push('Unsupported governance schemaVersion.');
 if (governance.timezone !== 'Asia/Kolkata') errors.push('Platform timezone must be Asia/Kolkata.');
+if (governance.accountModel?.mode !== 'single-administrator') errors.push('Production account model must remain single-administrator until a reviewed change approves additional staff accounts.');
+if (governance.accountModel?.productionAccountCount !== 1) errors.push('Single-administrator mode requires exactly one production account.');
 if (!Array.isArray(governance.capabilities) || governance.capabilities.length === 0) errors.push('Capability map is empty.');
 
 const names = new Set();
@@ -30,6 +32,11 @@ if (process.argv.includes('--production')) {
   const nextGate = governance.phaseGates?.[`phase${Number(governance.phase) + 1}`];
   if (!nextGate?.approved || !Array.isArray(nextGate.evidence) || nextGate.evidence.length === 0) {
     errors.push(`Phase ${Number(governance.phase) + 1} is not approved with evidence.`);
+  }
+  for (const [review, gate] of Object.entries(governance.externalReviewGates || {})) {
+    if (gate.required && (!gate.approved || !gate.approver || !Array.isArray(gate.evidence) || gate.evidence.length === 0)) {
+      errors.push(`Required external review is not approved with evidence: ${review}.`);
+    }
   }
 }
 

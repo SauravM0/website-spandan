@@ -41,6 +41,9 @@ docs/platform-foundation/**
 !docs/privacy-security/
 docs/privacy-security/**
 !docs/privacy-security/register.json
+!docs/work-packages/
+docs/work-packages/**
+!docs/work-packages/WP01-production-governance.md
 machine/
 
 # OS metadata
