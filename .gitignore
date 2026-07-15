@@ -57,6 +57,7 @@ docs/work-packages/**
 !docs/work-packages/WP09-deployment-rollback.md
 !docs/work-packages/WP10-supabase-connectivity.md
 !docs/work-packages/WP11-graceful-lifecycle.md
+!docs/work-packages/WP12-dedicated-worker.md
 !docs/production-baseline.json
 machine/
 

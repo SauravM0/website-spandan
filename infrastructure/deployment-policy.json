@@ -20,17 +20,21 @@
       "healthPath": "/healthz"
     },
     "worker": {
-      "status": "blocked",
-      "workPackage": "WP12"
+      "status": "active",
+      "command": "node dist/worker.js",
+      "maxShutdownDelaySeconds": 30,
+      "heartbeatSloSeconds": 15
     }
   },
   "promotion": {
     "order": [
       "staging-api",
+      "staging-worker",
       "staging-frontend",
       "staging-smoke",
       "production-approval",
       "production-api",
+      "production-worker",
       "production-frontend",
       "production-observation"
     ],
@@ -45,7 +49,7 @@
     "maximumErrorRate": 0
   },
   "rollback": {
-    "order": ["frontend", "api"],
+    "order": ["frontend", "worker", "api"],
     "databaseReversalAllowed": false,
     "acceptedWritesPreserved": true,
     "targetByDeployId": true

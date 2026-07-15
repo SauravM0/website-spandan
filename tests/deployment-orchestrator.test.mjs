@@ -70,6 +70,35 @@ test('Render service policy requires controlled deployment, migration, and healt
   );
 });
 
+test('Render worker policy requires its dedicated command and drain window', () => {
+  const worker = {
+    autoDeploy: false,
+    image: { imagePath: 'ghcr.io/example/spandan-worker:bootstrap' },
+    serviceDetails: {
+      dockerCommand: 'node dist/worker.js',
+      maxShutdownDelaySeconds: 30,
+      preDeployCommand: '',
+    },
+  };
+  assert.doesNotThrow(() =>
+    validateRenderService(worker, {
+      kind: 'worker',
+      repository: 'ghcr.io/example/spandan-worker',
+    })
+  );
+  assert.throws(
+    () =>
+      validateRenderService(
+        {
+          ...worker,
+          serviceDetails: { ...worker.serviceDetails, dockerCommand: 'node dist/index.js' },
+        },
+        { kind: 'worker', repository: 'ghcr.io/example/spandan-worker' }
+      ),
+    /Worker service command/
+  );
+});
+
 async function withProbeServer(version, run) {
   const server = http.createServer((request, response) => {
     response.setHeader('cache-control', 'no-store');

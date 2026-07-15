@@ -146,8 +146,20 @@ export function validateRenderService(service, { kind, repository }) {
     if (details.healthCheckPath !== '/healthz' && service.healthCheckPath !== '/healthz') {
       throw new Error('Frontend service health check path must be /healthz.');
     }
+  } else if (kind === 'worker') {
+    const command = details.dockerCommand || details.startCommand || service.dockerCommand;
+    if (command !== 'node dist/worker.js') {
+      throw new Error('Worker service command must be node dist/worker.js.');
+    }
+    if (details.preDeployCommand || service.preDeployCommand) {
+      throw new Error('Worker service must not run database migrations.');
+    }
+    const shutdownDelay = details.maxShutdownDelaySeconds ?? service.maxShutdownDelaySeconds;
+    if (shutdownDelay !== 30) {
+      throw new Error('Worker service maximum shutdown delay must be 30 seconds.');
+    }
   } else {
-    throw new Error('Service kind must be api or frontend.');
+    throw new Error('Service kind must be api, worker, or frontend.');
   }
 }
 

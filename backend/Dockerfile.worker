@@ -1,0 +1,51 @@
+ARG NODE_IMAGE=node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2
+ARG SOURCE_DATE_EPOCH=0
+
+FROM ${NODE_IMAGE} AS dependencies
+ARG SOURCE_DATE_EPOCH
+WORKDIR /app
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
+    SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
+COPY package.json package-lock.json ./
+RUN npm ci
+
+FROM ${NODE_IMAGE} AS production-dependencies
+ARG SOURCE_DATE_EPOCH
+WORKDIR /app
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false \
+    SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
+COPY package.json package-lock.json ./
+RUN npm ci --omit=dev
+
+FROM ${NODE_IMAGE} AS builder
+ARG SOURCE_DATE_EPOCH
+WORKDIR /app
+ENV SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}
+COPY --from=dependencies /app/node_modules ./node_modules
+COPY . .
+RUN npm run build
+
+FROM ${NODE_IMAGE} AS runner
+ARG OCI_CREATED=unknown
+ARG OCI_REVISION=unknown
+ARG OCI_VERSION=dev
+ARG SOURCE_DATE_EPOCH=0
+LABEL org.opencontainers.image.title="Spandan Clinic Worker" \
+      org.opencontainers.image.description="Leased background worker for the Spandan Clinic platform" \
+      org.opencontainers.image.source="https://github.com/SauravM0/website-spandan" \
+      org.opencontainers.image.created="${OCI_CREATED}" \
+      org.opencontainers.image.revision="${OCI_REVISION}" \
+      org.opencontainers.image.version="${OCI_VERSION}" \
+      org.opencontainers.image.licenses="UNLICENSED"
+WORKDIR /app
+ENV NODE_ENV=production \
+    PROCESS_ROLE=worker \
+    APP_VERSION=${OCI_REVISION} \
+    NPM_CONFIG_UPDATE_NOTIFIER=false
+RUN addgroup --system --gid 1001 nodejs \
+    && adduser --system --uid 1001 worker
+COPY --from=builder --chown=worker:nodejs /app/dist ./dist
+COPY --from=production-dependencies --chown=worker:nodejs /app/node_modules ./node_modules
+COPY --chown=worker:nodejs package.json ./package.json
+USER worker
+CMD ["node", "dist/worker.js"]

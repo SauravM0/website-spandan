@@ -17,6 +17,7 @@ const steps = [
   ['deployments:test', ['run', 'deployments:test']],
   ['database:check', ['run', 'database:check']],
   ['lifecycle:check', ['run', 'lifecycle:check']],
+  ['worker:check', ['run', 'worker:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],

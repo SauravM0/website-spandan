@@ -60,9 +60,12 @@ function maskDestination(value: unknown): string {
 function normalizeNotificationError(value: unknown): string {
   const text = String(value || '').trim();
   if (!text) return '';
-  if (/auth|credential|login|password|token|secret/i.test(text)) return 'Provider authentication or configuration error';
-  if (/timeout|timed out|econn|network|dns/i.test(text)) return 'Temporary network or provider connectivity error';
-  if (/mailbox|recipient|address|invalid|bounce/i.test(text)) return 'Destination address could not be reached';
+  if (/auth|credential|login|password|token|secret/i.test(text))
+    return 'Provider authentication or configuration error';
+  if (/timeout|timed out|econn|network|dns/i.test(text))
+    return 'Temporary network or provider connectivity error';
+  if (/mailbox|recipient|address|invalid|bounce/i.test(text))
+    return 'Destination address could not be reached';
   if (/rate|quota|limit/i.test(text)) return 'Provider rate limit or quota error';
   return text.slice(0, 220);
 }
@@ -70,8 +73,15 @@ function normalizeNotificationError(value: unknown): string {
 function retryEligibility(row: any) {
   if (!row) return { eligible: false, reason: 'Notification not found' };
   if (!row.destination) return { eligible: false, reason: 'No destination is available' };
-  if (['sent', 'sending', 'permanent_failure', 'manual_follow_up', 'skipped_no_destination'].includes(row.status)) {
-    return { eligible: false, reason: `Status ${String(row.status).replace(/_/g, ' ')} is not retryable` };
+  if (
+    ['sent', 'sending', 'permanent_failure', 'manual_follow_up', 'skipped_no_destination'].includes(
+      row.status
+    )
+  ) {
+    return {
+      eligible: false,
+      reason: `Status ${String(row.status).replace(/_/g, ' ')} is not retryable`,
+    };
   }
   if (Number(row.attempt_count || 0) >= MAX_NOTIFICATION_ATTEMPTS) {
     return { eligible: false, reason: 'Maximum retry attempts reached' };
@@ -207,7 +217,9 @@ export async function getReceiptDetailsByPaymentId(db: Queryable, paymentId: str
 }
 
 export async function getReceiptDetailsByTransaction(transactionId: string) {
-  const result = await query('SELECT id FROM payments WHERE merchant_transaction_id = $1', [transactionId]);
+  const result = await query('SELECT id FROM payments WHERE merchant_transaction_id = $1', [
+    transactionId,
+  ]);
   if (!result.rows[0]) return null;
   return getReceiptDetailsByPaymentId({ query }, result.rows[0].id);
 }
@@ -268,24 +280,37 @@ export async function queueReceiptEmailByReceiptId(receiptId: string, email?: st
   return queued.rows[0] || null;
 }
 
-export async function processNotificationOutbox(limit = 10): Promise<number> {
+export type NotificationWorkerLease = {
+  ownerId: string;
+  token: string;
+  leaseSeconds: number;
+};
+
+export async function processNotificationOutbox(
+  limit = 10,
+  lease?: NotificationWorkerLease
+): Promise<number> {
   const transporter = getTransporter();
   if (!transporter) return 0;
 
   const picked = await query(
     `UPDATE notification_outbox
-     SET status = 'sending', attempt_count = attempt_count + 1, updated_at = NOW()
+     SET status = 'sending',
+         attempt_count = attempt_count + CASE WHEN status = 'sending' THEN 0 ELSE 1 END,
+         lease_owner = $2, lease_token = $3,
+         lease_expires_at = CASE WHEN $4::int IS NULL THEN NULL ELSE NOW() + make_interval(secs => $4) END,
+         updated_at = NOW()
      WHERE id IN (
        SELECT id FROM notification_outbox
        WHERE channel = 'email'
-         AND status IN ('queued', 'retrying')
-         AND next_attempt_at <= NOW()
+         AND ((status IN ('queued', 'retrying') AND next_attempt_at <= NOW())
+           OR (status = 'sending' AND (lease_expires_at IS NULL OR lease_expires_at <= NOW())))
        ORDER BY created_at ASC
        LIMIT $1
        FOR UPDATE SKIP LOCKED
      )
      RETURNING *`,
-    [limit]
+    [limit, lease?.ownerId || null, lease?.token || null, lease?.leaseSeconds || null]
   );
 
   for (const item of picked.rows) {
@@ -295,39 +320,50 @@ export async function processNotificationOutbox(limit = 10): Promise<number> {
       await transporter.sendMail({
         from: `"Spandan Clinic" <${config.smtp.user}>`,
         to: item.destination,
+        messageId: `<${item.id}@notifications.spandan-clinic.invalid>`,
         subject: receiptSubject(item.language, payload.receipt_number || 'receipt'),
         html: receiptHtml(payload),
-        attachments: [{
-          filename: `${payload.receipt_number || 'receipt'}.pdf`,
-          content: pdf,
-          contentType: 'application/pdf',
-        }],
+        attachments: [
+          {
+            filename: `${payload.receipt_number || 'receipt'}.pdf`,
+            content: pdf,
+            contentType: 'application/pdf',
+          },
+        ],
       });
-      await query(
+      const delivered = await query(
         `UPDATE notification_outbox
-         SET status = 'sent', sent_at = NOW(), error = NULL, updated_at = NOW()
-         WHERE id = $1`,
-        [item.id]
+         SET status = 'sent', sent_at = NOW(), error = NULL, last_error_code = NULL,
+             lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL, updated_at = NOW()
+         WHERE id = $1 AND ($2::uuid IS NULL OR lease_token = $2)`,
+        [item.id, lease?.token || null]
       );
-      if (payload.receipt_id) {
-        await query('UPDATE receipts SET emailed_at = NOW() WHERE id = $1', [payload.receipt_id]).catch(() => {});
+      if (delivered.rowCount === 1 && payload.receipt_id) {
+        await query('UPDATE receipts SET emailed_at = NOW() WHERE id = $1', [
+          payload.receipt_id,
+        ]).catch(() => {});
       }
     } catch (err) {
       const attempts = Number(item.attempt_count || 1);
       const retry = attempts < MAX_NOTIFICATION_ATTEMPTS;
-      logger.error('Receipt notification failed', { id: item.id, error: (err as Error).message });
+      logger.error('Receipt notification failed', { error_code: 'RECEIPT_DELIVERY_FAILED' });
       await query(
         `UPDATE notification_outbox
          SET status = $1,
              next_attempt_at = NOW() + ($2::text || ' minutes')::interval,
-             error = $3,
+             error = 'Notification delivery failed.',
+             last_error_code = $3,
+             lease_owner = NULL, lease_token = NULL, lease_expires_at = NULL,
              updated_at = NOW()
-         WHERE id = $4`,
+         WHERE id = $4 AND ($5::uuid IS NULL OR lease_token = $5)`,
         [
           retry ? 'retrying' : 'permanent_failure',
-          Math.min(60, attempts * 5),
-          (err as Error).message,
+          Math.min(60, 2 ** attempts),
+          typeof err === 'object' && err !== null && 'code' in err
+            ? String(err.code).slice(0, 80)
+            : 'NOTIFICATION_DELIVERY_FAILED',
           item.id,
+          lease?.token || null,
         ]
       );
     }
@@ -444,10 +480,7 @@ export async function getNotificationDetail(id: string) {
 }
 
 async function loadNotificationForUpdate(id: string) {
-  const result = await query(
-    `SELECT * FROM notification_outbox WHERE id = $1`,
-    [id]
-  );
+  const result = await query(`SELECT * FROM notification_outbox WHERE id = $1`, [id]);
   return result.rows[0] || null;
 }
 
@@ -475,7 +508,11 @@ export async function retryNotification(id: string, actorStaffId?: string) {
   );
   const notification = result.rows[0] || null;
   if (!notification) {
-    throw new AppError(409, 'NOTIFICATION_RETRY_CONFLICT', 'Notification retry state changed. Refresh and try again.');
+    throw new AppError(
+      409,
+      'NOTIFICATION_RETRY_CONFLICT',
+      'Notification retry state changed. Refresh and try again.'
+    );
   }
 
   await query(
@@ -513,7 +550,11 @@ export async function deadLetterNotification(id: string, reason: string, actorSt
   const current = await loadNotificationForUpdate(id);
   if (!current) return null;
   if (current.status === 'sent') {
-    throw new AppError(409, 'NOTIFICATION_DEAD_LETTER_INELIGIBLE', 'Sent notifications cannot be moved to manual follow-up.');
+    throw new AppError(
+      409,
+      'NOTIFICATION_DEAD_LETTER_INELIGIBLE',
+      'Sent notifications cannot be moved to manual follow-up.'
+    );
   }
 
   const result = await query(

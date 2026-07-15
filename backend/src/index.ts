@@ -24,7 +24,6 @@ import adminMedicationRoutes from './routes/adminMedications';
 import adminMedicalDocumentRoutes from './routes/adminMedicalDocuments';
 import adminObservationRoutes from './routes/adminObservations';
 import adminDeviceIntegrationRoutes from './routes/adminDeviceIntegrations';
-import { startBackgroundJobs, type BackgroundJobController } from './services/background';
 import { validateCsrfToken, getCsrfToken } from './middleware/csrf';
 import { requestId } from './middleware/requestId';
 import { pool, query } from './config/database';
@@ -162,9 +161,7 @@ app.use('/api/admin/privacy-security', adminPrivacyRouter);
 // Error handler
 app.use(errorHandler);
 
-const idleBackground: BackgroundJobController = {
-  accepting: false,
-  activeCount: 0,
+const idleBackground = {
   stopAccepting: async () => {},
   drain: async () => {},
 };
@@ -177,7 +174,7 @@ export function startApplication() {
   ) {
     throw new Error('SHUTDOWN_TIMEOUT_MS must be an integer between 1 and 29000.');
   }
-  const background = config.env === 'test' ? idleBackground : startBackgroundJobs();
+  const background = idleBackground;
   const server = app.listen(config.port, '0.0.0.0', () => {
     readiness.markReady();
     logger.info('Server started', { port: config.port, env: config.env });

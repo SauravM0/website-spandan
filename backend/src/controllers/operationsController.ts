@@ -55,7 +55,13 @@ import { buildReceiptPdf } from '../services/receiptPdf';
 import { normalizePhonePeState, verifyPhonePeWebhookAuthorization } from '../services/phonePe';
 import { sendApiError } from '../utils/errors';
 import { config } from '../config';
-import { createBillableService, getPublicConsultationPrice, listBillableServices, updateBillableService } from '../services/servicePricing';
+import {
+  createBillableService,
+  getPublicConsultationPrice,
+  listBillableServices,
+  updateBillableService,
+} from '../services/servicePricing';
+import { PostgresWorkerLeaseStore } from '../worker/leaseStore';
 
 function handleError(res: Response, err: unknown) {
   const error = err as Error & { status?: number; code?: string };
@@ -183,7 +189,9 @@ export async function publicAppointmentConfig(_req: AuthenticatedRequest, res: R
     res.json({
       config: {
         clinic_timezone: 'Asia/Kolkata',
-        clinic_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date()),
+        clinic_date: new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(
+          new Date()
+        ),
         fee: Number(price.price),
         currency: 'INR',
         service: { id: price.id, code: price.code, name: price.name, version: price.version },
@@ -201,27 +209,43 @@ export async function publicAppointmentConfig(_req: AuthenticatedRequest, res: R
 }
 
 export async function adminBillableServices(_req: AuthenticatedRequest, res: Response) {
-  try { res.json({ services: await listBillableServices() }); }
-  catch (err) { handleError(res, err); }
+  try {
+    res.json({ services: await listBillableServices() });
+  } catch (err) {
+    handleError(res, err);
+  }
 }
 
 export async function adminCreateBillableService(req: AuthenticatedRequest, res: Response) {
   try {
-    if (!req.user?.id) { sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required'); return; }
+    if (!req.user?.id) {
+      sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required');
+      return;
+    }
     res.status(201).json({ service: await createBillableService(req.body, req.user.id) });
-  } catch (err) { handleError(res, err); }
+  } catch (err) {
+    handleError(res, err);
+  }
 }
 
 export async function adminUpdateBillableService(req: AuthenticatedRequest, res: Response) {
   try {
-    if (!req.user?.id) { sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required'); return; }
+    if (!req.user?.id) {
+      sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required');
+      return;
+    }
     res.json({ service: await updateBillableService(req.params.id, req.body, req.user.id) });
-  } catch (err) { handleError(res, err); }
+  } catch (err) {
+    handleError(res, err);
+  }
 }
 
 export async function startPayment(req: AuthenticatedRequest, res: Response) {
   try {
-    const payment = await createPayment({ ...req.body, idempotency_key: req.header('idempotency-key') || undefined });
+    const payment = await createPayment({
+      ...req.body,
+      idempotency_key: req.header('idempotency-key') || undefined,
+    });
     res.status(201).json({ payment });
   } catch (err) {
     handleError(res, err);
@@ -230,7 +254,10 @@ export async function startPayment(req: AuthenticatedRequest, res: Response) {
 
 export async function startOrderPayment(req: AuthenticatedRequest, res: Response) {
   try {
-    const payment = await createPayment({ order_id: req.params.id, idempotency_key: req.header('idempotency-key') || undefined });
+    const payment = await createPayment({
+      order_id: req.params.id,
+      idempotency_key: req.header('idempotency-key') || undefined,
+    });
     res.status(201).json({ payment });
   } catch (err) {
     handleError(res, err);
@@ -239,7 +266,10 @@ export async function startOrderPayment(req: AuthenticatedRequest, res: Response
 
 export async function startAppointmentPayment(req: AuthenticatedRequest, res: Response) {
   try {
-    const payment = await createAppointmentPayment(req.params.holdId, req.header('idempotency-key') || undefined);
+    const payment = await createAppointmentPayment(
+      req.params.holdId,
+      req.header('idempotency-key') || undefined
+    );
     res.status(201).json({ payment });
   } catch (err) {
     handleError(res, err);
@@ -347,6 +377,14 @@ export async function adminDashboard(req: AuthenticatedRequest, res: Response) {
   }
 }
 
+export async function adminWorkerHealth(_req: AuthenticatedRequest, res: Response) {
+  try {
+    res.json({ worker: await new PostgresWorkerLeaseStore().health() });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
 export async function adminAppointmentSettings(_req: AuthenticatedRequest, res: Response) {
   try {
     const settings = await getAppointmentConfig();
@@ -439,10 +477,17 @@ export async function adminAvailabilityRules(req: AuthenticatedRequest, res: Res
 export async function adminCreateAvailabilityRule(req: AuthenticatedRequest, res: Response) {
   try {
     if (req.user?.role === 'doctor' && req.body.doctor_id !== req.user.doctor_id) {
-      sendApiError(res, 403, 'DOCTOR_CALENDAR_SCOPE_DENIED', 'Doctors may only change their own weekly schedule');
+      sendApiError(
+        res,
+        403,
+        'DOCTOR_CALENDAR_SCOPE_DENIED',
+        'Doctors may only change their own weekly schedule'
+      );
       return;
     }
-    res.status(201).json({ rule: await createAvailabilityRule({ ...req.body, actor_staff_id: req.user?.id }) });
+    res
+      .status(201)
+      .json({ rule: await createAvailabilityRule({ ...req.body, actor_staff_id: req.user?.id }) });
   } catch (err) {
     handleError(res, err);
   }
@@ -478,7 +523,12 @@ export async function adminCalendarView(req: AuthenticatedRequest, res: Response
           : undefined;
 
     if (!doctorId || !req.query.from || !req.query.to) {
-      sendApiError(res, 400, 'CALENDAR_VIEW_PARAMS_REQUIRED', 'doctor_id, from, and to are required');
+      sendApiError(
+        res,
+        400,
+        'CALENDAR_VIEW_PARAMS_REQUIRED',
+        'doctor_id, from, and to are required'
+      );
       return;
     }
 
@@ -497,7 +547,12 @@ export async function adminCalendarView(req: AuthenticatedRequest, res: Response
 export async function adminCreateCalendarOverride(req: AuthenticatedRequest, res: Response) {
   try {
     if (req.user?.role === 'doctor' && req.body.doctor_id !== req.user.doctor_id) {
-      sendApiError(res, 403, 'DOCTOR_CALENDAR_SCOPE_DENIED', 'Doctors may only change their own calendar');
+      sendApiError(
+        res,
+        403,
+        'DOCTOR_CALENDAR_SCOPE_DENIED',
+        'Doctors may only change their own calendar'
+      );
       return;
     }
     res.status(201).json({ override: await createCalendarOverride(req.body) });
@@ -509,7 +564,12 @@ export async function adminCreateCalendarOverride(req: AuthenticatedRequest, res
 export async function adminCreateCalendarOverridesBatch(req: AuthenticatedRequest, res: Response) {
   try {
     if (req.user?.role === 'doctor' && req.body.doctor_id !== req.user.doctor_id) {
-      sendApiError(res, 403, 'DOCTOR_CALENDAR_SCOPE_DENIED', 'Doctors may only change their own calendar');
+      sendApiError(
+        res,
+        403,
+        'DOCTOR_CALENDAR_SCOPE_DENIED',
+        'Doctors may only change their own calendar'
+      );
       return;
     }
     const result = await createCalendarOverridesBatch({
@@ -524,12 +584,14 @@ export async function adminCreateCalendarOverridesBatch(req: AuthenticatedReques
 
 export async function adminDeleteCalendarOverride(req: AuthenticatedRequest, res: Response) {
   try {
-    res.json({ override: await deleteCalendarOverride(
-      req.params.id,
-      Number(req.query.expected_version),
-      req.user?.id,
-      req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined
-    ) });
+    res.json({
+      override: await deleteCalendarOverride(
+        req.params.id,
+        Number(req.query.expected_version),
+        req.user?.id,
+        req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined
+      ),
+    });
   } catch (err) {
     handleError(res, err);
   }
@@ -601,12 +663,14 @@ export async function adminUpdateAppointmentStatus(req: AuthenticatedRequest, re
 export async function adminOrders(_req: AuthenticatedRequest, res: Response) {
   try {
     const req = _req;
-    res.json(await listPackageOrders({
-      status: req.query.status ? String(req.query.status) : undefined,
-      search: req.query.search ? String(req.query.search) : undefined,
-      cursor: req.query.cursor ? String(req.query.cursor) : undefined,
-      pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
-    }));
+    res.json(
+      await listPackageOrders({
+        status: req.query.status ? String(req.query.status) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined,
+        cursor: req.query.cursor ? String(req.query.cursor) : undefined,
+        pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
+      })
+    );
   } catch (err) {
     handleError(res, err);
   }
@@ -621,7 +685,9 @@ export async function adminPayments(_req: AuthenticatedRequest, res: Response) {
       to: req.query.to ? String(req.query.to) : undefined,
       search: req.query.search ? String(req.query.search) : undefined,
       provider: req.query.provider ? String(req.query.provider) : undefined,
-      entity: req.query.entity ? (String(req.query.entity) as 'appointment' | 'package_order') : undefined,
+      entity: req.query.entity
+        ? (String(req.query.entity) as 'appointment' | 'package_order')
+        : undefined,
       sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
       page: req.query.page ? Number(req.query.page) : undefined,
       pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
@@ -660,21 +726,42 @@ export async function adminPaymentRecheck(req: AuthenticatedRequest, res: Respon
 
 export async function adminPaymentExceptions(req: AuthenticatedRequest, res: Response) {
   try {
-    res.json({ exceptions: await listPaymentExceptions(String(req.query.status || 'open'), Number(req.query.limit || 50)) });
-  } catch (err) { handleError(res, err); }
+    res.json({
+      exceptions: await listPaymentExceptions(
+        String(req.query.status || 'open'),
+        Number(req.query.limit || 50)
+      ),
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
 }
 
 export async function adminPaymentRefundRequest(req: AuthenticatedRequest, res: Response) {
   try {
     const idempotencyKey = req.header('idempotency-key');
-    if (!idempotencyKey) { sendApiError(res, 400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required'); return; }
-    if (!req.user?.id) { sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required'); return; }
+    if (!idempotencyKey) {
+      sendApiError(res, 400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required');
+      return;
+    }
+    if (!req.user?.id) {
+      sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required');
+      return;
+    }
     const refund = await requestPaymentRefund({
-      paymentId: req.params.id, amount: req.body.amount, reason: req.body.reason,
-      idempotencyKey, actorStaffId: req.user.id,
+      paymentId: req.params.id,
+      amount: req.body.amount,
+      reason: req.body.reason,
+      idempotencyKey,
+      actorStaffId: req.user.id,
     });
-    res.status(202).json({ refund, message: 'Refund request recorded for independent approval and provider processing.' });
-  } catch (err) { handleError(res, err); }
+    res.status(202).json({
+      refund,
+      message: 'Refund request recorded for independent approval and provider processing.',
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
 }
 
 export async function adminPaymentsExport(_req: AuthenticatedRequest, res: Response) {
@@ -686,7 +773,9 @@ export async function adminPaymentsExport(_req: AuthenticatedRequest, res: Respo
       to: req.query.to ? String(req.query.to) : undefined,
       search: req.query.search ? String(req.query.search) : undefined,
       provider: req.query.provider ? String(req.query.provider) : undefined,
-      entity: req.query.entity ? (String(req.query.entity) as 'appointment' | 'package_order') : undefined,
+      entity: req.query.entity
+        ? (String(req.query.entity) as 'appointment' | 'package_order')
+        : undefined,
       sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
     });
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
@@ -700,17 +789,21 @@ export async function adminPaymentsExport(_req: AuthenticatedRequest, res: Respo
 export async function adminNotifications(_req: AuthenticatedRequest, res: Response) {
   try {
     const req = _req;
-    res.json(await listNotificationOutbox({
-      status: req.query.status ? String(req.query.status) : undefined,
-      channel: req.query.channel ? String(req.query.channel) : undefined,
-      entity: req.query.entity ? (String(req.query.entity) as 'appointment' | 'package_order' | 'payment') : undefined,
-      from: req.query.from ? String(req.query.from) : undefined,
-      to: req.query.to ? String(req.query.to) : undefined,
-      search: req.query.search ? String(req.query.search) : undefined,
-      sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
-      page: req.query.page ? Number(req.query.page) : undefined,
-      pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
-    }));
+    res.json(
+      await listNotificationOutbox({
+        status: req.query.status ? String(req.query.status) : undefined,
+        channel: req.query.channel ? String(req.query.channel) : undefined,
+        entity: req.query.entity
+          ? (String(req.query.entity) as 'appointment' | 'package_order' | 'payment')
+          : undefined,
+        from: req.query.from ? String(req.query.from) : undefined,
+        to: req.query.to ? String(req.query.to) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined,
+        sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
+        page: req.query.page ? Number(req.query.page) : undefined,
+        pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
+      })
+    );
   } catch (err) {
     handleError(res, err);
   }

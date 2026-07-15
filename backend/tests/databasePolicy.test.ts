@@ -76,11 +76,11 @@ test('hosted startup rejects missing direct migration URL and stale region evide
 
 test('connection budget includes rolling surge and operational reserves', () => {
   const budget = calculateDatabaseBudget({});
-  assert.equal(budget.plannedConnections, 41);
+  assert.equal(budget.plannedConnections, 42);
   assert.equal(budget.targetConnections, 45);
   assert.throws(
     () => calculateDatabaseBudget({ DB_MAX_API_REPLICAS: '3' }),
-    /requires 51 connections.*permits 45/
+    /requires 52 connections.*permits 45/
   );
   assert.throws(
     () => calculateDatabaseBudget({ DB_CONNECTION_TARGET_PERCENT: '85' }),

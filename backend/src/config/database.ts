@@ -4,7 +4,8 @@ import { createDatabaseRuntimePolicy } from './databasePolicy';
 import { databasePoolSnapshot, recordDatabaseTiming, safeQueryIdentity } from './databaseTelemetry';
 import { logger } from '../utils/logger';
 
-const policy = createDatabaseRuntimePolicy(process.env, 'api');
+const databaseService = process.env.PROCESS_ROLE === 'worker' ? 'worker' : 'api';
+const policy = createDatabaseRuntimePolicy(process.env, databaseService);
 export const pool = new Pool(policy.poolConfig);
 
 const instrumented = Symbol('instrumented-database-client');

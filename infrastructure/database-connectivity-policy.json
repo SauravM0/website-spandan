@@ -13,7 +13,9 @@
   "budget": {
     "maximumApiReplicas": 2,
     "rollingSurgeReplicas": 1,
-    "workerReserve": 5,
+    "maximumWorkerReplicas": 2,
+    "workerMaximumPoolSizePerReplica": 2,
+    "workerRollingSurgeReplicas": 1,
     "migrationReserve": 1,
     "administrationReserve": 5,
     "connectionQuota": 60,

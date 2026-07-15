@@ -12,6 +12,10 @@ on:
         description: Successful Render API deploy ID to restore
         required: true
         type: string
+      worker_deploy_id:
+        description: Successful Render worker deploy ID to restore
+        required: true
+        type: string
       expected_version:
         description: Full application commit SHA exposed by the target images
         required: true
@@ -40,6 +44,7 @@ jobs:
     env:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+      WORKER_SERVICE_ID: ${{ vars.RENDER_WORKER_SERVICE_ID }}
       FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
       API_URL: ${{ vars.API_URL }}
       FRONTEND_URL: ${{ vars.FRONTEND_URL }}
@@ -59,6 +64,8 @@ jobs:
           test "$(printf '%s' "$REASON" | wc -c)" -ge 10
       - name: Restore frontend deploy first
         run: node scripts/render-deploy.mjs rollback --service-id "$FRONTEND_SERVICE_ID" --deploy-id "${{ inputs.frontend_deploy_id }}" > rollback-frontend.json
+      - name: Restore worker deploy
+        run: node scripts/render-deploy.mjs rollback --service-id "$WORKER_SERVICE_ID" --deploy-id "${{ inputs.worker_deploy_id }}" > rollback-worker.json
       - name: Restore API deploy without reversing the database
         run: node scripts/render-deploy.mjs rollback --service-id "$API_SERVICE_ID" --deploy-id "${{ inputs.api_deploy_id }}" > rollback-api.json
       - name: Verify restored application and accepted-write-compatible schema

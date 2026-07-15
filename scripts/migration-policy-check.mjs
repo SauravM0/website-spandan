@@ -45,7 +45,8 @@ for (const required of ['migration-phase', 'expand|migrate|contract', 'compatibi
 }
 if (
   !cli.includes("createDatabaseRuntimePolicy(process.env, 'migration')") ||
-  !databasePolicy.includes("service === 'migration' ? 1") ||
+  !databasePolicy.includes("service === 'migration'") ||
+  !databasePolicy.includes('? 1') ||
   !databasePolicy.includes('spandan-schema-migrator')
 ) {
   errors.push('One-off migration CLI must use a dedicated single-connection pool.');

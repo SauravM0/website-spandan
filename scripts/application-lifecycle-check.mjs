@@ -6,7 +6,7 @@ const read = (file) => fs.readFileSync(path.join(root, file), 'utf8');
 const policy = JSON.parse(read('infrastructure/application-lifecycle-policy.json'));
 const index = read('backend/src/index.ts');
 const lifecycle = read('backend/src/lifecycle/applicationLifecycle.ts');
-const background = read('backend/src/services/background.ts');
+const worker = read('backend/src/worker/runtime.ts');
 const database = read('backend/src/config/database.ts');
 const deployment = JSON.parse(read('infrastructure/deployment-policy.json'));
 const dockerfile = read('backend/Dockerfile');
@@ -44,8 +44,8 @@ for (const required of [
 }
 if (index.indexOf("app.get('/api/ready'") > index.indexOf("app.use('/api', globalLimiter)"))
   errors.push('Readiness is behind ordinary API rate limiting.');
-for (const required of ['stopAccepting()', 'drain()', 'task.stop()', 'this.isAccepting = false']) {
-  if (!background.includes(required)) errors.push(`Background lifecycle is missing: ${required}`);
+for (const required of ['async stop()', 'this.accepting = false', 'await this.activeJob']) {
+  if (!worker.includes(required)) errors.push(`Worker lifecycle is missing: ${required}`);
 }
 if (database.includes('process.exit(-1)'))
   errors.push('Idle database errors must not terminate the process directly.');

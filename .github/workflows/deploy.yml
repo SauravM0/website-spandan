@@ -33,6 +33,7 @@ jobs:
     outputs:
       release_sha: ${{ steps.release.outputs.release_sha }}
       api_image: ${{ steps.release.outputs.api_image }}
+      worker_image: ${{ steps.release.outputs.worker_image }}
       frontend_image: ${{ steps.release.outputs.frontend_image }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -52,6 +53,7 @@ jobs:
         env:
           RELEASE_SHA: ${{ github.event.workflow_run.head_sha || inputs.commit_sha }}
           API_REPOSITORY: ghcr.io/sauravm0/website-spandan/spandan-api
+          WORKER_REPOSITORY: ghcr.io/sauravm0/website-spandan/spandan-worker
           FRONTEND_REPOSITORY: ghcr.io/sauravm0/website-spandan/spandan-frontend
         run: |
           test "$(printf '%s' "$RELEASE_SHA" | wc -c)" -eq 40
@@ -60,17 +62,21 @@ jobs:
             docker buildx imagetools inspect "$1:sha-$RELEASE_SHA" --format '{{json .Manifest}}' | jq -er '.digest'
           }
           api_digest="$(resolve_digest "$API_REPOSITORY")"
+          worker_digest="$(resolve_digest "$WORKER_REPOSITORY")"
           frontend_digest="$(resolve_digest "$FRONTEND_REPOSITORY")"
           api_image="$API_REPOSITORY@$api_digest"
+          worker_image="$WORKER_REPOSITORY@$worker_digest"
           frontend_image="$FRONTEND_REPOSITORY@$frontend_digest"
           identity='^https://github.com/[Ss]aurav[Mm]0/website-spandan/.github/workflows/container-security.yml@refs/heads/main$'
           cosign verify "$api_image" --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          cosign verify "$worker_image" --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com
           cosign verify "$frontend_image" --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com
           echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
           echo "api_image=$api_image" >> "$GITHUB_OUTPUT"
+          echo "worker_image=$worker_image" >> "$GITHUB_OUTPUT"
           echo "frontend_image=$frontend_image" >> "$GITHUB_OUTPUT"
-          jq -n --arg sha "$RELEASE_SHA" --arg api "$api_image" --arg frontend "$frontend_image" \
-            '{release_sha:$sha,api_image:$api,frontend_image:$frontend}' > release-manifest.json
+          jq -n --arg sha "$RELEASE_SHA" --arg api "$api_image" --arg worker "$worker_image" --arg frontend "$frontend_image" \
+            '{release_sha:$sha,api_image:$api,worker_image:$worker,frontend_image:$frontend}' > release-manifest.json
       - name: Retain immutable release manifest
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -87,11 +93,13 @@ jobs:
     env:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+      WORKER_SERVICE_ID: ${{ vars.RENDER_WORKER_SERVICE_ID }}
       FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
       API_URL: ${{ vars.API_URL }}
       FRONTEND_URL: ${{ vars.FRONTEND_URL }}
       RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
       API_IMAGE: ${{ needs.prepare.outputs.api_image }}
+      WORKER_IMAGE: ${{ needs.prepare.outputs.worker_image }}
       FRONTEND_IMAGE: ${{ needs.prepare.outputs.frontend_image }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -101,9 +109,12 @@ jobs:
       - name: Verify Render staging service controls
         run: |
           node scripts/render-deploy.mjs verify-service --service-id "$API_SERVICE_ID" --kind api --repository ghcr.io/sauravm0/website-spandan/spandan-api
+          node scripts/render-deploy.mjs verify-service --service-id "$WORKER_SERVICE_ID" --kind worker --repository ghcr.io/sauravm0/website-spandan/spandan-worker
           node scripts/render-deploy.mjs verify-service --service-id "$FRONTEND_SERVICE_ID" --kind frontend --repository ghcr.io/sauravm0/website-spandan/spandan-frontend
       - name: Deploy API digest with locked pre-deploy migration
         run: node scripts/render-deploy.mjs deploy --service-id "$API_SERVICE_ID" --image "$API_IMAGE" > staging-api.json
+      - name: Deploy dedicated worker digest
+        run: node scripts/render-deploy.mjs deploy --service-id "$WORKER_SERVICE_ID" --image "$WORKER_IMAGE" > staging-worker.json
       - name: Deploy frontend digest
         run: node scripts/render-deploy.mjs deploy --service-id "$FRONTEND_SERVICE_ID" --image "$FRONTEND_IMAGE" > staging-frontend.json
       - name: Run staging smoke gate
@@ -125,6 +136,7 @@ jobs:
             fi
           }
           rollback_previous staging-frontend.json "$FRONTEND_SERVICE_ID" || true
+          rollback_previous staging-worker.json "$WORKER_SERVICE_ID" || true
           rollback_previous staging-api.json "$API_SERVICE_ID" || true
       - name: Retain staging release evidence
         if: always()
@@ -143,11 +155,13 @@ jobs:
     env:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
       API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+      WORKER_SERVICE_ID: ${{ vars.RENDER_WORKER_SERVICE_ID }}
       FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
       API_URL: ${{ vars.API_URL }}
       FRONTEND_URL: ${{ vars.FRONTEND_URL }}
       RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
       API_IMAGE: ${{ needs.prepare.outputs.api_image }}
+      WORKER_IMAGE: ${{ needs.prepare.outputs.worker_image }}
       FRONTEND_IMAGE: ${{ needs.prepare.outputs.frontend_image }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
@@ -157,9 +171,12 @@ jobs:
       - name: Verify Render production service controls
         run: |
           node scripts/render-deploy.mjs verify-service --service-id "$API_SERVICE_ID" --kind api --repository ghcr.io/sauravm0/website-spandan/spandan-api
+          node scripts/render-deploy.mjs verify-service --service-id "$WORKER_SERVICE_ID" --kind worker --repository ghcr.io/sauravm0/website-spandan/spandan-worker
           node scripts/render-deploy.mjs verify-service --service-id "$FRONTEND_SERVICE_ID" --kind frontend --repository ghcr.io/sauravm0/website-spandan/spandan-frontend
       - name: Deploy production API digest with locked pre-deploy migration
         run: node scripts/render-deploy.mjs deploy --service-id "$API_SERVICE_ID" --image "$API_IMAGE" > production-api.json
+      - name: Deploy production dedicated worker digest
+        run: node scripts/render-deploy.mjs deploy --service-id "$WORKER_SERVICE_ID" --image "$WORKER_IMAGE" > production-worker.json
       - name: Deploy production frontend digest
         run: node scripts/render-deploy.mjs deploy --service-id "$FRONTEND_SERVICE_ID" --image "$FRONTEND_IMAGE" > production-frontend.json
       - name: Run production smoke gate
@@ -181,6 +198,7 @@ jobs:
             fi
           }
           rollback_previous production-frontend.json "$FRONTEND_SERVICE_ID" || true
+          rollback_previous production-worker.json "$WORKER_SERVICE_ID" || true
           rollback_previous production-api.json "$API_SERVICE_ID" || true
       - name: Retain production release evidence
         if: always()

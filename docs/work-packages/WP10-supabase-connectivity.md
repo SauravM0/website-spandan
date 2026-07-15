@@ -8,7 +8,7 @@ Migrations use the separate `MIGRATION_DATABASE_URL` direct endpoint on port 543
 
 ## Capacity model
 
-The default API pool is 10 connections per replica, with two live replicas and one rolling-deployment surge replica. Five future worker connections, one migration connection, and five administrative connections are reserved. This plans 41 of a configured quota of 60 and remains below the 75% target of 45. Startup rejects any configuration that exceeds its 70–80% target.
+The default API pool is 10 connections per replica, with two live replicas and one rolling-deployment surge replica. Two worker replicas plus one rolling surge use two connections each. One migration connection and five administrative connections are reserved. This plans 42 of a configured quota of 60 and remains below the 75% target of 45. Startup rejects any configuration that exceeds its 70–80% target.
 
 The configured quota must be the administrator-approved safe limit for the selected Supabase compute and pooler. Before scaling Render, update `DB_MAX_API_REPLICAS`, run the policy check, and confirm Supabase Observability shows the same connection baseline. Pools keep `min=0` so a rolling deployment does not open every possible connection at startup.
 
@@ -27,4 +27,4 @@ Acquisition and query timing events contain only outcome, duration, pool counts,
 3. Configure the connection quota and reserves from the selected Supabase compute tier.
 4. Place Render and Supabase in the lowest-latency available region pair and record the staging RTT.
 5. Run the twice-peak integration/load test during staging deployment and inspect connection usage during a rolling API replacement.
-6. Keep worker capacity reserved but the worker service disabled until WP12.
+6. Keep the dedicated WP12 worker at two replicas maximum, with one bounded rolling surge replica.

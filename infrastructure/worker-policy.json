@@ -1,0 +1,14 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP12",
+  "apiRunsOperationalJobs": false,
+  "entryPoint": "node dist/worker.js",
+  "coordination": "postgresql-leases",
+  "claimMode": "for-update-skip-locked",
+  "heartbeatSloSeconds": 15,
+  "leaseSeconds": 30,
+  "boundedRetries": true,
+  "deadLetterState": true,
+  "applicationCheckpointAllowed": false,
+  "healthEndpoint": "/api/admin/operations/worker-health"
+}

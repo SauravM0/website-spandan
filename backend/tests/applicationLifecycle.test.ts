@@ -7,7 +7,6 @@ import {
   createApplicationLifecycle,
   ReadinessState,
 } from '../src/lifecycle/applicationLifecycle';
-import { BackgroundJobRuntime } from '../src/services/background';
 
 const listen = (server: http.Server): Promise<number> =>
   new Promise((resolve) => {
@@ -97,43 +96,6 @@ test('shutdown deadline force-closes stuck HTTP connections and fails closed', a
   await assert.rejects(lifecycle.shutdown('SIGTERM'), /exceeded 25ms/);
   await requestClosed;
   assert.equal(readiness.current, 'stopped');
-});
-
-test('background runtime stops scheduling new work and drains the active job', async () => {
-  const callbacks: Array<() => void | Promise<void>> = [];
-  let stopCount = 0;
-  const failures: string[] = [];
-  const runtime = new BackgroundJobRuntime(
-    (_expression, callback) => {
-      callbacks.push(callback);
-      return { stop: async () => void (stopCount += 1) };
-    },
-    (name) => failures.push(name)
-  );
-  let started!: () => void;
-  let finish!: () => void;
-  const jobStarted = new Promise<void>((resolve) => (started = resolve));
-  const jobFinished = new Promise<void>((resolve) => (finish = resolve));
-  let executions = 0;
-  runtime.register('* * * * *', 'test-job', async () => {
-    executions += 1;
-    started();
-    await jobFinished;
-  });
-
-  void callbacks[0]();
-  await jobStarted;
-  assert.equal(runtime.activeCount, 1);
-  await runtime.stopAccepting();
-  assert.equal(runtime.accepting, false);
-  assert.equal(stopCount, 1);
-  await callbacks[0]();
-  assert.equal(executions, 1);
-  const drain = runtime.drain();
-  finish();
-  await drain;
-  assert.equal(runtime.activeCount, 0);
-  assert.deepEqual(failures, []);
 });
 
 test('concurrent readiness checks share one cached database probe', async () => {

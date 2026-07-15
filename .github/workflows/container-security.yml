@@ -19,8 +19,13 @@ jobs:
         include:
           - component: api
             context: backend
+            dockerfile: backend/Dockerfile
+          - component: worker
+            context: backend
+            dockerfile: backend/Dockerfile.worker
           - component: frontend
             context: frontend
+            dockerfile: frontend/Dockerfile
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -35,6 +40,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           load: true
           tags: local/spandan-${{ matrix.component }}:${{ github.sha }}
           build-args: |
@@ -51,6 +57,7 @@ jobs:
             --load \
             --no-cache \
             --tag "local/spandan-${{ matrix.component }}-rebuild:${{ github.sha }}" \
+            --file "${{ matrix.dockerfile }}" \
             --build-arg "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
             --build-arg "OCI_CREATED=${OCI_CREATED}" \
             --build-arg "OCI_REVISION=${GITHUB_SHA}" \
@@ -98,8 +105,13 @@ jobs:
         include:
           - component: api
             context: backend
+            dockerfile: backend/Dockerfile
+          - component: worker
+            context: backend
+            dockerfile: backend/Dockerfile.worker
           - component: frontend
             context: frontend
+            dockerfile: frontend/Dockerfile
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -122,6 +134,7 @@ jobs:
         uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
             ${{ steps.identity.outputs.image }}:sha-${{ github.sha }}

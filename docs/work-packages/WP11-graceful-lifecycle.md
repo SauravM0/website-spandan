@@ -12,7 +12,7 @@ Idle PostgreSQL client errors are logged with a safe error code and the failed c
 
 If draining exceeds `SHUTDOWN_TIMEOUT_MS`, the API force-closes HTTP connections, records a non-PHI failure code, and leaves a non-zero process exit code. Render retains the outer five-second margin before its `SIGKILL`. The previous image remains rollback-safe because this package changes no schema or accepted-write format.
 
-The existing in-process scheduled jobs now expose stop and drain controls, but remain in the API only until WP12 creates the dedicated worker. Application-managed `CHECKPOINT` removal, database leases, retries, and worker recovery remain WP12 scope.
+WP12 moves scheduled jobs into the dedicated worker. The API lifecycle now drains HTTP only; the worker independently stops polling, finishes its active leased job, records its stopped heartbeat, and closes its pool.
 
 ## Staging verification
 

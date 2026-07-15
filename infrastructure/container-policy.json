@@ -12,17 +12,19 @@
       "runtimeUser": "express"
     },
     {
+      "name": "worker",
+      "context": "backend",
+      "dockerfile": "backend/Dockerfile.worker",
+      "runtimeUser": "worker",
+      "healthcheckRequired": false
+    },
+    {
       "name": "frontend",
       "context": "frontend",
       "dockerfile": "frontend/Dockerfile",
       "runtimeUser": "nextjs"
     }
   ],
-  "workerArtifact": {
-    "status": "blocked",
-    "workPackage": "WP12",
-    "reason": "No independent worker entry point exists; background jobs still start inside the API process."
-  },
   "supplyChain": {
     "immutableTagPrefix": "sha-",
     "sourceDateEpoch": "git-commit-time",

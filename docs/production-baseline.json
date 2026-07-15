@@ -52,8 +52,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 31,
-    "migrationHead": "031_custom_diagnostic_packages.sql"
+    "migrationCount": 32,
+    "migrationHead": "032_dedicated_worker_runtime.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

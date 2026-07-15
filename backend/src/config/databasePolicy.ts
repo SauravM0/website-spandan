@@ -1,12 +1,14 @@
 import type { PoolConfig } from 'pg';
 
-export type DatabaseService = 'api' | 'migration';
+export type DatabaseService = 'api' | 'worker' | 'migration';
 
 export type DatabaseBudget = {
   apiPoolMax: number;
+  workerPoolMax: number;
   maximumApiReplicas: number;
+  maximumWorkerReplicas: number;
   rollingSurgeReplicas: number;
-  workerReserve: number;
+  workerRollingSurgeReplicas: number;
   migrationReserve: number;
   administrationReserve: number;
   connectionQuota: number;
@@ -71,10 +73,10 @@ function validateHostedEndpoint(url: URL, service: DatabaseService, projectRef: 
 
   if (!usernameMatches || (!sharedPooler && !projectHost)) {
     throw new Error(
-      `${service === 'api' ? 'DATABASE_URL' : 'MIGRATION_DATABASE_URL'} does not match the configured Supabase project.`
+      `${service === 'migration' ? 'MIGRATION_DATABASE_URL' : 'DATABASE_URL'} does not match the configured Supabase project.`
     );
   }
-  if (service === 'api' && port !== 6543) {
+  if (service !== 'migration' && port !== 6543) {
     throw new Error('Hosted DATABASE_URL must use a Supabase transaction pooler on port 6543.');
   }
   if (service === 'migration' && (!projectHost || port !== 5432)) {
@@ -86,9 +88,11 @@ function validateHostedEndpoint(url: URL, service: DatabaseService, projectRef: 
 
 export function calculateDatabaseBudget(env: NodeJS.ProcessEnv): DatabaseBudget {
   const apiPoolMax = positiveInteger(env, 'DB_POOL_MAX', 10);
+  const workerPoolMax = positiveInteger(env, 'DB_WORKER_POOL_MAX', 2);
   const maximumApiReplicas = positiveInteger(env, 'DB_MAX_API_REPLICAS', 2);
+  const maximumWorkerReplicas = positiveInteger(env, 'DB_MAX_WORKER_REPLICAS', 2);
   const rollingSurgeReplicas = nonNegativeInteger(env, 'DB_ROLLING_SURGE_REPLICAS', 1);
-  const workerReserve = nonNegativeInteger(env, 'DB_WORKER_CONNECTION_RESERVE', 5);
+  const workerRollingSurgeReplicas = nonNegativeInteger(env, 'DB_WORKER_ROLLING_SURGE_REPLICAS', 1);
   const migrationReserve = positiveInteger(env, 'DB_MIGRATION_CONNECTION_RESERVE', 1);
   const administrationReserve = nonNegativeInteger(env, 'DB_ADMIN_CONNECTION_RESERVE', 5);
   const connectionQuota = positiveInteger(env, 'DB_CONNECTION_QUOTA', 60);
@@ -98,7 +102,7 @@ export function calculateDatabaseBudget(env: NodeJS.ProcessEnv): DatabaseBudget 
   }
   const plannedConnections =
     apiPoolMax * (maximumApiReplicas + rollingSurgeReplicas) +
-    workerReserve +
+    workerPoolMax * (maximumWorkerReplicas + workerRollingSurgeReplicas) +
     migrationReserve +
     administrationReserve;
   const targetConnections = Math.floor(connectionQuota * (targetPercent / 100));
@@ -109,9 +113,11 @@ export function calculateDatabaseBudget(env: NodeJS.ProcessEnv): DatabaseBudget 
   }
   return {
     apiPoolMax,
+    workerPoolMax,
     maximumApiReplicas,
+    maximumWorkerReplicas,
     rollingSurgeReplicas,
-    workerReserve,
+    workerRollingSurgeReplicas,
     migrationReserve,
     administrationReserve,
     connectionQuota,
@@ -177,7 +183,8 @@ export function createDatabaseRuntimePolicy(
   const sslCa = env.DB_SSL_CA?.replace(/\\n/g, '\n').trim();
   const poolConfig: PoolConfig = {
     connectionString: rawUrl,
-    max: service === 'migration' ? 1 : budget.apiPoolMax,
+    max:
+      service === 'migration' ? 1 : service === 'worker' ? budget.workerPoolMax : budget.apiPoolMax,
     min: 0,
     idleTimeoutMillis: positiveInteger(env, 'DB_IDLE_POOL_TIMEOUT_MS', 30_000),
     connectionTimeoutMillis: positiveInteger(env, 'DB_CONNECTION_TIMEOUT_MS', 5_000),
@@ -190,7 +197,12 @@ export function createDatabaseRuntimePolicy(
       'DB_IDLE_TRANSACTION_TIMEOUT_MS',
       15_000
     ),
-    application_name: service === 'migration' ? 'spandan-schema-migrator' : 'spandan-api',
+    application_name:
+      service === 'migration'
+        ? 'spandan-schema-migrator'
+        : service === 'worker'
+          ? 'spandan-worker'
+          : 'spandan-api',
     ssl: hosted ? { rejectUnauthorized: true, ...(sslCa ? { ca: sslCa } : {}) } : false,
   };
 

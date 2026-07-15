@@ -8,6 +8,7 @@ const deployWorkflow = read('.github/workflows/deploy.yml');
 const rollbackWorkflow = read('.github/workflows/rollback.yml');
 const orchestrator = read('scripts/render-deploy.mjs');
 const backendDockerfile = read('backend/Dockerfile');
+const workerDockerfile = read('backend/Dockerfile.worker');
 const frontendDockerfile = read('frontend/Dockerfile');
 const backend = read('backend/src/index.ts');
 const frontendHealth = read('frontend/src/app/healthz/route.ts');
@@ -26,11 +27,11 @@ if (policy.promotion?.autoDeployAllowed || policy.promotion?.overlappingReleaseA
   errors.push('Render auto-deploy and overlapping releases must remain disabled.');
 }
 if (
-  policy.services?.worker?.status !== 'blocked' ||
-  policy.services?.worker?.workPackage !== 'WP12'
-) {
-  errors.push('Worker deployment must remain blocked until WP12.');
-}
+  policy.services?.worker?.status !== 'active' ||
+  policy.services?.worker?.command !== 'node dist/worker.js' ||
+  policy.services?.worker?.maxShutdownDelaySeconds !== 30
+)
+  errors.push('Worker deployment must use the dedicated entry point and a 30-second drain window.');
 if (policy.rollback?.databaseReversalAllowed || !policy.rollback?.acceptedWritesPreserved) {
   errors.push('Rollback must preserve database writes and forbid schema reversal.');
 }
@@ -91,6 +92,8 @@ for (const required of [
 }
 if (!backendDockerfile.includes('APP_VERSION=${OCI_REVISION}'))
   errors.push('API image does not expose its immutable version.');
+if (!workerDockerfile.includes('APP_VERSION=${OCI_REVISION}'))
+  errors.push('Worker image does not expose its immutable version.');
 if (!frontendDockerfile.includes('APP_VERSION=${OCI_REVISION}'))
   errors.push('Frontend image does not expose its immutable version.');
 if (!backend.includes("version: process.env.APP_VERSION || 'development'"))

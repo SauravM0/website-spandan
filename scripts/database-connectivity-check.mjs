@@ -22,7 +22,8 @@ if (policy.budget?.targetPercent < 70 || policy.budget?.targetPercent > 80)
 const planned =
   policy.runtime.defaultMaximumPoolSizePerReplica *
     (policy.budget.maximumApiReplicas + policy.budget.rollingSurgeReplicas) +
-  policy.budget.workerReserve +
+  policy.budget.workerMaximumPoolSizePerReplica *
+    (policy.budget.maximumWorkerReplicas + policy.budget.workerRollingSurgeReplicas) +
   policy.budget.migrationReserve +
   policy.budget.administrationReserve;
 const target = Math.floor(policy.budget.connectionQuota * (policy.budget.targetPercent / 100));
@@ -33,8 +34,9 @@ for (const required of [
   'DB_IDLE_TRANSACTION_TIMEOUT_MS',
   'DB_STATEMENT_TIMEOUT_MS',
   'DB_ROLLING_SURGE_REPLICAS',
+  'DB_WORKER_ROLLING_SURGE_REPLICAS',
   'DB_REGION_RTT_P95_MS',
-  "service === 'migration' ? 1",
+  "service === 'migration'",
 ]) {
   if (!databasePolicy.includes(required)) errors.push(`Database policy is missing: ${required}`);
 }
@@ -50,6 +52,7 @@ if (!migration.includes("createDatabaseRuntimePolicy(process.env, 'migration')")
 for (const required of [
   'MIGRATION_DATABASE_URL=',
   'DB_POOL_MAX=10',
+  'DB_WORKER_POOL_MAX=2',
   'DB_CONNECTION_TARGET_PERCENT=75',
   'DB_REGION_RTT_P95_MS=',
 ]) {
