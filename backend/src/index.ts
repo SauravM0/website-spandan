@@ -24,16 +24,26 @@ import adminMedicationRoutes from './routes/adminMedications';
 import adminMedicalDocumentRoutes from './routes/adminMedicalDocuments';
 import adminObservationRoutes from './routes/adminObservations';
 import adminDeviceIntegrationRoutes from './routes/adminDeviceIntegrations';
-import { startBackgroundJobs } from './services/background';
+import { startBackgroundJobs, type BackgroundJobController } from './services/background';
 import { validateCsrfToken, getCsrfToken } from './middleware/csrf';
 import { requestId } from './middleware/requestId';
-import { query } from './config/database';
+import { pool, query } from './config/database';
 import { logger } from './utils/logger';
 import { publicPrivacyRouter, adminPrivacyRouter } from './routes/privacySecurity';
 import diagnosticTestsRoutes from './routes/diagnosticTests';
 import adminDiagnosticTestsRoutes from './routes/adminDiagnosticTests';
+import {
+  createApplicationLifecycle,
+  CachedHealthProbe,
+  installTerminationHandlers,
+  ReadinessState,
+} from './lifecycle/applicationLifecycle';
 
 const app = express();
+export const readiness = new ReadinessState();
+const databaseReadiness = new CachedHealthProbe(async () => {
+  await query('SELECT 1');
+}, 1_000);
 
 app.set('trust proxy', 1);
 app.use(requestId);
@@ -70,8 +80,6 @@ const globalLimiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use('/api', globalLimiter);
-
 // Stricter rate limit for public GET routes (Section 3.1 - 100 req/min)
 const publicGetLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -98,18 +106,24 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/api/ready', async (_req, res) => {
-  try {
-    await query('SELECT 1');
+  if (!readiness.isReady) {
+    res.status(503).json({ status: 'not_ready', phase: readiness.current });
+    return;
+  }
+  if (await databaseReadiness.run()) {
     res.json({
       status: 'ready',
       version: process.env.APP_VERSION || 'development',
       timestamp: new Date().toISOString(),
     });
-  } catch (err) {
-    logger.error('Readiness check failed', { error: (err as Error).message });
+  } else {
+    logger.warn('Readiness check failed', { error_code: 'DATABASE_NOT_READY' });
     res.status(503).json({ status: 'not_ready' });
   }
 });
+
+// Liveness and readiness are deliberately mounted before ordinary API rate limiting.
+app.use('/api', globalLimiter);
 
 // CSRF token endpoint
 app.get('/api/csrf-token', getCsrfToken);
@@ -148,13 +162,38 @@ app.use('/api/admin/privacy-security', adminPrivacyRouter);
 // Error handler
 app.use(errorHandler);
 
-// Background jobs (not in test mode)
-if (config.env !== 'test') {
-  startBackgroundJobs();
+const idleBackground: BackgroundJobController = {
+  accepting: false,
+  activeCount: 0,
+  stopAccepting: async () => {},
+  drain: async () => {},
+};
+
+export function startApplication() {
+  if (
+    !Number.isInteger(config.shutdownTimeoutMs) ||
+    config.shutdownTimeoutMs <= 0 ||
+    config.shutdownTimeoutMs > 29_000
+  ) {
+    throw new Error('SHUTDOWN_TIMEOUT_MS must be an integer between 1 and 29000.');
+  }
+  const background = config.env === 'test' ? idleBackground : startBackgroundJobs();
+  const server = app.listen(config.port, '0.0.0.0', () => {
+    readiness.markReady();
+    logger.info('Server started', { port: config.port, env: config.env });
+  });
+  const lifecycle = createApplicationLifecycle({
+    server,
+    readiness,
+    background,
+    closeDatabase: () => pool.end(),
+    timeoutMs: config.shutdownTimeoutMs,
+    log: logger,
+  });
+  const removeTerminationHandlers = installTerminationHandlers(lifecycle);
+  return { server, lifecycle, readiness, background, removeTerminationHandlers };
 }
 
-app.listen(config.port, () => {
-  logger.info('Server started', { port: config.port, env: config.env });
-});
+if (require.main === module) startApplication();
 
 export default app;

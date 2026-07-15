@@ -34,6 +34,14 @@ if (
 if (policy.rollback?.databaseReversalAllowed || !policy.rollback?.acceptedWritesPreserved) {
   errors.push('Rollback must preserve database writes and forbid schema reversal.');
 }
+if (
+  policy.services?.api?.healthPath !== '/api/ready' ||
+  policy.services?.api?.livenessPath !== '/api/health' ||
+  policy.services?.api?.maxShutdownDelaySeconds !== 30 ||
+  policy.services?.api?.applicationShutdownTimeoutMs >= 30_000
+) {
+  errors.push('API readiness and shutdown deadlines must fit the Render termination window.');
+}
 
 for (const workflow of [deployWorkflow, rollbackWorkflow]) {
   for (const line of workflow.split(/\r?\n/).filter((entry) => /\buses:/.test(entry))) {
@@ -77,6 +85,7 @@ for (const required of [
   'previousDeployId',
   'Render auto-deploy must be disabled',
   'pre-deploy command must be node dist/migrate.js',
+  'maximum shutdown delay must be 30 seconds',
 ]) {
   if (!orchestrator.includes(required)) errors.push(`Render orchestrator is missing: ${required}`);
 }

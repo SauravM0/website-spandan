@@ -75,7 +75,6 @@ pool.on('error', (err) => {
   logger.error('Unexpected database pool error', {
     code: typeof err === 'object' && err !== null && 'code' in err ? String(err.code) : 'UNKNOWN',
   });
-  process.exit(-1);
 });
 
 async function acquireClient(): Promise<PoolClient> {

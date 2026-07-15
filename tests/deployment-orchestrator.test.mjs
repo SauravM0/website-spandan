@@ -41,7 +41,8 @@ test('Render service policy requires controlled deployment, migration, and healt
         image: { imagePath: 'ghcr.io/sauravm0/website-spandan/spandan-api:bootstrap' },
         serviceDetails: {
           preDeployCommand: 'node dist/migrate.js',
-          healthCheckPath: '/api/health',
+          healthCheckPath: '/api/ready',
+          maxShutdownDelaySeconds: 30,
         },
       },
       { kind: 'api', repository: 'ghcr.io/sauravm0/website-spandan/spandan-api' }
@@ -61,7 +62,7 @@ test('Render service policy requires controlled deployment, migration, and healt
         {
           autoDeploy: false,
           image: { imagePath: 'ghcr.io/example/api:bootstrap' },
-          serviceDetails: { healthCheckPath: '/api/health' },
+          serviceDetails: { healthCheckPath: '/api/ready', maxShutdownDelaySeconds: 30 },
         },
         { kind: 'api', repository: 'ghcr.io/example/api' }
       ),

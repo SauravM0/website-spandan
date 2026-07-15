@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "platform": "render",
+  "platformShutdownDelayMs": 30000,
+  "applicationShutdownTimeoutMs": 25000,
+  "signals": ["SIGTERM", "SIGINT"],
+  "shutdownOrder": [
+    "fail-readiness",
+    "stop-background-claims",
+    "stop-http-acceptance",
+    "drain-http-and-background",
+    "close-database-pool"
+  ],
+  "probes": {
+    "livenessPath": "/api/health",
+    "readinessPath": "/api/ready",
+    "ordinaryRateLimitExempt": true
+  },
+  "databasePool": {
+    "idleErrorsTerminateProcess": false,
+    "drainOnShutdown": true
+  },
+  "forcedDeadline": {
+    "closeAllHttpConnections": true,
+    "nonZeroExitCode": true
+  }
+}

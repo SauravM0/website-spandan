@@ -135,8 +135,12 @@ export function validateRenderService(service, { kind, repository }) {
     if (details.preDeployCommand !== 'node dist/migrate.js') {
       throw new Error('API service pre-deploy command must be node dist/migrate.js.');
     }
-    if (details.healthCheckPath !== '/api/health' && service.healthCheckPath !== '/api/health') {
-      throw new Error('API service health check path must be /api/health.');
+    if (details.healthCheckPath !== '/api/ready' && service.healthCheckPath !== '/api/ready') {
+      throw new Error('API service health check path must be /api/ready.');
+    }
+    const shutdownDelay = details.maxShutdownDelaySeconds ?? service.maxShutdownDelaySeconds;
+    if (shutdownDelay !== 30) {
+      throw new Error('API service maximum shutdown delay must be 30 seconds.');
     }
   } else if (kind === 'frontend') {
     if (details.healthCheckPath !== '/healthz' && service.healthCheckPath !== '/healthz') {

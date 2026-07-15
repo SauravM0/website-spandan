@@ -9,8 +9,11 @@
   },
   "services": {
     "api": {
-      "healthPath": "/api/health",
+      "healthPath": "/api/ready",
+      "livenessPath": "/api/health",
       "readyPath": "/api/ready",
+      "maxShutdownDelaySeconds": 30,
+      "applicationShutdownTimeoutMs": 25000,
       "preDeployCommand": "node dist/migrate.js"
     },
     "frontend": {

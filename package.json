@@ -24,6 +24,7 @@
     "deployments:check": "node scripts/deployment-policy-check.mjs",
     "deployments:test": "node --test tests/deployment-orchestrator.test.mjs",
     "database:check": "node scripts/database-connectivity-check.mjs",
+    "lifecycle:check": "node scripts/application-lifecycle-check.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
     "baseline:check": "node scripts/production-baseline-check.mjs",

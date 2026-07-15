@@ -12,7 +12,7 @@ Create image-backed API and frontend services in both Render environments. Disab
 
 | Setting            | API                                            | Frontend                                            |
 | ------------------ | ---------------------------------------------- | --------------------------------------------------- |
-| Health check       | `/api/health`                                  | `/healthz`                                          |
+| Health check       | `/api/ready`                                   | `/healthz`                                          |
 | Pre-deploy command | `node dist/migrate.js`                         | none                                                |
 | Persistent disk    | none                                           | none                                                |
 | Image repository   | `ghcr.io/sauravm0/website-spandan/spandan-api` | `ghcr.io/sauravm0/website-spandan/spandan-frontend` |

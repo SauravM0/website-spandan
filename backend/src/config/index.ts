@@ -12,11 +12,14 @@ const corsOrigins = (process.env.CORS_ORIGIN || 'http://localhost:3000')
   .filter(Boolean);
 
 const env = process.env.NODE_ENV || 'development';
-const deploymentEnvironment = process.env.DEPLOYMENT_ENV || (env === 'test' ? 'test' : 'development');
+const deploymentEnvironment =
+  process.env.DEPLOYMENT_ENV || (env === 'test' ? 'test' : 'development');
 const databaseUrl = process.env.DATABASE_URL || 'postgresql://localhost:5432/spandan_clinic';
 const environmentName = process.env.ENVIRONMENT_NAME || `spandan-${deploymentEnvironment}`;
 const supabaseProjectRef = process.env.SUPABASE_PROJECT_REF || '';
-const dataPolicy = process.env.DATA_POLICY || (deploymentEnvironment === 'production' ? 'production-patient-data' : 'synthetic-only');
+const dataPolicy =
+  process.env.DATA_POLICY ||
+  (deploymentEnvironment === 'production' ? 'production-patient-data' : 'synthetic-only');
 const jwtSecret = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION_MUST_BE_AT_LEAST_32_CHARS';
 const frontendUrl = normalizeOrigin(process.env.FRONTEND_URL || 'http://localhost:3000');
 validateEnvironmentIsolation({
@@ -35,13 +38,18 @@ export const config = {
   supabaseProjectRef,
   dataPolicy,
   port: parseInt(process.env.PORT || '4000', 10),
+  shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS || '25000', 10),
   databaseUrl,
   jwtSecret,
   jwtSecretVersion: process.env.JWT_SECRET_VERSION || 'v1',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   adminSessionCookieName: process.env.ADMIN_SESSION_COOKIE_NAME || 'admin_session',
-  adminSessionCookieMaxAgeMs: parseInt(process.env.ADMIN_SESSION_COOKIE_MAX_AGE_MS || String(24 * 60 * 60 * 1000), 10),
-  adminSessionCookieSameSite: (process.env.ADMIN_SESSION_COOKIE_SAMESITE || 'lax') as 'lax' | 'strict' | 'none',
+  adminSessionCookieMaxAgeMs: parseInt(
+    process.env.ADMIN_SESSION_COOKIE_MAX_AGE_MS || String(24 * 60 * 60 * 1000),
+    10
+  ),
+  adminSessionCookieSameSite: (process.env.ADMIN_SESSION_COOKIE_SAMESITE || 'lax') as
+    'lax' | 'strict' | 'none',
   corsOrigin: corsOrigins[0],
   corsOrigins,
   frontendUrl,
@@ -53,12 +61,16 @@ export const config = {
     clientId: process.env.PHONEPE_CLIENT_ID || '',
     clientVersion: process.env.PHONEPE_CLIENT_VERSION || '',
     clientSecret: process.env.PHONEPE_CLIENT_SECRET || '',
-    authBaseUrl: process.env.PHONEPE_AUTH_BASE_URL || (process.env.PHONEPE_ENVIRONMENT === 'production'
-      ? 'https://api.phonepe.com/apis/identity-manager'
-      : 'https://api-preprod.phonepe.com/apis/pg-sandbox'),
-    pgBaseUrl: process.env.PHONEPE_PG_BASE_URL || (process.env.PHONEPE_ENVIRONMENT === 'production'
-      ? 'https://api.phonepe.com/apis/pg'
-      : 'https://api-preprod.phonepe.com/apis/pg-sandbox'),
+    authBaseUrl:
+      process.env.PHONEPE_AUTH_BASE_URL ||
+      (process.env.PHONEPE_ENVIRONMENT === 'production'
+        ? 'https://api.phonepe.com/apis/identity-manager'
+        : 'https://api-preprod.phonepe.com/apis/pg-sandbox'),
+    pgBaseUrl:
+      process.env.PHONEPE_PG_BASE_URL ||
+      (process.env.PHONEPE_ENVIRONMENT === 'production'
+        ? 'https://api.phonepe.com/apis/pg'
+        : 'https://api-preprod.phonepe.com/apis/pg-sandbox'),
     checkoutExpirySeconds: parseInt(process.env.PHONEPE_CHECKOUT_EXPIRY_SECONDS || '1200', 10),
     webhookUsername: process.env.PHONEPE_WEBHOOK_USERNAME || '',
     webhookPassword: process.env.PHONEPE_WEBHOOK_PASSWORD || '',
@@ -75,7 +87,9 @@ export const config = {
   },
   notificationEmail: process.env.NOTIFICATION_EMAIL || '',
   intake: {
-    encryptionKey: process.env.INTAKE_ENCRYPTION_KEY || (env === 'production' ? '' : 'development-only-intake-key-not-for-production'),
+    encryptionKey:
+      process.env.INTAKE_ENCRYPTION_KEY ||
+      (env === 'production' ? '' : 'development-only-intake-key-not-for-production'),
     keyVersion: process.env.INTAKE_ENCRYPTION_KEY_VERSION || 'v1',
     tokenTtlHours: parseInt(process.env.INTAKE_TOKEN_TTL_HOURS || '72', 10),
     draftRetentionDays: parseInt(process.env.INTAKE_DRAFT_RETENTION_DAYS || '30', 10),
@@ -98,8 +112,8 @@ export const config = {
     maxBytes: parseInt(process.env.DOCUMENT_MAX_BYTES || String(10 * 1024 * 1024), 10),
     scannerMode: process.env.DOCUMENT_SCANNER_MODE || 'disabled',
     scannerHost: process.env.DOCUMENT_SCANNER_HOST || '127.0.0.1',
-    scannerPort: parseInt(process.env.DOCUMENT_SCANNER_PORT || '3310',10),
-    scannerTimeoutMs: parseInt(process.env.DOCUMENT_SCANNER_TIMEOUT_MS || '15000',10),
+    scannerPort: parseInt(process.env.DOCUMENT_SCANNER_PORT || '3310', 10),
+    scannerTimeoutMs: parseInt(process.env.DOCUMENT_SCANNER_TIMEOUT_MS || '15000', 10),
   },
   whatsapp: {
     enabled: process.env.WHATSAPP_NOTIFICATIONS_ENABLED === 'true',
