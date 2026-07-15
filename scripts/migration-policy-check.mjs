@@ -7,6 +7,7 @@ const policy = JSON.parse(read('infrastructure/migration-policy.json'));
 const runner = read('backend/src/migrations/runner.ts');
 const validator = read('backend/scripts/validate-migrations.ts');
 const cli = read('backend/src/migrate.ts');
+const databasePolicy = read('backend/src/config/databasePolicy.ts');
 const api = read('backend/src/index.ts');
 const dockerfile = read('backend/Dockerfile');
 const backendPackage = JSON.parse(read('backend/package.json'));
@@ -42,7 +43,11 @@ for (const required of [
 for (const required of ['migration-phase', 'expand|migrate|contract', 'compatibility-approved']) {
   if (!validator.includes(required)) errors.push(`Migration validator is missing: ${required}`);
 }
-if (!cli.includes('max: 1') || !cli.includes('spandan-schema-migrator')) {
+if (
+  !cli.includes("createDatabaseRuntimePolicy(process.env, 'migration')") ||
+  !databasePolicy.includes("service === 'migration' ? 1") ||
+  !databasePolicy.includes('spandan-schema-migrator')
+) {
   errors.push('One-off migration CLI must use a dedicated single-connection pool.');
 }
 if (/migrat/i.test(api)) errors.push('API startup must not import or execute migration code.');

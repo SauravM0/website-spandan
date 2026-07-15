@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "runtime": {
+    "provider": "supabase",
+    "mode": "transaction",
+    "port": 6543,
+    "preparedStatementsAllowed": false,
+    "tlsVerificationRequired": true,
+    "minimumPoolSize": 0,
+    "defaultMaximumPoolSizePerReplica": 10
+  },
+  "migrations": { "separateDirectUrlRequired": true, "port": 5432, "maximumConnections": 1 },
+  "budget": {
+    "maximumApiReplicas": 2,
+    "rollingSurgeReplicas": 1,
+    "workerReserve": 5,
+    "migrationReserve": 1,
+    "administrationReserve": 5,
+    "connectionQuota": 60,
+    "targetPercent": 75
+  },
+  "timeoutsMs": {
+    "connect": 5000,
+    "statement": 10000,
+    "query": 12000,
+    "lock": 3000,
+    "idleTransaction": 15000
+  },
+  "performance": {
+    "forecastPeakMultiplier": 2,
+    "poolAcquisitionP95Ms": 100,
+    "regionRoundTripP95Ms": 100
+  },
+  "telemetry": {
+    "sqlTextAllowed": false,
+    "parametersAllowed": false,
+    "patientIdentifiersAllowed": false
+  }
+}

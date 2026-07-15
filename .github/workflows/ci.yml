@@ -121,6 +121,7 @@ jobs:
       - run: npm run containers:check
       - run: npm run ci:check
       - run: npm run migrations:check
+      - run: npm run database:check
       - run: npm audit --audit-level=high --workspaces=false
       - run: npm --prefix backend audit --audit-level=high
       - run: npm --prefix frontend audit --audit-level=high

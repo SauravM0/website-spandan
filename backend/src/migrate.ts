@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import path from 'node:path';
 import { Pool } from 'pg';
+import { createDatabaseRuntimePolicy } from './config/databasePolicy';
 import { runMigrations } from './migrations/runner';
 
 dotenv.config({ path: path.resolve(__dirname, '../.env') });
@@ -20,11 +21,8 @@ export async function migrateMain(): Promise<void> {
     throw new Error('DATABASE_URL is required for the one-off migration job.');
   }
 
-  const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    max: 1,
-    application_name: 'spandan-schema-migrator',
-  });
+  const migrationPolicy = createDatabaseRuntimePolicy(process.env, 'migration');
+  const pool = new Pool(migrationPolicy.poolConfig);
 
   try {
     const result = await runMigrations({

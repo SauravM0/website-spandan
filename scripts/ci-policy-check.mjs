@@ -40,6 +40,7 @@ const requiredWorkflowText = [
   'npm run frontend:typecheck',
   'npm run migrations:validate',
   'npm run migrations:check',
+  'npm run database:check',
   'npm --prefix backend run migrate:production',
   'Verify repeat migration is a no-op',
   'npm --prefix backend run test:integration',
