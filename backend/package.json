@@ -8,6 +8,8 @@
     "start": "node dist/index.js",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test \"tests/**/*.test.ts\"",
+    "test:integration": "tsx --test tests/database.integration.test.ts",
+    "test:security": "tsx --test tests/security.test.ts",
     "test:ci": "npm run typecheck && npm test",
     "migrations:validate": "tsx scripts/validate-migrations.ts",
     "migrate": "tsx scripts/migrate.ts",

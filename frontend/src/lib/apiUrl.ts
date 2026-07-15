@@ -2,7 +2,12 @@ export const BROWSER_API_BASE = '/api';
 
 const LOCAL_API_URL = 'http://127.0.0.1:4000/api';
 
-export function getInternalApiBase(environment = process.env): string {
+type ApiEnvironment = {
+  INTERNAL_API_URL?: string;
+  NODE_ENV?: string;
+};
+
+export function getInternalApiBase(environment: ApiEnvironment = process.env): string {
   const configured = environment.INTERNAL_API_URL?.trim();
   if (!configured) {
     if (environment.NODE_ENV === 'production') {
@@ -16,7 +21,9 @@ export function getInternalApiBase(environment = process.env): string {
     throw new Error('INTERNAL_API_URL must use http or https');
   }
   if (parsed.username || parsed.password || parsed.search || parsed.hash) {
-    throw new Error('INTERNAL_API_URL must not contain credentials, query parameters, or fragments');
+    throw new Error(
+      'INTERNAL_API_URL must not contain credentials, query parameters, or fragments'
+    );
   }
 
   const pathname = parsed.pathname.replace(/\/+$/, '');
@@ -27,7 +34,11 @@ export function getInternalApiBase(environment = process.env): string {
   return parsed.toString().replace(/\/$/, '');
 }
 
-export function buildInternalApiUrl(path: string, search = '', environment = process.env): URL {
+export function buildInternalApiUrl(
+  path: string,
+  search = '',
+  environment: ApiEnvironment = process.env
+): URL {
   const segments = path.split('/').filter(Boolean);
   if (segments.some((segment) => segment === '.' || segment === '..')) {
     throw new Error('API path cannot contain traversal segments');

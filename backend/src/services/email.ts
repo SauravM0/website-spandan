@@ -58,7 +58,7 @@ async function sendWithRetry(
       ).catch(() => {});
 
       if (attempt < retries) {
-        await new Promise(r => setTimeout(r, backoffMs * attempt));
+        await new Promise((r) => setTimeout(r, backoffMs * attempt));
       }
     }
   }
@@ -74,7 +74,7 @@ export async function sendEnquiryNotification(data: EnquiryNotification): Promis
   await requireApprovedVendor('SMTP provider');
 
   let packageName = data.packageName;
-  let doctorName = data.doctorName;
+  const doctorName = data.doctorName;
 
   if (!packageName && data.enquiryId) {
     try {
@@ -101,10 +101,14 @@ export async function sendEnquiryNotification(data: EnquiryNotification): Promis
     <p><a href="${config.corsOrigin}/admin/leads/${data.enquiryId}" style="display:inline-block;padding:10px 20px;background:#1F3A5F;color:#fff;text-decoration:none;border-radius:4px">View Lead Details</a></p>
   `;
 
-  return sendWithRetry(transporter, {
-    from: `"Spandan Clinic" <${config.smtp.user}>`,
-    to: config.notificationEmail,
-    subject: `New Enquiry from ${data.patientName}`,
-    html,
-  }, data.enquiryId);
+  return sendWithRetry(
+    transporter,
+    {
+      from: `"Spandan Clinic" <${config.smtp.user}>`,
+      to: config.notificationEmail,
+      subject: `New Enquiry from ${data.patientName}`,
+      html,
+    },
+    data.enquiryId
+  );
 }

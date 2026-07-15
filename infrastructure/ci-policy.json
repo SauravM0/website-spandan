@@ -1,0 +1,28 @@
+{
+  "schemaVersion": 1,
+  "workflow": ".github/workflows/ci.yml",
+  "requiredChecks": [
+    "Quality",
+    "Unit and component contracts",
+    "PostgreSQL migrations and integration",
+    "Security and dependency policy",
+    "Dependency and license review",
+    "CodeQL SAST",
+    "Critical E2E and API contracts",
+    "Deliberate gate rejection tests",
+    "Verify api image",
+    "Verify frontend image"
+  ],
+  "negativeGateTests": ["type", "migration", "secret", "rbac", "e2e"],
+  "branchProtection": {
+    "required": true,
+    "pullRequestRequired": true,
+    "requireUpToDateBranch": true,
+    "allowBypass": false,
+    "dismissStaleReviews": true
+  },
+  "credentials": {
+    "productionCredentialsAllowed": false,
+    "ciDataPolicy": "synthetic-only"
+  }
+}

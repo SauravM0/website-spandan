@@ -110,7 +110,17 @@ export default function AdminAppointmentsPage() {
       page: pagination.page,
       pageSize: pagination.pageSize,
     }),
-    [doctorId, status, source, from, to, debouncedSearch, sort, pagination.page, pagination.pageSize]
+    [
+      doctorId,
+      status,
+      source,
+      from,
+      to,
+      debouncedSearch,
+      sort,
+      pagination.page,
+      pagination.pageSize,
+    ]
   );
 
   const load = async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -143,7 +153,6 @@ export default function AdminAppointmentsPage() {
 
   useEffect(() => {
     load(loading ? 'initial' : 'refresh');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filters]);
 
   const setRange = (range: 'today' | 'tomorrow' | 'week' | 'all') => {
@@ -205,11 +214,19 @@ export default function AdminAppointmentsPage() {
           description="Search, filter, follow up, and update patient visit status."
           action={
             <div className="flex flex-wrap gap-2">
-              <button className="btn btn-outline inline-flex items-center gap-2" onClick={() => load('refresh')} disabled={refreshing}>
+              <button
+                className="btn btn-outline inline-flex items-center gap-2"
+                onClick={() => load('refresh')}
+                disabled={refreshing}
+              >
                 <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
                 Refresh
               </button>
-              <button className="btn btn-outline inline-flex items-center gap-2" onClick={exportCsv} disabled={exporting}>
+              <button
+                className="btn btn-outline inline-flex items-center gap-2"
+                onClick={exportCsv}
+                disabled={exporting}
+              >
                 <Download size={16} />
                 {exporting ? 'Exporting...' : 'Export CSV'}
               </button>
@@ -224,7 +241,12 @@ export default function AdminAppointmentsPage() {
             ['week', 'Week'],
             ['all', 'All'],
           ].map(([value, label]) => (
-            <button key={value} type="button" className="btn btn-outline btn-sm" onClick={() => setRange(value as any)}>
+            <button
+              key={value}
+              type="button"
+              className="btn btn-outline btn-sm"
+              onClick={() => setRange(value as any)}
+            >
               {label}
             </button>
           ))}
@@ -233,48 +255,107 @@ export default function AdminAppointmentsPage() {
         <FilterBar>
           <label className="form-group mb-0">
             <span>Doctor</span>
-            <select value={doctorId} onChange={(event) => { setDoctorId(event.target.value); setPagination((p) => ({ ...p, page: 1 })); }}>
+            <select
+              value={doctorId}
+              onChange={(event) => {
+                setDoctorId(event.target.value);
+                setPagination((p) => ({ ...p, page: 1 }));
+              }}
+            >
               <option value="">All doctors</option>
-              {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name}</option>)}
+              {doctors.map((doctor) => (
+                <option key={doctor.id} value={doctor.id}>
+                  {doctor.name}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0">
             <span>Status</span>
-            <select value={status} onChange={(event) => { setStatus(event.target.value); setPagination((p) => ({ ...p, page: 1 })); }}>
-              {statuses.map((item) => <option key={item || 'all'} value={item}>{item ? item.replace(/_/g, ' ') : 'All statuses'}</option>)}
+            <select
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPagination((p) => ({ ...p, page: 1 }));
+              }}
+            >
+              {statuses.map((item) => (
+                <option key={item || 'all'} value={item}>
+                  {item ? item.replace(/_/g, ' ') : 'All statuses'}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0">
             <span>Source</span>
-            <select value={source} onChange={(event) => { setSource(event.target.value); setPagination((p) => ({ ...p, page: 1 })); }}>
-              {sources.map((item) => <option key={item || 'all'} value={item}>{item || 'All sources'}</option>)}
+            <select
+              value={source}
+              onChange={(event) => {
+                setSource(event.target.value);
+                setPagination((p) => ({ ...p, page: 1 }));
+              }}
+            >
+              {sources.map((item) => (
+                <option key={item || 'all'} value={item}>
+                  {item || 'All sources'}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0">
             <span>Sort</span>
             <select value={sort} onChange={(event) => setSort(event.target.value)}>
-              {sorts.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
+              {sorts.map(([value, label]) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0">
             <span>From</span>
-            <input type="date" value={from} onChange={(event) => { setFrom(event.target.value); setPagination((p) => ({ ...p, page: 1 })); }} />
+            <input
+              type="date"
+              value={from}
+              onChange={(event) => {
+                setFrom(event.target.value);
+                setPagination((p) => ({ ...p, page: 1 }));
+              }}
+            />
           </label>
           <label className="form-group mb-0">
             <span>To</span>
-            <input type="date" value={to} onChange={(event) => { setTo(event.target.value); setPagination((p) => ({ ...p, page: 1 })); }} />
+            <input
+              type="date"
+              value={to}
+              onChange={(event) => {
+                setTo(event.target.value);
+                setPagination((p) => ({ ...p, page: 1 }));
+              }}
+            />
           </label>
           <label className="form-group mb-0 sm:col-span-2">
             <span>Search</span>
             <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light" size={16} />
-              <input className="pl-9" value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Name, phone, doctor, appointment no." />
+              <Search
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light"
+                size={16}
+              />
+              <input
+                className="pl-9"
+                value={search}
+                onChange={(event) => setSearch(event.target.value)}
+                placeholder="Name, phone, doctor, appointment no."
+              />
             </div>
           </label>
         </FilterBar>
 
         {error && (
-          <div className="mb-4 rounded-md border border-danger/30 bg-danger/10 p-4 text-sm text-danger" role="alert">
+          <div
+            className="mb-4 rounded-md border border-danger/30 bg-danger/10 p-4 text-sm text-danger"
+            role="alert"
+          >
             <p className="font-semibold">{error}</p>
             {requestId && <p className="mt-1 text-xs">Support reference: {requestId}</p>}
           </div>
@@ -305,24 +386,40 @@ export default function AdminAppointmentsPage() {
                   <table className="w-full text-left text-sm">
                     <thead>
                       <tr className="border-b border-border bg-bg-alt">
-                        {['Patient', 'Doctor', 'Date', 'Time', 'Phone', 'Status', 'Actions'].map((label) => <th key={label} className="p-3">{label}</th>)}
+                        {['Patient', 'Doctor', 'Date', 'Time', 'Phone', 'Status', 'Actions'].map(
+                          (label) => (
+                            <th key={label} className="p-3">
+                              {label}
+                            </th>
+                          )
+                        )}
                       </tr>
                     </thead>
                     <tbody>
                       {appointments.map((row) => (
                         <tr key={row.id} className="border-b border-border last:border-0">
                           <td className="p-3">
-                            <button type="button" className="font-semibold text-navy hover:text-accent" onClick={() => setSelected(row)}>
+                            <button
+                              type="button"
+                              className="font-semibold text-navy hover:text-accent"
+                              onClick={() => setSelected(row)}
+                            >
                               {row.patient_name}
                             </button>
-                            <p className="text-xs text-text-light">{row.appointment_number || row.id}</p>
+                            <p className="text-xs text-text-light">
+                              {row.appointment_number || row.id}
+                            </p>
                           </td>
                           <td className="p-3">{row.doctor_name}</td>
-                          <td className="p-3">{String(row.appointment_date || '-').slice(0, 10)}</td>
+                          <td className="p-3">
+                            {String(row.appointment_date || '-').slice(0, 10)}
+                          </td>
                           <td className="p-3">{String(row.start_time || '-').slice(0, 5)}</td>
                           <td className="p-3">{row.phone_masked || row.phone || '-'}</td>
                           <td className="p-3">
-                            <StatusBadge tone={statusTone(row.status)}>{String(row.status || '-').replace(/_/g, ' ')}</StatusBadge>
+                            <StatusBadge tone={statusTone(row.status)}>
+                              {String(row.status || '-').replace(/_/g, ' ')}
+                            </StatusBadge>
                           </td>
                           <td className="p-3">
                             <RowActions row={row} updatingId={updatingId} onStatus={updateStatus} />
@@ -331,7 +428,9 @@ export default function AdminAppointmentsPage() {
                       ))}
                     </tbody>
                   </table>
-                  {appointments.length === 0 && <EmptyState text="No appointments match these filters." />}
+                  {appointments.length === 0 && (
+                    <EmptyState text="No appointments match these filters." />
+                  )}
                 </div>
               }
             />
@@ -341,26 +440,51 @@ export default function AdminAppointmentsPage() {
               onPageChange={(page) => setPagination((current) => ({ ...current, page }))}
             />
             <p className="mt-2 text-xs text-text-light">
-              Showing page {pagination.page} of {pagination.totalPages}, {pagination.total} total appointment(s).
+              Showing page {pagination.page} of {pagination.totalPages}, {pagination.total} total
+              appointment(s).
             </p>
           </>
         )}
 
         {selected && (
-          <AppointmentDetailDrawer row={selected} updatingId={updatingId} onClose={() => setSelected(null)} onStatus={updateStatus} />
+          <AppointmentDetailDrawer
+            row={selected}
+            updatingId={updatingId}
+            onClose={() => setSelected(null)}
+            onStatus={updateStatus}
+          />
         )}
       </div>
     </section>
   );
 }
 
-function RowActions({ row, updatingId, onStatus }: { row: any; updatingId: string | null; onStatus: (row: any, status: string) => void }) {
+function RowActions({
+  row,
+  updatingId,
+  onStatus,
+}: {
+  row: any;
+  updatingId: string | null;
+  onStatus: (row: any, status: string) => void;
+}) {
   const actions = row.allowed_actions || [];
   return (
     <div className="flex flex-wrap gap-2">
-      {row.phone && <a className="btn btn-outline btn-sm" href={`tel:${row.phone}`}>Call</a>}
       {row.phone && (
-        <a className="btn btn-sm bg-[#25D366] text-white hover:bg-[#1fb357]" href={whatsAppLink(row.phone)} target="_blank" rel="noopener noreferrer">WhatsApp</a>
+        <a className="btn btn-outline btn-sm" href={`tel:${row.phone}`}>
+          Call
+        </a>
+      )}
+      {row.phone && (
+        <a
+          className="btn btn-sm bg-[#25D366] text-white hover:bg-[#1fb357]"
+          href={whatsAppLink(row.phone)}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          WhatsApp
+        </a>
       )}
       <select
         className="rounded-md border border-border px-2 py-2 text-xs"
@@ -368,16 +492,30 @@ function RowActions({ row, updatingId, onStatus }: { row: any; updatingId: strin
         disabled={updatingId === row.id || actions.length === 0}
         onChange={(event) => event.target.value && onStatus(row, event.target.value)}
       >
-        <option value="">{updatingId === row.id ? 'Updating...' : actions.length ? 'Update' : 'No actions'}</option>
+        <option value="">
+          {updatingId === row.id ? 'Updating...' : actions.length ? 'Update' : 'No actions'}
+        </option>
         {actions.map((action: string) => (
-          <option key={action} value={action}>{action.replace(/_/g, ' ')}</option>
+          <option key={action} value={action}>
+            {action.replace(/_/g, ' ')}
+          </option>
         ))}
       </select>
     </div>
   );
 }
 
-function AppointmentCard({ row, updatingId, onSelect, onStatus }: { row: any; updatingId: string | null; onSelect: () => void; onStatus: (row: any, status: string) => void }) {
+function AppointmentCard({
+  row,
+  updatingId,
+  onSelect,
+  onStatus,
+}: {
+  row: any;
+  updatingId: string | null;
+  onSelect: () => void;
+  onStatus: (row: any, status: string) => void;
+}) {
   return (
     <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
       <button type="button" className="w-full text-left" onClick={onSelect}>
@@ -386,13 +524,27 @@ function AppointmentCard({ row, updatingId, onSelect, onStatus }: { row: any; up
             <p className="font-bold text-navy">{row.patient_name}</p>
             <p className="text-xs text-text-light">{row.doctor_name}</p>
           </div>
-          <StatusBadge tone={statusTone(row.status)}>{String(row.status || '-').replace(/_/g, ' ')}</StatusBadge>
+          <StatusBadge tone={statusTone(row.status)}>
+            {String(row.status || '-').replace(/_/g, ' ')}
+          </StatusBadge>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-3 text-xs">
-          <div><p className="font-semibold">Date</p><p className="text-text-light">{String(row.appointment_date || '-').slice(0, 10)}</p></div>
-          <div><p className="font-semibold">Time</p><p className="text-text-light">{String(row.start_time || '-').slice(0, 5)}</p></div>
-          <div><p className="font-semibold">Phone</p><p className="text-text-light">{row.phone_masked || '-'}</p></div>
-          <div><p className="font-semibold">Source</p><p className="text-text-light capitalize">{row.source || '-'}</p></div>
+          <div>
+            <p className="font-semibold">Date</p>
+            <p className="text-text-light">{String(row.appointment_date || '-').slice(0, 10)}</p>
+          </div>
+          <div>
+            <p className="font-semibold">Time</p>
+            <p className="text-text-light">{String(row.start_time || '-').slice(0, 5)}</p>
+          </div>
+          <div>
+            <p className="font-semibold">Phone</p>
+            <p className="text-text-light">{row.phone_masked || '-'}</p>
+          </div>
+          <div>
+            <p className="font-semibold">Source</p>
+            <p className="text-text-light capitalize">{row.source || '-'}</p>
+          </div>
         </div>
       </button>
       <div className="mt-4">
@@ -402,24 +554,47 @@ function AppointmentCard({ row, updatingId, onSelect, onStatus }: { row: any; up
   );
 }
 
-function AppointmentDetailDrawer({ row, updatingId, onClose, onStatus }: { row: any; updatingId: string | null; onClose: () => void; onStatus: (row: any, status: string) => void }) {
+function AppointmentDetailDrawer({
+  row,
+  updatingId,
+  onClose,
+  onStatus,
+}: {
+  row: any;
+  updatingId: string | null;
+  onClose: () => void;
+  onStatus: (row: any, status: string) => void;
+}) {
   return (
     <div className="fixed inset-0 z-50">
-      <button type="button" className="absolute inset-0 bg-black/40" aria-label="Close detail" onClick={onClose} />
+      <button
+        type="button"
+        className="absolute inset-0 bg-black/40"
+        aria-label="Close detail"
+        onClick={onClose}
+      />
       <aside className="absolute right-0 top-0 h-full w-full max-w-[440px] overflow-y-auto bg-white p-5 shadow-xl">
         <div className="mb-5 flex items-start justify-between gap-3">
           <div>
             <h2 className="text-xl font-bold text-navy">{row.patient_name}</h2>
             <p className="text-sm text-text-light">{row.appointment_number || row.id}</p>
           </div>
-          <button className="btn btn-outline btn-sm" type="button" onClick={onClose}>Close</button>
+          <button className="btn btn-outline btn-sm" type="button" onClick={onClose}>
+            Close
+          </button>
         </div>
         <div className="grid gap-4 text-sm">
           <Detail label="Doctor" value={row.doctor_name} />
-          <Detail label="Date/time" value={`${String(row.appointment_date || '-').slice(0, 10)} ${String(row.start_time || '-').slice(0, 5)}`} />
+          <Detail
+            label="Date/time"
+            value={`${String(row.appointment_date || '-').slice(0, 10)} ${String(row.start_time || '-').slice(0, 5)}`}
+          />
           <Detail label="Phone" value={row.phone || row.phone_masked || '-'} />
           <Detail label="Status" value={String(row.status || '-').replace(/_/g, ' ')} />
-          <Detail label="Payment" value={String(row.payment_status || 'not linked').replace(/_/g, ' ')} />
+          <Detail
+            label="Payment"
+            value={String(row.payment_status || 'not linked').replace(/_/g, ' ')}
+          />
           <Detail label="Source" value={row.source || '-'} />
           {row.reason && <Detail label="Reason" value={row.reason} />}
           <div>

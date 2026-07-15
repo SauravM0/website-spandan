@@ -4,6 +4,9 @@ dist/
 .next/
 out/
 coverage/
+test-results/
+playwright-report/
+blob-report/
 .nyc_output/
 .turbo/
 .cache/
@@ -49,6 +52,7 @@ docs/work-packages/**
 !docs/work-packages/WP04-frontend-production-runtime.md
 !docs/work-packages/WP05-configuration-secrets-hardening.md
 !docs/work-packages/WP06-reproducible-container-builds.md
+!docs/work-packages/WP07-pull-request-ci.md
 !docs/production-baseline.json
 machine/
 

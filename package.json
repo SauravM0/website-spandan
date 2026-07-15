@@ -10,13 +10,15 @@
     "backend:test": "cd backend && npm test",
     "backend:typecheck": "cd backend && npm run typecheck",
     "frontend:test": "cd frontend && npm test",
+    "frontend:typecheck": "cd frontend && npm run typecheck",
     "backend:start": "cd backend && npm start",
     "frontend:start": "cd frontend && npm start",
     "test": "npm run backend:test && npm run frontend:test",
     "typecheck": "npm run backend:typecheck && npm run frontend:build",
     "build": "npm run backend:build && npm run frontend:build",
-    "format:check": "prettier --check \"**/*.{ts,tsx,js,json,md,yml,yaml,css}\"",
+    "format:check": "node scripts/format-changed.mjs",
     "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yml,yaml,css}\"",
+    "lint": "eslint . --max-warnings=0",
     "migrations:validate": "cd backend && npm run migrations:validate",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
@@ -25,6 +27,7 @@
     "frontend-runtime:check": "node scripts/frontend-runtime-check.mjs",
     "secrets:check": "node scripts/secret-context-check.mjs",
     "containers:check": "node scripts/container-policy-check.mjs",
+    "ci:check": "node scripts/ci-policy-check.mjs",
     "release:check": "node scripts/release-check.mjs",
     "release:check:full": "node scripts/release-check.mjs",
     "roadmap:status": "node scripts/roadmap-status.mjs",
@@ -34,6 +37,11 @@
     "seed": "cd backend && npm run seed"
   },
   "devDependencies": {
-    "prettier": "^3.9.4"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.7.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.7.0",
+    "prettier": "^3.9.4",
+    "typescript-eslint": "^8.64.0"
   }
 }

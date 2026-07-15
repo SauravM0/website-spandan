@@ -11,6 +11,7 @@ const steps = [
   ['frontend-runtime:check', ['run', 'frontend-runtime:check']],
   ['secrets:check', ['run', 'secrets:check']],
   ['containers:check', ['run', 'containers:check']],
+  ['ci:check', ['run', 'ci:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],
@@ -20,7 +21,8 @@ const steps = [
 ];
 
 const includeAudit =
-  process.env.RUN_SECURITY_AUDIT === '1' || process.env.npm_lifecycle_event === 'release:check:full';
+  process.env.RUN_SECURITY_AUDIT === '1' ||
+  process.env.npm_lifecycle_event === 'release:check:full';
 
 if (includeAudit) {
   steps.push(['audit', ['run', 'audit']]);

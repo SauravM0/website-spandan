@@ -1,29 +1,250 @@
-name: CI
+name: Pull request gates
 
 on:
+  pull_request:
   push:
     branches: [main]
-  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: '22'
 
 jobs:
-  build:
+  quality:
+    name: Quality
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
-          node-version: 22
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - name: Check changed-file formatting
+        env:
+          FORMAT_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: npm run format:check
+      - run: npm run lint
+      - run: npm run backend:typecheck
+      - run: npm run frontend:typecheck
+
+  unit-contract:
+    name: Unit and component contracts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
           cache: npm
           cache-dependency-path: |
             backend/package-lock.json
             frontend/package-lock.json
-      - name: Install backend
-        working-directory: backend
-        run: npm ci
-      - name: Install frontend
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - run: npm run backend:test
+      - run: npm run frontend:test
+
+  database:
+    name: PostgreSQL migrations and integration
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: spandan_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d spandan_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: ${{ format('{0}://{1}:{2}@127.0.0.1:5432/spandan_ci', 'postgresql', 'postgres', 'postgres') }}
+      TEST_DATABASE_URL: ${{ format('{0}://{1}:{2}@127.0.0.1:5432/spandan_ci', 'postgresql', 'postgres', 'postgres') }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm --prefix backend ci
+      - run: npm run migrations:validate
+      - run: npm run migrate
+      - run: npm --prefix backend run test:integration
+
+  security:
+    name: Security and dependency policy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - run: npm run platform:check
+      - run: npm run privacy-security:check
+      - run: npm run environments:check
+      - run: npm run secrets:check
+      - run: npm run containers:check
+      - run: npm run ci:check
+      - run: npm audit --audit-level=high --workspaces=false
+      - run: npm --prefix backend audit --audit-level=high
+      - run: npm --prefix frontend audit --audit-level=high
+
+  dependency-review:
+    name: Dependency and license review
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4
+        with:
+          fail-on-severity: high
+          deny-licenses: GPL-3.0, AGPL-3.0
+
+  sast:
+    name: CodeQL SAST
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+      packages: read
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: github/codeql-action/init@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+        with:
+          languages: javascript-typescript
+      - uses: github/codeql-action/autobuild@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+      - uses: github/codeql-action/analyze@99df26d4f13ea111d4ec1a7dddef6063f76b97e9 # v4
+        with:
+          category: /language:javascript-typescript
+
+  critical-e2e:
+    name: Critical E2E and API contracts
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: spandan_ci
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d spandan_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: ${{ format('{0}://{1}:{2}@127.0.0.1:5432/spandan_ci', 'postgresql', 'postgres', 'postgres') }}
+      TEST_DATABASE_URL: ${{ format('{0}://{1}:{2}@127.0.0.1:5432/spandan_ci', 'postgresql', 'postgres', 'postgres') }}
+      ADMIN_EMAIL: admin-ci@example.test
+      ADMIN_PASSWORD: CI-only-admin-password-2026
+      E2E_ADMIN_EMAIL: admin-ci@example.test
+      E2E_ADMIN_PASSWORD: CI-only-admin-password-2026
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: |
+            backend/package-lock.json
+            frontend/package-lock.json
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - run: npm run migrate
+      - run: npm run seed
+      - name: Install Playwright browser
         working-directory: frontend
-        run: npm ci
-      - name: Release check
-        run: npm run release:check
-      - name: Dependency audit
-        run: npm run audit
+        run: npx playwright install --with-deps chromium
+      - run: npm --prefix frontend run test:e2e
+      - name: Retain Playwright evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: playwright-report-${{ github.sha }}
+          path: frontend/playwright-report
+          if-no-files-found: ignore
+          retention-days: 14
+
+  gate-self-tests:
+    name: Deliberate gate rejection tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      - run: npm ci
+      - run: npm --prefix backend ci
+      - run: npm --prefix frontend ci
+      - name: Reject a broken type
+        shell: bash
+        run: |
+          printf 'const ciMustBeString: string = 42;\nexport { ciMustBeString };\n' > backend/src/__ci_type_failure__.ts
+          if npm run backend:typecheck; then exit 1; fi
+          rm backend/src/__ci_type_failure__.ts
+      - name: Reject an invalid migration
+        shell: bash
+        run: |
+          touch backend/migrations/999_ci_empty.sql
+          if npm run migrations:validate; then exit 1; fi
+          rm backend/migrations/999_ci_empty.sql
+      - name: Reject a committed secret
+        shell: bash
+        run: |
+          printf 'ghp_%035d\n' 0 > ci-secret-fixture.txt
+          if npm run secrets:check; then exit 1; fi
+          rm ci-secret-fixture.txt
+      - name: Reject deny-by-default RBAC regression
+        shell: bash
+        run: |
+          cp backend/src/security/permissions.ts /tmp/permissions.ts
+          sed -i 's/return rolePermissions\[role\] ?? \[\];/return rolePermissions[role] ?? allPermissions;/' backend/src/security/permissions.ts
+          if npm --prefix backend run test:security; then exit 1; fi
+          mv /tmp/permissions.ts backend/src/security/permissions.ts
+      - name: Reject a broken critical E2E assertion
+        shell: bash
+        run: |
+          printf "import { expect, test } from '@playwright/test';\ntest('CI rejection fixture', () => expect(1).toBe(2));\n" > frontend/e2e/__ci_failure__.spec.ts
+          if npm --prefix frontend run test:e2e -- e2e/__ci_failure__.spec.ts; then exit 1; fi
+          rm frontend/e2e/__ci_failure__.spec.ts

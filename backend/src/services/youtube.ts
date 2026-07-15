@@ -56,15 +56,15 @@ export async function getChannelVideos(maxResults = 12): Promise<YouTubeVideo[]>
       console.error('YouTube API search error:', searchRes.status);
       return cachedVideos || [];
     }
-    const searchData = await searchRes.json() as YouTubeSearchResponse;
+    const searchData = (await searchRes.json()) as YouTubeSearchResponse;
 
     const videoIds = searchData.items.map((item: any) => item.id.videoId).join(',');
 
     const statsUrl = `${YOUTUBE_API_BASE}/videos?part=statistics&id=${videoIds}&key=${apiKey}`;
     const statsRes = await fetch(statsUrl);
-    let statsMap: Record<string, YouTubeStatsResponse['items'][number]['statistics']> = {};
+    const statsMap: Record<string, YouTubeStatsResponse['items'][number]['statistics']> = {};
     if (statsRes.ok) {
-      const statsData = await statsRes.json() as YouTubeStatsResponse;
+      const statsData = (await statsRes.json()) as YouTubeStatsResponse;
       for (const item of statsData.items) {
         statsMap[item.id] = item.statistics;
       }
