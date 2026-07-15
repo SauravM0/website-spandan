@@ -1,0 +1,192 @@
+name: Promote signed release
+run-name: Promote ${{ github.event.workflow_run.head_sha || inputs.commit_sha }}
+
+on:
+  workflow_run:
+    workflows: [Container artifacts]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      commit_sha:
+        description: Full main-branch commit SHA whose signed images should be promoted
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  packages: read
+
+concurrency:
+  group: spandan-managed-release
+  cancel-in-progress: false
+
+jobs:
+  prepare:
+    name: Resolve and verify immutable release
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_branch == 'main' &&
+      github.event.workflow_run.head_repository.full_name == github.repository)
+    runs-on: ubuntu-latest
+    outputs:
+      release_sha: ${{ steps.release.outputs.release_sha }}
+      api_image: ${{ steps.release.outputs.api_image }}
+      frontend_image: ${{ steps.release.outputs.frontend_image }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || inputs.commit_sha }}
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
+      - name: Resolve digests and verify signatures
+        id: release
+        shell: bash
+        env:
+          RELEASE_SHA: ${{ github.event.workflow_run.head_sha || inputs.commit_sha }}
+          API_REPOSITORY: ghcr.io/sauravm0/website-spandan/spandan-api
+          FRONTEND_REPOSITORY: ghcr.io/sauravm0/website-spandan/spandan-frontend
+        run: |
+          test "$(printf '%s' "$RELEASE_SHA" | wc -c)" -eq 40
+          printf '%s' "$RELEASE_SHA" | grep -Eq '^[0-9a-f]{40}$'
+          resolve_digest() {
+            docker buildx imagetools inspect "$1:sha-$RELEASE_SHA" --format '{{json .Manifest}}' | jq -er '.digest'
+          }
+          api_digest="$(resolve_digest "$API_REPOSITORY")"
+          frontend_digest="$(resolve_digest "$FRONTEND_REPOSITORY")"
+          api_image="$API_REPOSITORY@$api_digest"
+          frontend_image="$FRONTEND_REPOSITORY@$frontend_digest"
+          identity='^https://github.com/[Ss]aurav[Mm]0/website-spandan/.github/workflows/container-security.yml@refs/heads/main$'
+          cosign verify "$api_image" --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          cosign verify "$frontend_image" --certificate-identity-regexp "$identity" --certificate-oidc-issuer https://token.actions.githubusercontent.com
+          echo "release_sha=$RELEASE_SHA" >> "$GITHUB_OUTPUT"
+          echo "api_image=$api_image" >> "$GITHUB_OUTPUT"
+          echo "frontend_image=$frontend_image" >> "$GITHUB_OUTPUT"
+          jq -n --arg sha "$RELEASE_SHA" --arg api "$api_image" --arg frontend "$frontend_image" \
+            '{release_sha:$sha,api_image:$api,frontend_image:$frontend}' > release-manifest.json
+      - name: Retain immutable release manifest
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: release-manifest-${{ steps.release.outputs.release_sha }}
+          path: release-manifest.json
+          if-no-files-found: error
+          retention-days: 90
+
+  staging:
+    name: Deploy and observe staging canary
+    needs: prepare
+    runs-on: ubuntu-latest
+    environment: staging
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+      FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
+      API_URL: ${{ vars.API_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+      API_IMAGE: ${{ needs.prepare.outputs.api_image }}
+      FRONTEND_IMAGE: ${{ needs.prepare.outputs.frontend_image }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+          persist-credentials: false
+      - name: Verify Render staging service controls
+        run: |
+          node scripts/render-deploy.mjs verify-service --service-id "$API_SERVICE_ID" --kind api --repository ghcr.io/sauravm0/website-spandan/spandan-api
+          node scripts/render-deploy.mjs verify-service --service-id "$FRONTEND_SERVICE_ID" --kind frontend --repository ghcr.io/sauravm0/website-spandan/spandan-frontend
+      - name: Deploy API digest with locked pre-deploy migration
+        run: node scripts/render-deploy.mjs deploy --service-id "$API_SERVICE_ID" --image "$API_IMAGE" > staging-api.json
+      - name: Deploy frontend digest
+        run: node scripts/render-deploy.mjs deploy --service-id "$FRONTEND_SERVICE_ID" --image "$FRONTEND_IMAGE" > staging-frontend.json
+      - name: Run staging smoke gate
+        run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 1 --interval-ms 1000 --max-p95-ms 2500 --max-error-rate 0 > staging-smoke.json
+      - name: Observe staging canary
+        run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 6 --interval-ms 10000 --max-p95-ms 2500 --max-error-rate 0 > staging-observation.json
+      - name: Restore previous staging images after failure
+        if: failure()
+        shell: bash
+        run: |
+          rollback_previous() {
+            file="$1"
+            service="$2"
+            if test -s "$file"; then
+              previous="$(jq -r '.previousDeployId // empty' "$file")"
+              if test -n "$previous"; then
+                node scripts/render-deploy.mjs rollback --service-id "$service" --deploy-id "$previous"
+              fi
+            fi
+          }
+          rollback_previous staging-frontend.json "$FRONTEND_SERVICE_ID" || true
+          rollback_previous staging-api.json "$API_SERVICE_ID" || true
+      - name: Retain staging release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: staging-release-${{ needs.prepare.outputs.release_sha }}
+          path: staging-*.json
+          if-no-files-found: warn
+          retention-days: 90
+
+  production:
+    name: Approve, deploy, and observe production
+    needs: [prepare, staging]
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+      FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
+      API_URL: ${{ vars.API_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      RELEASE_SHA: ${{ needs.prepare.outputs.release_sha }}
+      API_IMAGE: ${{ needs.prepare.outputs.api_image }}
+      FRONTEND_IMAGE: ${{ needs.prepare.outputs.frontend_image }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          ref: ${{ needs.prepare.outputs.release_sha }}
+          persist-credentials: false
+      - name: Verify Render production service controls
+        run: |
+          node scripts/render-deploy.mjs verify-service --service-id "$API_SERVICE_ID" --kind api --repository ghcr.io/sauravm0/website-spandan/spandan-api
+          node scripts/render-deploy.mjs verify-service --service-id "$FRONTEND_SERVICE_ID" --kind frontend --repository ghcr.io/sauravm0/website-spandan/spandan-frontend
+      - name: Deploy production API digest with locked pre-deploy migration
+        run: node scripts/render-deploy.mjs deploy --service-id "$API_SERVICE_ID" --image "$API_IMAGE" > production-api.json
+      - name: Deploy production frontend digest
+        run: node scripts/render-deploy.mjs deploy --service-id "$FRONTEND_SERVICE_ID" --image "$FRONTEND_IMAGE" > production-frontend.json
+      - name: Run production smoke gate
+        run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 1 --interval-ms 1000 --max-p95-ms 2500 --max-error-rate 0 > production-smoke.json
+      - name: Observe production rollout
+        run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 12 --interval-ms 10000 --max-p95-ms 2500 --max-error-rate 0 > production-observation.json
+      - name: Restore previous production images after failure
+        if: failure()
+        shell: bash
+        run: |
+          rollback_previous() {
+            file="$1"
+            service="$2"
+            if test -s "$file"; then
+              previous="$(jq -r '.previousDeployId // empty' "$file")"
+              if test -n "$previous"; then
+                node scripts/render-deploy.mjs rollback --service-id "$service" --deploy-id "$previous"
+              fi
+            fi
+          }
+          rollback_previous production-frontend.json "$FRONTEND_SERVICE_ID" || true
+          rollback_previous production-api.json "$API_SERVICE_ID" || true
+      - name: Retain production release evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-release-${{ needs.prepare.outputs.release_sha }}
+          path: production-*.json
+          if-no-files-found: warn
+          retention-days: 365

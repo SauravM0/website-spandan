@@ -54,6 +54,7 @@ docs/work-packages/**
 !docs/work-packages/WP06-reproducible-container-builds.md
 !docs/work-packages/WP07-pull-request-ci.md
 !docs/work-packages/WP08-migration-ledger.md
+!docs/work-packages/WP09-deployment-rollback.md
 !docs/production-baseline.json
 machine/
 

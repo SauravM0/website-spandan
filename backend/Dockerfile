@@ -39,6 +39,7 @@ LABEL org.opencontainers.image.title="Spandan Clinic API" \
       org.opencontainers.image.licenses="UNLICENSED"
 WORKDIR /app
 ENV NODE_ENV=production \
+    APP_VERSION=${OCI_REVISION} \
     NPM_CONFIG_UPDATE_NOTIFIER=false \
     PORT=4000
 RUN addgroup --system --gid 1001 nodejs \

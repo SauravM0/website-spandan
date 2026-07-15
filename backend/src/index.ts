@@ -38,18 +38,20 @@ const app = express();
 app.set('trust proxy', 1);
 app.use(requestId);
 app.use(helmet());
-app.use(cors({
-  origin(origin, callback) {
-    if (!origin) {
-      callback(null, true);
-      return;
-    }
+app.use(
+  cors({
+    origin(origin, callback) {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
 
-    const normalizedOrigin = origin.replace(/\/+$/, '');
-    callback(null, config.corsOrigins.includes(normalizedOrigin));
-  },
-  credentials: true,
-}));
+      const normalizedOrigin = origin.replace(/\/+$/, '');
+      callback(null, config.corsOrigins.includes(normalizedOrigin));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json({ limit: '1mb' }));
 app.use(validateCsrfToken);
 
@@ -88,13 +90,21 @@ const publicGetLimiter = rateLimit({
 
 // Health check
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+  res.json({
+    status: 'ok',
+    version: process.env.APP_VERSION || 'development',
+    timestamp: new Date().toISOString(),
+  });
 });
 
 app.get('/api/ready', async (_req, res) => {
   try {
     await query('SELECT 1');
-    res.json({ status: 'ready', timestamp: new Date().toISOString() });
+    res.json({
+      status: 'ready',
+      version: process.env.APP_VERSION || 'development',
+      timestamp: new Date().toISOString(),
+    });
   } catch (err) {
     logger.error('Readiness check failed', { error: (err as Error).message });
     res.status(503).json({ status: 'not_ready' });

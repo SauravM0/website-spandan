@@ -21,6 +21,8 @@
     "lint": "eslint . --max-warnings=0",
     "migrations:validate": "cd backend && npm run migrations:validate",
     "migrations:check": "node scripts/migration-policy-check.mjs",
+    "deployments:check": "node scripts/deployment-policy-check.mjs",
+    "deployments:test": "node --test tests/deployment-orchestrator.test.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
     "baseline:check": "node scripts/production-baseline-check.mjs",

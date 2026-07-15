@@ -4,7 +4,13 @@ test('same-origin health endpoint satisfies its public contract', async ({ reque
   const response = await request.get('/api/health');
   expect(response.ok()).toBeTruthy();
   const body = await response.json();
-  expect(body).toEqual({ status: 'ok', timestamp: expect.any(String) });
+  expect(body).toEqual(
+    expect.objectContaining({
+      status: 'ok',
+      version: expect.any(String),
+      timestamp: expect.any(String),
+    })
+  );
 });
 
 test('public booking page never exposes backend or internal hostnames', async ({ page }) => {

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "provider": "render",
+  "artifacts": {
+    "registry": "ghcr.io/sauravm0/website-spandan",
+    "reference": "sha256-digest-only",
+    "signatureVerificationRequired": true,
+    "sameDigestInStagingAndProduction": true
+  },
+  "services": {
+    "api": {
+      "healthPath": "/api/health",
+      "readyPath": "/api/ready",
+      "preDeployCommand": "node dist/migrate.js"
+    },
+    "frontend": {
+      "healthPath": "/healthz"
+    },
+    "worker": {
+      "status": "blocked",
+      "workPackage": "WP12"
+    }
+  },
+  "promotion": {
+    "order": [
+      "staging-api",
+      "staging-frontend",
+      "staging-smoke",
+      "production-approval",
+      "production-api",
+      "production-frontend",
+      "production-observation"
+    ],
+    "productionApprovalEnvironment": "production",
+    "autoDeployAllowed": false,
+    "overlappingReleaseAllowed": false,
+    "strategy": "staging-canary-then-render-zero-downtime-rolling"
+  },
+  "smoke": {
+    "requiredPaths": ["/api/health", "/api/ready", "/healthz", "/book-appointment", "/admin/login"],
+    "maximumP95Ms": 2500,
+    "maximumErrorRate": 0
+  },
+  "rollback": {
+    "order": ["frontend", "api"],
+    "databaseReversalAllowed": false,
+    "acceptedWritesPreserved": true,
+    "targetByDeployId": true
+  }
+}

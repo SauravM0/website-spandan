@@ -1,0 +1,80 @@
+name: Roll back production release
+run-name: Roll back production to ${{ inputs.expected_version }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      frontend_deploy_id:
+        description: Successful Render frontend deploy ID to restore
+        required: true
+        type: string
+      api_deploy_id:
+        description: Successful Render API deploy ID to restore
+        required: true
+        type: string
+      expected_version:
+        description: Full application commit SHA exposed by the target images
+        required: true
+        type: string
+      reason:
+        description: Non-PHI incident or change reference for rollback
+        required: true
+        type: string
+      confirmation:
+        description: Type ROLLBACK to authorize image restoration without schema reversal
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: spandan-managed-release
+  cancel-in-progress: false
+
+jobs:
+  rollback:
+    name: Restore retained production deploys
+    runs-on: ubuntu-latest
+    environment: production
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      API_SERVICE_ID: ${{ vars.RENDER_API_SERVICE_ID }}
+      FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
+      API_URL: ${{ vars.API_URL }}
+      FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - name: Validate explicit rollback authorization
+        env:
+          CONFIRMATION: ${{ inputs.confirmation }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+          REASON: ${{ inputs.reason }}
+        run: |
+          test "$CONFIRMATION" = ROLLBACK
+          test "$(printf '%s' "$EXPECTED_VERSION" | wc -c)" -eq 40
+          printf '%s' "$EXPECTED_VERSION" | grep -Eq '^[0-9a-f]{40}$'
+          test "$(printf '%s' "$REASON" | wc -c)" -ge 10
+      - name: Restore frontend deploy first
+        run: node scripts/render-deploy.mjs rollback --service-id "$FRONTEND_SERVICE_ID" --deploy-id "${{ inputs.frontend_deploy_id }}" > rollback-frontend.json
+      - name: Restore API deploy without reversing the database
+        run: node scripts/render-deploy.mjs rollback --service-id "$API_SERVICE_ID" --deploy-id "${{ inputs.api_deploy_id }}" > rollback-api.json
+      - name: Verify restored application and accepted-write-compatible schema
+        run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "${{ inputs.expected_version }}" --samples 6 --interval-ms 10000 --max-p95-ms 2500 --max-error-rate 0 > rollback-smoke.json
+      - name: Record rollback authorization without sensitive data
+        env:
+          REASON: ${{ inputs.reason }}
+          EXPECTED_VERSION: ${{ inputs.expected_version }}
+        run: |
+          reason_sha256="$(printf '%s' "$REASON" | sha256sum | cut -d' ' -f1)"
+          jq -n --arg reason_sha256 "$reason_sha256" --arg version "$EXPECTED_VERSION" --arg actor "$GITHUB_ACTOR" '{reason_sha256:$reason_sha256,expected_version:$version,actor:$actor,database_reversed:false}' > rollback-authorization.json
+      - name: Retain rollback evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: production-rollback-${{ github.run_id }}
+          path: rollback-*.json
+          if-no-files-found: warn
+          retention-days: 365

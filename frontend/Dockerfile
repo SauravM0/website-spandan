@@ -34,6 +34,7 @@ LABEL org.opencontainers.image.title="Spandan Clinic Frontend" \
       org.opencontainers.image.licenses="UNLICENSED"
 WORKDIR /app
 ENV NODE_ENV=production \
+    APP_VERSION=${OCI_REVISION} \
     NEXT_TELEMETRY_DISABLED=1 \
     NPM_CONFIG_UPDATE_NOTIFIER=false \
     PORT=3000 \
