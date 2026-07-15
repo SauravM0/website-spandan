@@ -1,0 +1,159 @@
+name: Container artifacts
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Verify ${{ matrix.component }} image
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            context: backend
+          - component: frontend
+            context: frontend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Derive reproducible metadata
+        shell: bash
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+          echo "OCI_CREATED=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
+      - name: Build local verification image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          load: true
+          tags: local/spandan-${{ matrix.component }}:${{ github.sha }}
+          build-args: |
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+            OCI_CREATED=${{ env.OCI_CREATED }}
+            OCI_REVISION=${{ github.sha }}
+            OCI_VERSION=sha-${{ github.sha }}
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+      - name: Rebuild independently and compare image identity
+        shell: bash
+        run: |
+          docker buildx build \
+            --load \
+            --no-cache \
+            --tag "local/spandan-${{ matrix.component }}-rebuild:${{ github.sha }}" \
+            --build-arg "SOURCE_DATE_EPOCH=${SOURCE_DATE_EPOCH}" \
+            --build-arg "OCI_CREATED=${OCI_CREATED}" \
+            --build-arg "OCI_REVISION=${GITHUB_SHA}" \
+            --build-arg "OCI_VERSION=sha-${GITHUB_SHA}" \
+            "${{ matrix.context }}"
+          first="$(docker image inspect --format '{{.Id}}' "local/spandan-${{ matrix.component }}:${GITHUB_SHA}")"
+          second="$(docker image inspect --format '{{.Id}}' "local/spandan-${{ matrix.component }}-rebuild:${GITHUB_SHA}")"
+          test "$first" = "$second"
+      - name: Generate CycloneDX SBOM
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: local/spandan-${{ matrix.component }}:${{ github.sha }}
+          format: cyclonedx
+          output: ${{ matrix.component }}-sbom.cdx.json
+      - name: Reject high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: local/spandan-${{ matrix.component }}:${{ github.sha }}
+          format: table
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          ignore-unfixed: false
+          exit-code: '1'
+      - name: Retain SBOM evidence
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: ${{ matrix.component }}-sbom-${{ github.sha }}
+          path: ${{ matrix.component }}-sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+  publish:
+    name: Publish signed ${{ matrix.component }} image
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: verify
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+      attestations: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - component: api
+            context: backend
+          - component: frontend
+            context: frontend
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Derive artifact identity
+        id: identity
+        shell: bash
+        run: |
+          echo "SOURCE_DATE_EPOCH=$(git show -s --format=%ct HEAD)" >> "$GITHUB_ENV"
+          echo "OCI_CREATED=$(git show -s --format=%cI HEAD)" >> "$GITHUB_ENV"
+          echo "image=ghcr.io/sauravm0/website-spandan/spandan-${{ matrix.component }}" >> "$GITHUB_OUTPUT"
+      - name: Build and push immutable image
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: ${{ matrix.context }}
+          push: true
+          tags: |
+            ${{ steps.identity.outputs.image }}:sha-${{ github.sha }}
+            ${{ steps.identity.outputs.image }}:main
+          build-args: |
+            SOURCE_DATE_EPOCH=${{ env.SOURCE_DATE_EPOCH }}
+            OCI_CREATED=${{ env.OCI_CREATED }}
+            OCI_REVISION=${{ github.sha }}
+            OCI_VERSION=sha-${{ github.sha }}
+          sbom: true
+          provenance: mode=max
+          cache-from: type=gha,scope=${{ matrix.component }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.component }}
+      - name: Scan the published digest
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          image-ref: ${{ steps.identity.outputs.image }}@${{ steps.build.outputs.digest }}
+          format: table
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          ignore-unfixed: false
+          exit-code: '1'
+      - name: Attach GitHub build provenance
+        uses: actions/attest-build-provenance@977bb373ede98d70efdf65b84cb5f73e068dcc2a # v3
+        with:
+          subject-name: ${{ steps.identity.outputs.image }}
+          subject-digest: ${{ steps.build.outputs.digest }}
+          push-to-registry: true
+      - name: Install Cosign
+        uses: sigstore/cosign-installer@d7543c93d881b35a8faa02e8e3605f69b7a1ce62 # v3.10.0
+      - name: Sign immutable digest
+        env:
+          IMAGE: ${{ steps.identity.outputs.image }}
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: cosign sign --yes "$IMAGE@$DIGEST"

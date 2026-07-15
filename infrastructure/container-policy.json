@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "registry": "ghcr.io/sauravm0/website-spandan",
+  "baseImages": {
+    "node22Alpine": "node:22-alpine@sha256:16e22a550f3863206a3f701448c45f7912c6896a62de43add43bb9c86130c3e2"
+  },
+  "artifacts": [
+    {
+      "name": "api",
+      "context": "backend",
+      "dockerfile": "backend/Dockerfile",
+      "runtimeUser": "express"
+    },
+    {
+      "name": "frontend",
+      "context": "frontend",
+      "dockerfile": "frontend/Dockerfile",
+      "runtimeUser": "nextjs"
+    }
+  ],
+  "workerArtifact": {
+    "status": "blocked",
+    "workPackage": "WP12",
+    "reason": "No independent worker entry point exists; background jobs still start inside the API process."
+  },
+  "supplyChain": {
+    "immutableTagPrefix": "sha-",
+    "sourceDateEpoch": "git-commit-time",
+    "sbom": "cyclonedx-and-buildkit-attestation",
+    "provenance": "slsa-buildkit-max-and-github-attestation",
+    "signature": "cosign-keyless-oidc",
+    "deployByDigestOnly": true
+  },
+  "vulnerabilityPolicy": {
+    "blockedSeverities": ["HIGH", "CRITICAL"],
+    "ignoreUnfixed": false,
+    "exceptions": []
+  }
+}

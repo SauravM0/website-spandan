@@ -13,7 +13,7 @@ const compose = read('docker-compose.yml');
 
 if (!/output:\s*['"]standalone['"]/.test(nextConfig)) errors.push('Next.js standalone output is not enabled.');
 if (!/Content-Security-Policy/.test(nextConfig)) errors.push('Frontend security headers were not preserved in the Next.js runtime.');
-if (!/FROM node:22-alpine AS runner/.test(dockerfile)) errors.push('Frontend runner must use the CI-compatible Node 22 runtime.');
+if (!/FROM \$\{NODE_IMAGE\} AS runner/.test(dockerfile)) errors.push('Frontend runner must use the approved pinned Node runtime.');
 if (!/CMD \["node", "server\.js"\]/.test(dockerfile)) errors.push('Frontend container does not start the standalone Next.js server.');
 if (/nginx|\/app\/out/i.test(dockerfile)) errors.push('Legacy static Nginx export remains in the frontend image.');
 if (!/USER nextjs/.test(dockerfile)) errors.push('Frontend runtime must run as a non-root user.');

@@ -10,6 +10,7 @@ const steps = [
   ['environments:check', ['run', 'environments:check']],
   ['frontend-runtime:check', ['run', 'frontend-runtime:check']],
   ['secrets:check', ['run', 'secrets:check']],
+  ['containers:check', ['run', 'containers:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],

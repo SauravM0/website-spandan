@@ -1,6 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  generateBuildId: async () => process.env.NEXT_BUILD_ID || 'development',
   images: { unoptimized: true },
   turbopack: { root: __dirname },
   devIndicators: false,
