@@ -1,0 +1,31 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP16",
+  "deploymentModel": "sole-administrator",
+  "capabilities": {
+    "entropyBits": 256,
+    "storedAsSha256": true,
+    "purposes": ["status", "receipt"],
+    "statusTtlHours": 24,
+    "receiptTtlDays": 30
+  },
+  "publicContracts": [
+    "GET /api/public/payments/status/:capability",
+    "GET /api/public/receipts/:capability",
+    "POST /api/public/receipts/:capability/email"
+  ],
+  "statusFields": [
+    "status",
+    "amount",
+    "currency",
+    "updated_at",
+    "expires_at",
+    "receipt_available",
+    "receipt_number",
+    "notification_status"
+  ],
+  "receiptEmailDestination": "stored-booking-email-only",
+  "denialResponse": "uniform-404",
+  "accessAudited": true,
+  "rateLimited": true
+}

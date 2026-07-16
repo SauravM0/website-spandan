@@ -193,6 +193,13 @@ router.get(
   validateZod({ params: adminPaymentParamsSchema }),
   asyncHandler(controller.adminPaymentDetail)
 );
+router.get(
+  '/payments/:id/receipt',
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  auditAccess('payment.receipt_read', 'payment'),
+  validateZod({ params: adminPaymentParamsSchema }),
+  asyncHandler(controller.adminPaymentReceipt)
+);
 router.post(
   '/payments/:id/recheck',
   requirePermission(PERMISSIONS.PAYMENTS_RECHECK),

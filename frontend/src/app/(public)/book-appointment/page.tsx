@@ -83,7 +83,11 @@ export default function BookAppointmentPage() {
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const requestedReason = params.get('reason')?.trim().replace(/[\r\n]+/g, ' ').slice(0, 120);
+    const requestedReason = params
+      .get('reason')
+      ?.trim()
+      .replace(/[\r\n]+/g, ' ')
+      .slice(0, 120);
     if (requestedReason) {
       dispatch({ type: 'UPDATE_FIELD', name: 'reason_for_visit', value: requestedReason });
     }
@@ -93,7 +97,9 @@ export default function BookAppointmentPage() {
         const doctors = data.doctors || [];
         const requestedDoctor = params.get('doctor');
         const matchedDoctor = requestedDoctor
-          ? doctors.find((doctor: any) => doctor.id === requestedDoctor || doctor.slug === requestedDoctor)
+          ? doctors.find(
+              (doctor: any) => doctor.id === requestedDoctor || doctor.slug === requestedDoctor
+            )
           : null;
         if (matchedDoctor) {
           dispatch({ type: 'SET_DOCTOR_ID', id: matchedDoctor.id });
@@ -110,13 +116,17 @@ export default function BookAppointmentPage() {
   const [doctorList, setDoctorList] = React.useState<any[]>([]);
 
   useEffect(() => {
-    getDoctors().then((d) => setDoctorList(d.doctors || [])).catch(() => {});
+    getDoctors()
+      .then((d) => setDoctorList(d.doctors || []))
+      .catch(() => {});
   }, []);
 
   useEffect(() => {
     getPublicAppointmentConfig(form.doctor_id || undefined, form.appointment_type || 'new')
       .then((data) => setBookingConfig(data.config))
-      .catch(() => dispatch({ type: 'SET_ERROR', error: 'Could not load appointment policy and fee.' }));
+      .catch(() =>
+        dispatch({ type: 'SET_ERROR', error: 'Could not load appointment policy and fee.' })
+      );
   }, [form.doctor_id, form.appointment_type]);
 
   useEffect(() => {
@@ -133,8 +143,14 @@ export default function BookAppointmentPage() {
     const lastDay = new Date(y, m, 0).getDate();
     const to = `${y}-${String(m).padStart(2, '0')}-${String(lastDay).padStart(2, '0')}`;
     getDoctorAvailability(form.doctor_id, from, to)
-      .then((data) => { setMonthAvailability(data.availability || {}); setMonthDays(data.days || {}); })
-      .catch(() => { setMonthAvailability({}); setMonthDays({}); });
+      .then((data) => {
+        setMonthAvailability(data.availability || {});
+        setMonthDays(data.days || {});
+      })
+      .catch(() => {
+        setMonthAvailability({});
+        setMonthDays({});
+      });
   }, [form.doctor_id, calendarMonth]);
 
   const selectedDoctor = useMemo(
@@ -150,12 +166,15 @@ export default function BookAppointmentPage() {
   const patientValidation = usePatientValidation(form);
   const availableSlots = slots.filter((s) => s.available).length;
 
-  const update = useCallback((name: string, value: string | boolean) => {
-    dispatch({ type: 'UPDATE_FIELD', name, value });
-    if (name === 'appointment_date' && typeof value === 'string') {
-      dispatch({ type: 'SET_CALENDAR_MONTH', month: value });
-    }
-  }, [dispatch]);
+  const update = useCallback(
+    (name: string, value: string | boolean) => {
+      dispatch({ type: 'UPDATE_FIELD', name, value });
+      if (name === 'appointment_date' && typeof value === 'string') {
+        dispatch({ type: 'SET_CALENDAR_MONTH', month: value });
+      }
+    },
+    [dispatch]
+  );
 
   const submit = useCallback(async () => {
     dispatch({ type: 'SET_LOADING', loading: true });
@@ -171,9 +190,15 @@ export default function BookAppointmentPage() {
         patient_phone: phone,
         appointment_type: form.appointment_type as 'new' | 'follow_up',
       });
-      setBookingConfig((current) => current && hold.hold.fee_amount !== undefined
-        ? { ...current, fee: Number(hold.hold.fee_amount), service: { ...current.service, name: hold.hold.service_name || current.service.name } }
-        : current);
+      setBookingConfig((current) =>
+        current && hold.hold.fee_amount !== undefined
+          ? {
+              ...current,
+              fee: Number(hold.hold.fee_amount),
+              service: { ...current.service, name: hold.hold.service_name || current.service.name },
+            }
+          : current
+      );
       dispatch({ type: 'SET_HOLD', hold: { id: hold.hold.id, expires_at: hold.hold.expires_at } });
       dispatch({ type: 'SET_PHASE', phase: 'hold_active' });
       dispatch({ type: 'SET_PHASE', phase: 'creating_appointment' });
@@ -195,26 +220,35 @@ export default function BookAppointmentPage() {
           `Reason: ${form.reason_for_visit}`,
           `Policy: ${bookingConfig?.policy_version || 'appointment-policy-2026-07-07'}`,
           `Consent: ${bookingConfig?.consent_version || 'appointment-consent-2026-07-07'}`,
-        ].filter(Boolean).join('\n'),
+        ]
+          .filter(Boolean)
+          .join('\n'),
         patient: {
           full_name: form.full_name,
           phone,
           email: form.email || undefined,
           gender: form.gender,
           date_of_birth: form.dob_unknown ? undefined : form.date_of_birth,
-          age_years: form.dob_unknown ? Number(form.age_years) : patientValidation.calculatedAge?.years,
-          guardian: form.guardian_name ? {
-            full_name: form.guardian_name,
-            phone,
-            relationship: form.guardian_relation || 'guardian',
-          } : undefined,
+          age_years: form.dob_unknown
+            ? Number(form.age_years)
+            : patientValidation.calculatedAge?.years,
+          guardian: form.guardian_name
+            ? {
+                full_name: form.guardian_name,
+                phone,
+                relationship: form.guardian_relation || 'guardian',
+              }
+            : undefined,
         },
       });
-      dispatch({ type: 'SET_RECOVERY_REFERENCE', reference: result.appointment.appointment_number || result.appointment.id });
+      dispatch({
+        type: 'SET_RECOVERY_REFERENCE',
+        reference: result.appointment.appointment_number || result.appointment.id,
+      });
       dispatch({ type: 'SET_PHASE', phase: 'creating_payment' });
       const payment = await createPayment({ appointment_id: result.appointment.id });
       dispatch({ type: 'SET_PHASE', phase: 'redirecting' });
-      window.location.href = payment.payment.redirect_url;
+      window.location.href = payment.payment.checkout_url;
     } catch (err) {
       dispatch({ type: 'SET_ERROR', error: formatError(err) });
     } finally {
@@ -227,10 +261,13 @@ export default function BookAppointmentPage() {
       <section className="soft-page-hero py-12">
         <div className="container">
           <h1 className="text-3xl font-bold">Book Appointment</h1>
-          <p className="mt-2 max-w-2xl text-text-light">Choose consultation type, doctor, server slot, patient details, then pay to confirm.</p>
+          <p className="mt-2 max-w-2xl text-text-light">
+            Choose consultation type, doctor, server slot, patient details, then pay to confirm.
+          </p>
           {bookingConfig && (
             <p className="mt-4 max-w-2xl text-sm text-text-light">
-              Clinic date: {bookingConfig.clinic_date}. Timezone: {bookingConfig.clinic_timezone}. Slot hold: {bookingConfig.hold_duration_minutes} minutes.
+              Clinic date: {bookingConfig.clinic_date}. Timezone: {bookingConfig.clinic_timezone}.
+              Slot hold: {bookingConfig.hold_duration_minutes} minutes.
             </p>
           )}
         </div>
@@ -240,7 +277,10 @@ export default function BookAppointmentPage() {
         <div className="container max-w-[980px]">
           <div className="mb-6 grid grid-cols-2 gap-2 text-center text-xs font-semibold md:grid-cols-5">
             {steps.map((s) => (
-              <div key={s.step} className={`rounded-2xl p-3 transition-all duration-300 ${step === s.step ? 'bg-gradient-to-r from-accent to-primary text-white shadow-[0_10px_24px_rgba(43,138,198,0.16)]' : 'border border-primary/20 bg-white text-text-light shadow-[0_8px_20px_rgba(23,58,94,0.06)]'}`}>
+              <div
+                key={s.step}
+                className={`rounded-2xl p-3 transition-all duration-300 ${step === s.step ? 'bg-gradient-to-r from-accent to-primary text-white shadow-[0_10px_24px_rgba(43,138,198,0.16)]' : 'border border-primary/20 bg-white text-text-light shadow-[0_8px_20px_rgba(23,58,94,0.06)]'}`}
+              >
                 {s.label}
               </div>
             ))}
@@ -267,7 +307,10 @@ export default function BookAppointmentPage() {
                     </button>
                   ))}
                 </div>
-                <button className="btn btn-accent justify-center" onClick={() => dispatch({ type: 'SET_STEP', step: 2 })}>
+                <button
+                  className="btn btn-accent justify-center"
+                  onClick={() => dispatch({ type: 'SET_STEP', step: 2 })}
+                >
                   Continue <ArrowRight size={18} />
                 </button>
               </div>
@@ -301,13 +344,24 @@ export default function BookAppointmentPage() {
                           <span className="text-sm text-text-light">{doctor.speciality}</span>
                         </span>
                       </span>
-                      <span className="mt-2 block text-xs font-semibold text-success">In-person consultation</span>
+                      <span className="mt-2 block text-xs font-semibold text-success">
+                        In-person consultation
+                      </span>
                     </button>
                   ))}
                 </div>
                 <div className="flex gap-3">
-                  <button className="btn btn-outline" onClick={() => dispatch({ type: 'SET_STEP', step: 1 })}><ArrowLeft size={18} /> Back</button>
-                  <button disabled={!form.doctor_id} className="btn btn-accent flex-1 disabled:opacity-50" onClick={() => dispatch({ type: 'SET_STEP', step: 3 })}>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => dispatch({ type: 'SET_STEP', step: 1 })}
+                  >
+                    <ArrowLeft size={18} /> Back
+                  </button>
+                  <button
+                    disabled={!form.doctor_id}
+                    className="btn btn-accent flex-1 disabled:opacity-50"
+                    onClick={() => dispatch({ type: 'SET_STEP', step: 3 })}
+                  >
                     Continue <ArrowRight size={18} />
                   </button>
                 </div>
@@ -318,7 +372,9 @@ export default function BookAppointmentPage() {
               <div className="grid gap-5">
                 <div>
                   <h2 className="text-xl font-bold text-navy">Select date and time</h2>
-                  <p className="mt-1 text-sm text-text-light">{availableSlots} slots available for the selected date.</p>
+                  <p className="mt-1 text-sm text-text-light">
+                    {availableSlots} slots available for the selected date.
+                  </p>
                 </div>
                 <SlotCalendar
                   calendarMonth={calendarMonth}
@@ -340,11 +396,24 @@ export default function BookAppointmentPage() {
                       {formatTime(slot.start_time)}
                     </button>
                   ))}
-                  {slots.length === 0 && <p className="col-span-full rounded-md bg-bg-alt p-4 text-sm text-text-light">No slots are available for this date.</p>}
+                  {slots.length === 0 && (
+                    <p className="col-span-full rounded-md bg-bg-alt p-4 text-sm text-text-light">
+                      No slots are available for this date.
+                    </p>
+                  )}
                 </div>
                 <div className="flex gap-3">
-                  <button className="btn btn-outline" onClick={() => dispatch({ type: 'SET_STEP', step: 2 })}><ArrowLeft size={18} /> Back</button>
-                  <button disabled={!form.start_time || !selectedSlot?.available} className="btn btn-accent flex-1 disabled:opacity-50" onClick={() => dispatch({ type: 'SET_STEP', step: 4 })}>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => dispatch({ type: 'SET_STEP', step: 2 })}
+                  >
+                    <ArrowLeft size={18} /> Back
+                  </button>
+                  <button
+                    disabled={!form.start_time || !selectedSlot?.available}
+                    className="btn btn-accent flex-1 disabled:opacity-50"
+                    onClick={() => dispatch({ type: 'SET_STEP', step: 4 })}
+                  >
                     Continue <ArrowRight size={18} />
                   </button>
                 </div>
@@ -355,8 +424,17 @@ export default function BookAppointmentPage() {
               <div className="grid gap-4">
                 <PatientForm form={form} onChange={update} />
                 <div className="flex gap-3">
-                  <button className="btn btn-outline" onClick={() => dispatch({ type: 'SET_STEP', step: 3 })}><ArrowLeft size={18} /> Back</button>
-                  <button disabled={!patientValidation.complete} className="btn btn-accent flex-1 disabled:opacity-50" onClick={() => dispatch({ type: 'SET_STEP', step: 5 })}>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => dispatch({ type: 'SET_STEP', step: 3 })}
+                  >
+                    <ArrowLeft size={18} /> Back
+                  </button>
+                  <button
+                    disabled={!patientValidation.complete}
+                    className="btn btn-accent flex-1 disabled:opacity-50"
+                    onClick={() => dispatch({ type: 'SET_STEP', step: 5 })}
+                  >
                     Review <ArrowRight size={18} />
                   </button>
                 </div>
@@ -367,33 +445,86 @@ export default function BookAppointmentPage() {
               <div className="grid gap-5">
                 <h2 className="text-xl font-bold text-navy">Review and pay</h2>
                 <div className="rounded-3xl bg-blue-50/70 p-4 text-sm">
-                  <p><strong>Patient:</strong> {form.full_name}</p>
-                  <p><strong>Doctor:</strong> {selectedDoctor?.name}</p>
-                  <p><strong>Date and time:</strong> {form.appointment_date} at {formatTime(form.start_time)}</p>
-                  <p><strong>Consultation fee:</strong> {money(bookingConfig?.fee)}</p>
-                  <p><strong>Gateway fee:</strong> Shown by payment gateway if applicable</p>
-                  <p><strong>Total before gateway:</strong> {money(bookingConfig?.fee)}</p>
-                  {hold && <p><strong>Active hold:</strong> <HoldTimer expiresAt={hold.expires_at} /></p>}
+                  <p>
+                    <strong>Patient:</strong> {form.full_name}
+                  </p>
+                  <p>
+                    <strong>Doctor:</strong> {selectedDoctor?.name}
+                  </p>
+                  <p>
+                    <strong>Date and time:</strong> {form.appointment_date} at{' '}
+                    {formatTime(form.start_time)}
+                  </p>
+                  <p>
+                    <strong>Consultation fee:</strong> {money(bookingConfig?.fee)}
+                  </p>
+                  <p>
+                    <strong>Gateway fee:</strong> Shown by payment gateway if applicable
+                  </p>
+                  <p>
+                    <strong>Total before gateway:</strong> {money(bookingConfig?.fee)}
+                  </p>
+                  {hold && (
+                    <p>
+                      <strong>Active hold:</strong> <HoldTimer expiresAt={hold.expires_at} />
+                    </p>
+                  )}
                 </div>
                 <div className="soft-card p-4 text-sm text-text-light">
-                  <p>Appointment is confirmed only after payment verification by the clinic system. Cancellation and refund requests are handled as per clinic policy.</p>
-                  <p className="mt-2">Policy version: {bookingConfig?.policy_version || 'appointment-policy-2026-07-07'}. Consent version: {bookingConfig?.consent_version || 'appointment-consent-2026-07-07'}.</p>
-                  {bookingConfig?.arrival_buffer_instructions && <p className="mt-2">{bookingConfig.arrival_buffer_instructions}</p>}
+                  <p>
+                    Appointment is confirmed only after payment verification by the clinic system.
+                    Cancellation and refund requests are handled as per clinic policy.
+                  </p>
+                  <p className="mt-2">
+                    Policy version:{' '}
+                    {bookingConfig?.policy_version || 'appointment-policy-2026-07-07'}. Consent
+                    version: {bookingConfig?.consent_version || 'appointment-consent-2026-07-07'}.
+                  </p>
+                  {bookingConfig?.arrival_buffer_instructions && (
+                    <p className="mt-2">{bookingConfig.arrival_buffer_instructions}</p>
+                  )}
                 </div>
                 <label className="flex items-start gap-3 text-sm">
-                  <input className="mt-1" type="checkbox" checked={form.consent} onChange={(e) => update('consent', e.target.checked)} />
-                  <span>I confirm the details are correct and consent to appointment booking and payment processing under the policy shown above.</span>
+                  <input
+                    className="mt-1"
+                    type="checkbox"
+                    checked={form.consent}
+                    onChange={(e) => update('consent', e.target.checked)}
+                  />
+                  <span>
+                    I confirm the details are correct and consent to appointment booking and payment
+                    processing under the policy shown above.
+                  </span>
                 </label>
                 {error && (
                   <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-danger">
                     <p>{error}</p>
-                    {recoveryReference && <p className="mt-1 text-text-light">Recovery reference: {recoveryReference}</p>}
+                    {recoveryReference && (
+                      <p className="mt-1 text-text-light">
+                        Recovery reference: {recoveryReference}
+                      </p>
+                    )}
                   </div>
                 )}
                 <div className="flex gap-3">
-                  <button className="btn btn-outline" onClick={() => dispatch({ type: 'SET_STEP', step: 4 })}><ArrowLeft size={18} /> Back</button>
-                  <button disabled={loading || !form.consent} className="btn btn-accent flex-1 disabled:opacity-50" onClick={submit}>
-                    {loading ? `${phase.replace(/_/g, ' ')}...` : <><CreditCard size={18} /> Pay and confirm</>}
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => dispatch({ type: 'SET_STEP', step: 4 })}
+                  >
+                    <ArrowLeft size={18} /> Back
+                  </button>
+                  <button
+                    disabled={loading || !form.consent}
+                    className="btn btn-accent flex-1 disabled:opacity-50"
+                    onClick={submit}
+                  >
+                    {loading ? (
+                      `${phase.replace(/_/g, ' ')}...`
+                    ) : (
+                      <>
+                        <CreditCard size={18} /> Pay and confirm
+                      </>
+                    )}
                   </button>
                 </div>
               </div>
@@ -402,10 +533,18 @@ export default function BookAppointmentPage() {
 
           <div className="soft-card mt-6 flex items-center gap-3 p-4 text-sm text-text-light">
             <CalendarCheck className="shrink-0 text-success" size={22} />
-            <span>After payment, the confirmation page will show payment status, receipt details when available, clinic address, and next steps.</span>
+            <span>
+              After payment, the confirmation page will show payment status, receipt details when
+              available, clinic address, and next steps.
+            </span>
           </div>
-          <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="note">
-            <strong>This booking service is not for emergencies.</strong> If symptoms are severe or life-threatening, call local emergency services or go to the nearest emergency department now.
+          <div
+            className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-900"
+            role="note"
+          >
+            <strong>This booking service is not for emergencies.</strong> If symptoms are severe or
+            life-threatening, call local emergency services or go to the nearest emergency
+            department now.
           </div>
         </div>
       </section>

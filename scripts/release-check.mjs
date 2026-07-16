@@ -21,6 +21,7 @@ const steps = [
   ['observability:check', ['run', 'observability:check']],
   ['auth:check', ['run', 'auth:check']],
   ['clinical-auth:check', ['run', 'clinical-auth:check']],
+  ['public-payments:check', ['run', 'public-payments:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],

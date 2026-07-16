@@ -21,10 +21,13 @@ test('dynamic pricing is versioned, scoped, effective-dated, and auditable', () 
 test('booking copies service and price snapshots instead of trusting a client amount', () => {
   const operations = read('src/services/operations.ts');
   const validation = read('src/utils/validation.ts');
-  assert.match(operations, /resolveServicePrice\(client, 'consultation'/);
+  assert.match(operations, /resolveServicePrice\(\s*client,\s*'consultation'/);
   assert.match(operations, /serviceSnapshot\.price/);
   assert.match(operations, /service_price_version/);
-  assert.doesNotMatch(validation.match(/export const slotHoldSchema[\s\S]*?\n\}\);/)?.[0] || '', /price|amount|fee/);
+  assert.doesNotMatch(
+    validation.match(/export const slotHoldSchema[\s\S]*?\n\}\);/)?.[0] || '',
+    /price|amount|fee/
+  );
 });
 
 test('price publication is restricted while billing remains read-only', () => {

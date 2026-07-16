@@ -667,8 +667,8 @@ export async function createPayment(data: { order_id?: string; appointment_id?: 
   });
 }
 
-export async function getPaymentStatus(transactionId: string) {
-  return fetchAPI<{ payment: any }>(`/payments/${encodeURIComponent(transactionId)}/status`);
+export async function getPaymentStatus(capability: string) {
+  return fetchAPI<{ payment: any }>(`/public/payments/status/${encodeURIComponent(capability)}`);
 }
 
 export async function recoverAppointment(reference: string, phone: string) {
@@ -678,7 +678,7 @@ export async function recoverAppointment(reference: string, phone: string) {
       state: string;
       expires_at: string;
       appointment_number: string | null;
-      payment_reference: string | null;
+      payment_status: string | null;
     };
   }>('/public/appointments/recover', {
     method: 'POST',
@@ -686,10 +686,9 @@ export async function recoverAppointment(reference: string, phone: string) {
   });
 }
 
-export async function emailReceipt(receiptId: string, email?: string) {
-  return fetchAPI<{ receipt: any }>(`/public/receipts/${encodeURIComponent(receiptId)}/email`, {
+export async function emailReceipt(capability: string) {
+  return fetchAPI<{ receipt: any }>(`/public/receipts/${encodeURIComponent(capability)}/email`, {
     method: 'POST',
-    body: JSON.stringify(email ? { email } : {}),
   });
 }
 

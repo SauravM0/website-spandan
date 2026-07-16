@@ -19,7 +19,7 @@ import {
   getAdminPaymentDetail,
   getAppointmentConfig,
   getAppointmentHold,
-  getPaymentStatus,
+  getPaymentStatusById,
   listDoctorAvailability,
   getPublicDoctorAvailabilityView,
   listPackageCommerceCatalog,
@@ -46,9 +46,9 @@ import {
   bulkRetryNotifications,
   deadLetterNotification,
   getNotificationDetail,
-  getReceiptDetailsByTransaction,
+  getReceiptDetailsByPaymentId,
   listNotificationOutbox,
-  queueReceiptEmailByReceiptId,
+  queueVerifiedReceiptEmailByPaymentId,
   retryNotification,
 } from '../services/notifications';
 import { buildReceiptPdf } from '../services/receiptPdf';
@@ -64,6 +64,13 @@ import {
 import { PostgresWorkerLeaseStore } from '../worker/leaseStore';
 import { operationalSnapshot } from '../observability/operationalSnapshot';
 import { observeBookingConfirmation, observeBookingHold } from '../observability/metrics';
+import {
+  auditPublicPaymentAccess,
+  publicPaymentStartDto,
+  publicPaymentStatusDto,
+  resolvePublicPaymentCapability,
+} from '../security/publicPaymentCapabilities';
+import { query } from '../config/database';
 
 function handleError(res: Response, err: unknown) {
   const error = err as Error & { status?: number; code?: string };
@@ -250,7 +257,7 @@ export async function startPayment(req: AuthenticatedRequest, res: Response) {
       ...req.body,
       idempotency_key: req.header('idempotency-key') || undefined,
     });
-    res.status(201).json({ payment });
+    res.status(201).json({ payment: publicPaymentStartDto(payment) });
   } catch (err) {
     handleError(res, err);
   }
@@ -262,7 +269,7 @@ export async function startOrderPayment(req: AuthenticatedRequest, res: Response
       order_id: req.params.id,
       idempotency_key: req.header('idempotency-key') || undefined,
     });
-    res.status(201).json({ payment });
+    res.status(201).json({ payment: publicPaymentStartDto(payment) });
   } catch (err) {
     handleError(res, err);
   }
@@ -274,7 +281,7 @@ export async function startAppointmentPayment(req: AuthenticatedRequest, res: Re
       req.params.holdId,
       req.header('idempotency-key') || undefined
     );
-    res.status(201).json({ payment });
+    res.status(201).json({ payment: publicPaymentStartDto(payment) });
   } catch (err) {
     handleError(res, err);
   }
@@ -308,43 +315,41 @@ export async function paymentWebhook(req: AuthenticatedRequest, res: Response) {
 }
 
 export async function paymentStatus(req: AuthenticatedRequest, res: Response) {
+  let paymentId: string | null = null;
   try {
-    const payment = await getPaymentStatus(req.params.transactionId);
+    const resolved = await resolvePublicPaymentCapability(req.params.capability, 'status');
+    paymentId = resolved.paymentId;
+    const payment = await getPaymentStatusById(paymentId);
     if (!payment) {
-      res.status(404).json({ error: 'Payment not found' });
+      await auditPublicPaymentAccess(paymentId, 'status', 'denied', res.locals.requestId);
+      sendApiError(
+        res,
+        404,
+        'PUBLIC_CAPABILITY_INVALID',
+        'Payment access link is invalid or expired.'
+      );
       return;
     }
-    res.json({ payment });
+    await auditPublicPaymentAccess(paymentId, 'status', 'success', res.locals.requestId);
+    res.json({ payment: publicPaymentStatusDto(payment) });
   } catch (err) {
-    handleError(res, err);
-  }
-}
-
-export async function paymentReturn(req: AuthenticatedRequest, res: Response) {
-  try {
-    const transactionId = String(req.query.transaction || req.query.merchantOrderId || '');
-    if (!transactionId) {
-      sendApiError(res, 400, 'TRANSACTION_REQUIRED', 'transaction is required');
-      return;
-    }
-    const payment = await getPaymentStatus(transactionId);
-    if (!payment) {
-      sendApiError(res, 404, 'PAYMENT_NOT_FOUND', 'Payment not found');
-      return;
-    }
-    res.json({ payment });
-  } catch (err) {
+    await auditPublicPaymentAccess(paymentId, 'status', 'denied', res.locals.requestId);
     handleError(res, err);
   }
 }
 
 export async function receipt(req: AuthenticatedRequest, res: Response) {
+  let paymentId: string | null = null;
   try {
-    const details = await getReceiptDetailsByTransaction(req.params.transactionId);
+    const resolved = await resolvePublicPaymentCapability(req.params.capability, 'receipt');
+    paymentId = resolved.paymentId;
+    const details = await getReceiptDetailsByPaymentId({ query }, paymentId);
     if (!details || details.status !== 'success') {
-      res.status(404).json({ error: 'Receipt not found' });
+      await auditPublicPaymentAccess(paymentId, 'receipt', 'denied', res.locals.requestId);
+      sendApiError(res, 404, 'RECEIPT_NOT_AVAILABLE', 'Receipt is not available.');
       return;
     }
+    await auditPublicPaymentAccess(paymentId, 'receipt', 'success', res.locals.requestId);
     res.setHeader('Content-Type', 'application/pdf');
     res.setHeader(
       'Content-Disposition',
@@ -352,19 +357,26 @@ export async function receipt(req: AuthenticatedRequest, res: Response) {
     );
     res.send(buildReceiptPdf(details));
   } catch (err) {
+    await auditPublicPaymentAccess(paymentId, 'receipt', 'denied', res.locals.requestId);
     handleError(res, err);
   }
 }
 
 export async function emailReceipt(req: AuthenticatedRequest, res: Response) {
+  let paymentId: string | null = null;
   try {
-    const receipt = await queueReceiptEmailByReceiptId(req.params.id, req.body?.email);
+    const resolved = await resolvePublicPaymentCapability(req.params.capability, 'receipt');
+    paymentId = resolved.paymentId;
+    const receipt = await queueVerifiedReceiptEmailByPaymentId(paymentId);
     if (!receipt) {
-      sendApiError(res, 404, 'RECEIPT_NOT_FOUND', 'Receipt not found');
+      await auditPublicPaymentAccess(paymentId, 'receipt_email', 'denied', res.locals.requestId);
+      sendApiError(res, 404, 'RECEIPT_NOT_AVAILABLE', 'Receipt is not available.');
       return;
     }
-    res.status(202).json({ receipt });
+    await auditPublicPaymentAccess(paymentId, 'receipt_email', 'success', res.locals.requestId);
+    res.status(202).json({ receipt: { status: receipt.status, queued_at: receipt.created_at } });
   } catch (err) {
+    await auditPublicPaymentAccess(paymentId, 'receipt_email', 'denied', res.locals.requestId);
     handleError(res, err);
   }
 }
@@ -719,6 +731,24 @@ export async function adminPaymentDetail(req: AuthenticatedRequest, res: Respons
       return;
     }
     res.json(result);
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminPaymentReceipt(req: AuthenticatedRequest, res: Response) {
+  try {
+    const details = await getReceiptDetailsByPaymentId({ query }, req.params.id);
+    if (!details || details.status !== 'success') {
+      sendApiError(res, 404, 'RECEIPT_NOT_AVAILABLE', 'Receipt is not available.');
+      return;
+    }
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${details.receipt_number || 'receipt'}.pdf"`
+    );
+    res.send(buildReceiptPdf(details));
   } catch (err) {
     handleError(res, err);
   }

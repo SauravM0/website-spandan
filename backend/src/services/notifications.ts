@@ -253,18 +253,16 @@ export async function queueReceiptEmailForPayment(db: PoolClient, paymentId: str
   return inserted.rows[0] || null;
 }
 
-export async function queueReceiptEmailByReceiptId(receiptId: string, email?: string) {
-  const receipt = await query('SELECT payment_id FROM receipts WHERE id = $1', [receiptId]);
-  if (!receipt.rows[0]) return null;
-  const details = await getReceiptDetailsByPaymentId({ query }, receipt.rows[0].payment_id);
-  if (!details) return null;
-  const destination = email || details.order_email || details.patient_email || '';
+export async function queueVerifiedReceiptEmailByPaymentId(paymentId: string) {
+  const details = await getReceiptDetailsByPaymentId({ query }, paymentId);
+  if (!details?.receipt_id) return null;
+  const destination = details.order_email || details.patient_email || '';
   const status = destination ? 'queued' : 'skipped_no_destination';
   const queued = await query(
     `INSERT INTO notification_outbox
        (patient_id, appointment_id, order_id, payment_id, channel, template, destination, language, payload, status)
      VALUES ($1, $2, $3, $4, 'email', $5, $6, $7, $8, $9)
-     RETURNING *`,
+     RETURNING id,status,created_at`,
     [
       details.patient_id || null,
       details.appointment_id || null,
@@ -273,7 +271,7 @@ export async function queueReceiptEmailByReceiptId(receiptId: string, email?: st
       details.order_id ? 'package_purchase_confirmed' : 'appointment_confirmed',
       destination,
       normalizeLanguage(details.order_language || details.patient_language),
-      JSON.stringify({ ...details, email_override: email || null }),
+      JSON.stringify(details),
       status,
     ]
   );

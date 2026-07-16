@@ -24,7 +24,9 @@
     "publicPayments": [
       "POST /api/payments/create",
       "POST /api/webhooks/phonepe",
-      "GET /api/public/checkout/:transactionId/status"
+      "GET /api/public/payments/status/:capability",
+      "GET /api/public/receipts/:capability",
+      "POST /api/public/receipts/:capability/email"
     ],
     "adminSession": [
       "POST /api/auth/login",
@@ -71,8 +73,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 34,
-    "migrationHead": "034_patient_clinical_authorization.sql"
+    "migrationCount": 35,
+    "migrationHead": "035_public_payment_capabilities.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

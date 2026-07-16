@@ -51,9 +51,9 @@ type PaymentFilters = {
   pageSize: number;
 };
 
-function receiptUrl(path?: string | null) {
-  if (!path) return '';
-  return browserApiUrl(path);
+function receiptUrl(paymentId?: string | null) {
+  if (!paymentId) return '';
+  return browserApiUrl(`/api/admin/operations/payments/${encodeURIComponent(paymentId)}/receipt`);
 }
 
 function money(value: unknown) {
@@ -112,8 +112,23 @@ function queryFromFilters(filters: PaymentFilters) {
   return params.toString();
 }
 
-function SummaryCard({ label, value, tone }: { label: string; value: React.ReactNode; tone?: 'success' | 'warning' | 'danger' }) {
-  const toneClass = tone === 'success' ? 'text-success' : tone === 'danger' ? 'text-danger' : tone === 'warning' ? 'text-amber-800' : 'text-navy';
+function SummaryCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: React.ReactNode;
+  tone?: 'success' | 'warning' | 'danger';
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'text-success'
+      : tone === 'danger'
+        ? 'text-danger'
+        : tone === 'warning'
+          ? 'text-amber-800'
+          : 'text-navy';
   return (
     <div className="rounded-lg border border-border bg-white p-4">
       <p className="text-xs font-semibold uppercase text-text-light">{label}</p>
@@ -124,7 +139,11 @@ function SummaryCard({ label, value, tone }: { label: string; value: React.React
 
 function PaymentTimeline({ events }: { events: any[] }) {
   if (!events.length) {
-    return <p className="rounded-lg bg-bg-alt p-4 text-sm text-text-light">No payment events recorded yet.</p>;
+    return (
+      <p className="rounded-lg bg-bg-alt p-4 text-sm text-text-light">
+        No payment events recorded yet.
+      </p>
+    );
   }
 
   return (
@@ -141,7 +160,9 @@ function PaymentTimeline({ events }: { events: any[] }) {
                 {event.provider ? ` via ${event.provider}` : ''}
               </p>
               {event.provider_transaction_id && (
-                <p className="mt-1 text-xs text-text-light">Provider ref {maskRef(event.provider_transaction_id)}</p>
+                <p className="mt-1 text-xs text-text-light">
+                  Provider ref {maskRef(event.provider_transaction_id)}
+                </p>
               )}
               {event.error && <p className="mt-1 text-xs text-danger">{event.error}</p>}
             </div>
@@ -181,38 +202,51 @@ function PaymentsInner() {
     setFilters(filtersFromParams(searchParams));
   }, [searchParams]);
 
-  const updateFilters = useCallback((patch: Partial<PaymentFilters>) => {
-    setFilters((current) => {
-      const next = { ...current, ...patch, page: patch.page ?? 1 };
-      const query = queryFromFilters(next);
-      router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
-      return next;
-    });
-  }, [pathname, router]);
+  const updateFilters = useCallback(
+    (patch: Partial<PaymentFilters>) => {
+      setFilters((current) => {
+        const next = { ...current, ...patch, page: patch.page ?? 1 };
+        const query = queryFromFilters(next);
+        router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+        return next;
+      });
+    },
+    [pathname, router]
+  );
 
-  const load = useCallback(async (nextFilters = filters, keepVisible = true) => {
-    const requestId = requestRef.current + 1;
-    requestRef.current = requestId;
-    setError('');
-    if (keepVisible) setRefreshing(true);
-    else setLoading(true);
-    try {
-      const data = await getAdminPayments('', nextFilters);
-      if (requestRef.current !== requestId) return;
-      setPayments(data.payments || []);
-      setPagination(data.pagination || { page: nextFilters.page, pageSize: nextFilters.pageSize, total: 0, totalPages: 1 });
-      setSummary(data.summary || {});
-    } catch (err) {
-      if (requestRef.current !== requestId) return;
-      setError(err instanceof Error ? err.message : 'Could not load payments.');
-    } finally {
-      if (requestRef.current === requestId) {
-        setLoading(false);
-        setRefreshing(false);
-        hasLoadedRef.current = true;
+  const load = useCallback(
+    async (nextFilters = filters, keepVisible = true) => {
+      const requestId = requestRef.current + 1;
+      requestRef.current = requestId;
+      setError('');
+      if (keepVisible) setRefreshing(true);
+      else setLoading(true);
+      try {
+        const data = await getAdminPayments('', nextFilters);
+        if (requestRef.current !== requestId) return;
+        setPayments(data.payments || []);
+        setPagination(
+          data.pagination || {
+            page: nextFilters.page,
+            pageSize: nextFilters.pageSize,
+            total: 0,
+            totalPages: 1,
+          }
+        );
+        setSummary(data.summary || {});
+      } catch (err) {
+        if (requestRef.current !== requestId) return;
+        setError(err instanceof Error ? err.message : 'Could not load payments.');
+      } finally {
+        if (requestRef.current === requestId) {
+          setLoading(false);
+          setRefreshing(false);
+          hasLoadedRef.current = true;
+        }
       }
-    }
-  }, [filters]);
+    },
+    [filters]
+  );
 
   useEffect(() => {
     load(filters, hasLoadedRef.current);
@@ -266,18 +300,37 @@ function PaymentsInner() {
 
   const submitRefundRequest = async () => {
     if (!selectedPayment) return;
-    setRefundSubmitting(true); setError(''); setRefundMessage('');
+    setRefundSubmitting(true);
+    setError('');
+    setRefundMessage('');
     try {
-      const result = await requestAdminPaymentRefund('', selectedPayment.id, Number(refundAmount), refundReason);
+      const result = await requestAdminPaymentRefund(
+        '',
+        selectedPayment.id,
+        Number(refundAmount),
+        refundReason
+      );
       setRefundMessage(result.message);
-      setRefundPreview(false); setRefundAmount(''); setRefundReason('');
+      setRefundPreview(false);
+      setRefundAmount('');
+      setRefundReason('');
       await loadDetail(selectedPayment.id);
-    } catch (err) { setError(err instanceof Error ? err.message : 'Refund request failed.'); }
-    finally { setRefundSubmitting(false); }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Refund request failed.');
+    } finally {
+      setRefundSubmitting(false);
+    }
   };
 
   const selectedPayment = detail?.payment || payments.find((payment) => payment.id === selectedId);
-  const noRecords = !loading && !payments.length && !filters.search && !filters.status && !filters.to && !filters.provider && !filters.entity;
+  const noRecords =
+    !loading &&
+    !payments.length &&
+    !filters.search &&
+    !filters.status &&
+    !filters.to &&
+    !filters.provider &&
+    !filters.entity;
   const rows = useMemo(() => payments, [payments]);
 
   const table = rows.length ? (
@@ -285,8 +338,19 @@ function PaymentsInner() {
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b border-border bg-bg-alt">
-            {['Transaction', 'Entity', 'Amount', 'Status', 'Provider', 'Receipt', 'Updated', 'Action'].map((item) => (
-              <th key={item} className="p-3">{item}</th>
+            {[
+              'Transaction',
+              'Entity',
+              'Amount',
+              'Status',
+              'Provider',
+              'Receipt',
+              'Updated',
+              'Action',
+            ].map((item) => (
+              <th key={item} className="p-3">
+                {item}
+              </th>
             ))}
           </tr>
         </thead>
@@ -294,31 +358,55 @@ function PaymentsInner() {
           {rows.map((payment) => (
             <tr key={payment.id} className="border-b border-border align-top hover:bg-bg-alt">
               <td className="p-3">
-                <button type="button" onClick={() => loadDetail(payment.id)} className="text-left font-semibold text-navy hover:text-accent">
+                <button
+                  type="button"
+                  onClick={() => loadDetail(payment.id)}
+                  className="text-left font-semibold text-navy hover:text-accent"
+                >
                   {maskRef(payment.merchant_transaction_id)}
                 </button>
                 <p className="mt-1 text-xs text-text-light">{dateTime(payment.created_at)}</p>
               </td>
               <td className="p-3">
                 <p>{payment.order_number || payment.appointment_number || '-'}</p>
-                <p className="text-xs capitalize text-text-light">{payment.order_id ? 'package order' : payment.appointment_id ? 'appointment' : 'unlinked'}</p>
+                <p className="text-xs capitalize text-text-light">
+                  {payment.order_id
+                    ? 'package order'
+                    : payment.appointment_id
+                      ? 'appointment'
+                      : 'unlinked'}
+                </p>
               </td>
               <td className="p-3 font-semibold">{money(payment.amount)}</td>
-              <td className="p-3"><StatusBadge tone={statusTone(payment.status)}>{label(payment.status)}</StatusBadge></td>
+              <td className="p-3">
+                <StatusBadge tone={statusTone(payment.status)}>{label(payment.status)}</StatusBadge>
+              </td>
               <td className="p-3">
                 <p className="capitalize">{payment.provider || '-'}</p>
                 <p className="text-xs text-text-light">{payment.payment_method || '-'}</p>
               </td>
               <td className="p-3">
                 {payment.pdf_url ? (
-                  <a className="inline-flex items-center gap-1 font-semibold text-accent" href={receiptUrl(payment.pdf_url)} target="_blank" rel="noopener noreferrer">
+                  <a
+                    className="inline-flex items-center gap-1 font-semibold text-accent"
+                    href={receiptUrl(payment.id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
                     Open <ExternalLink size={14} />
                   </a>
-                ) : <span className="text-text-light">Not generated</span>}
+                ) : (
+                  <span className="text-text-light">Not generated</span>
+                )}
               </td>
               <td className="p-3 text-xs text-text-light">{dateTime(payment.updated_at)}</td>
               <td className="p-3">
-                <button type="button" className="btn btn-outline btn-sm" onClick={() => recheck(payment.id)} disabled={recheckingId === payment.id}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => recheck(payment.id)}
+                  disabled={recheckingId === payment.id}
+                >
                   <RefreshCw size={14} />
                   {recheckingId === payment.id ? 'Checking' : 'Recheck'}
                 </button>
@@ -330,34 +418,62 @@ function PaymentsInner() {
     </div>
   ) : null;
 
-  const cards = rows.length ? rows.map((payment) => (
-    <article key={payment.id} className="rounded-lg border border-border bg-white p-4">
-      <div className="flex items-start justify-between gap-3">
-        <button type="button" onClick={() => loadDetail(payment.id)} className="text-left font-semibold text-navy">
-          {maskRef(payment.merchant_transaction_id)}
-        </button>
-        <StatusBadge tone={statusTone(payment.status)}>{label(payment.status)}</StatusBadge>
-      </div>
-      <div className="mt-3 grid gap-2 text-sm text-text-light">
-        <p><strong className="text-text">Entity:</strong> {payment.order_number || payment.appointment_number || '-'}</p>
-        <p><strong className="text-text">Amount:</strong> {money(payment.amount)}</p>
-        <p><strong className="text-text">Provider:</strong> {payment.provider || '-'} / {payment.payment_method || '-'}</p>
-        <p><strong className="text-text">Updated:</strong> {dateTime(payment.updated_at)}</p>
-      </div>
-      <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
-        {payment.pdf_url ? (
-          <a className="btn btn-outline btn-sm flex-1" href={receiptUrl(payment.pdf_url)} target="_blank" rel="noopener noreferrer">
-            Receipt
-          </a>
-        ) : (
-          <span className="btn btn-sm flex-1 cursor-not-allowed bg-bg-alt text-text-light">No receipt</span>
-        )}
-        <button type="button" className="btn btn-accent btn-sm flex-1" onClick={() => recheck(payment.id)} disabled={recheckingId === payment.id}>
-          {recheckingId === payment.id ? 'Checking' : 'Recheck'}
-        </button>
-      </div>
-    </article>
-  )) : null;
+  const cards = rows.length
+    ? rows.map((payment) => (
+        <article key={payment.id} className="rounded-lg border border-border bg-white p-4">
+          <div className="flex items-start justify-between gap-3">
+            <button
+              type="button"
+              onClick={() => loadDetail(payment.id)}
+              className="text-left font-semibold text-navy"
+            >
+              {maskRef(payment.merchant_transaction_id)}
+            </button>
+            <StatusBadge tone={statusTone(payment.status)}>{label(payment.status)}</StatusBadge>
+          </div>
+          <div className="mt-3 grid gap-2 text-sm text-text-light">
+            <p>
+              <strong className="text-text">Entity:</strong>{' '}
+              {payment.order_number || payment.appointment_number || '-'}
+            </p>
+            <p>
+              <strong className="text-text">Amount:</strong> {money(payment.amount)}
+            </p>
+            <p>
+              <strong className="text-text">Provider:</strong> {payment.provider || '-'} /{' '}
+              {payment.payment_method || '-'}
+            </p>
+            <p>
+              <strong className="text-text">Updated:</strong> {dateTime(payment.updated_at)}
+            </p>
+          </div>
+          <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
+            {payment.pdf_url ? (
+              <a
+                className="btn btn-outline btn-sm flex-1"
+                href={receiptUrl(payment.id)}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Receipt
+              </a>
+            ) : (
+              <span className="btn btn-sm flex-1 cursor-not-allowed bg-bg-alt text-text-light">
+                No receipt
+              </span>
+            )}
+            <button
+              type="button"
+              className="btn btn-accent btn-sm flex-1"
+              onClick={() => recheck(payment.id)}
+              disabled={recheckingId === payment.id}
+            >
+              {recheckingId === payment.id ? 'Checking' : 'Recheck'}
+            </button>
+          </div>
+        </article>
+      ))
+    : null;
 
   return (
     <section className="py-6 md:py-8">
@@ -365,7 +481,22 @@ function PaymentsInner() {
         <AdminPageHeader
           title="Payments"
           description="Reconcile payment status, receipts, notifications, and provider events without exposing raw provider payloads."
-          action={<div className="flex flex-wrap gap-2"><Link className="btn btn-accent" href="/admin/payments/pricing">Service Pricing</Link><button className="btn btn-outline" type="button" onClick={exportCsv} disabled={exporting}><Download size={16} />{exporting ? 'Exporting...' : 'Export CSV'}</button></div>}
+          action={
+            <div className="flex flex-wrap gap-2">
+              <Link className="btn btn-accent" href="/admin/payments/pricing">
+                Service Pricing
+              </Link>
+              <button
+                className="btn btn-outline"
+                type="button"
+                onClick={exportCsv}
+                disabled={exporting}
+              >
+                <Download size={16} />
+                {exporting ? 'Exporting...' : 'Export CSV'}
+              </button>
+            </div>
+          }
         />
 
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
@@ -378,45 +509,90 @@ function PaymentsInner() {
         <FilterBar>
           <label className="form-group mb-0">
             <span>Status</span>
-            <select value={filters.status} onChange={(event) => updateFilters({ status: event.target.value })}>
-              {statuses.map((item) => <option key={item || 'all'} value={item}>{item ? label(item) : 'All statuses'}</option>)}
+            <select
+              value={filters.status}
+              onChange={(event) => updateFilters({ status: event.target.value })}
+            >
+              {statuses.map((item) => (
+                <option key={item || 'all'} value={item}>
+                  {item ? label(item) : 'All statuses'}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0">
             <span>Entity</span>
-            <select value={filters.entity} onChange={(event) => updateFilters({ entity: event.target.value })}>
-              {entityFilters.map((item) => <option key={item || 'all'} value={item}>{item ? label(item) : 'All entities'}</option>)}
+            <select
+              value={filters.entity}
+              onChange={(event) => updateFilters({ entity: event.target.value })}
+            >
+              {entityFilters.map((item) => (
+                <option key={item || 'all'} value={item}>
+                  {item ? label(item) : 'All entities'}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0">
             <span>From</span>
-            <input type="date" value={filters.from} onChange={(event) => updateFilters({ from: event.target.value })} />
+            <input
+              type="date"
+              value={filters.from}
+              onChange={(event) => updateFilters({ from: event.target.value })}
+            />
           </label>
           <label className="form-group mb-0">
             <span>To</span>
-            <input type="date" value={filters.to} onChange={(event) => updateFilters({ to: event.target.value })} />
+            <input
+              type="date"
+              value={filters.to}
+              onChange={(event) => updateFilters({ to: event.target.value })}
+            />
           </label>
           <label className="form-group mb-0">
             <span>Provider</span>
-            <input value={filters.provider} onChange={(event) => updateFilters({ provider: event.target.value })} placeholder="phonepe" />
+            <input
+              value={filters.provider}
+              onChange={(event) => updateFilters({ provider: event.target.value })}
+              placeholder="phonepe"
+            />
           </label>
           <label className="form-group mb-0">
             <span>Sort</span>
-            <select value={filters.sort} onChange={(event) => updateFilters({ sort: event.target.value })}>
-              {sortOptions.map(([value, text]) => <option key={value} value={value}>{text}</option>)}
+            <select
+              value={filters.sort}
+              onChange={(event) => updateFilters({ sort: event.target.value })}
+            >
+              {sortOptions.map(([value, text]) => (
+                <option key={value} value={value}>
+                  {text}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0">
             <span>Rows</span>
-            <select value={filters.pageSize} onChange={(event) => updateFilters({ pageSize: Number(event.target.value) })}>
-              {[25, 50].map((item) => <option key={item} value={item}>{item}</option>)}
+            <select
+              value={filters.pageSize}
+              onChange={(event) => updateFilters({ pageSize: Number(event.target.value) })}
+            >
+              {[25, 50].map((item) => (
+                <option key={item} value={item}>
+                  {item}
+                </option>
+              ))}
             </select>
           </label>
           <label className="form-group mb-0 sm:col-span-2 lg:col-span-1">
             <span>Search</span>
             <span className="relative block">
               <Search className="absolute left-3 top-3.5 text-text-light" size={16} />
-              <input className="pl-9" value={filters.search} onChange={(event) => updateFilters({ search: event.target.value })} placeholder="Transaction, order, provider ref" />
+              <input
+                className="pl-9"
+                value={filters.search}
+                onChange={(event) => updateFilters({ search: event.target.value })}
+                placeholder="Transaction, order, provider ref"
+              />
             </span>
           </label>
         </FilterBar>
@@ -429,19 +605,34 @@ function PaymentsInner() {
 
         {loading && !payments.length ? (
           <div className="grid gap-3">
-            {[0, 1, 2].map((item) => <div key={item} className="h-24 animate-pulse rounded-lg bg-white" />)}
+            {[0, 1, 2].map((item) => (
+              <div key={item} className="h-24 animate-pulse rounded-lg bg-white" />
+            ))}
           </div>
         ) : (
           <>
-            {refreshing && <p className="mb-3 text-sm text-text-light">Refreshing filtered results...</p>}
+            {refreshing && (
+              <p className="mb-3 text-sm text-text-light">Refreshing filtered results...</p>
+            )}
             <ResponsiveDataView
               table={table}
               cards={cards}
-              empty={<p className="rounded-lg border border-border bg-white p-6 text-sm text-text-light">{noRecords ? 'No payments have been recorded yet.' : 'No payments match these filters.'}</p>}
+              empty={
+                <p className="rounded-lg border border-border bg-white p-6 text-sm text-text-light">
+                  {noRecords
+                    ? 'No payments have been recorded yet.'
+                    : 'No payments match these filters.'}
+                </p>
+              }
             />
-            <Pagination page={pagination.page} totalPages={pagination.totalPages} onPageChange={(page) => updateFilters({ page })} />
+            <Pagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              onPageChange={(page) => updateFilters({ page })}
+            />
             <p className="mt-3 text-xs text-text-light">
-              Showing {payments.length} of {pagination.total} matched payment(s). All amounts and states come from the backend payment record.
+              Showing {payments.length} of {pagination.total} matched payment(s). All amounts and
+              states come from the backend payment record.
             </p>
           </>
         )}
@@ -452,9 +643,20 @@ function PaymentsInner() {
               <div className="mb-4 flex items-start justify-between gap-3">
                 <div>
                   <h2 className="text-xl font-bold text-navy">Payment detail</h2>
-                  <p className="text-sm text-text-light">{selectedPayment ? maskRef(selectedPayment.merchant_transaction_id) : selectedId}</p>
+                  <p className="text-sm text-text-light">
+                    {selectedPayment
+                      ? maskRef(selectedPayment.merchant_transaction_id)
+                      : selectedId}
+                  </p>
                 </div>
-                <button type="button" className="btn btn-outline btn-sm" onClick={() => { setSelectedId(''); setDetail(null); }}>
+                <button
+                  type="button"
+                  className="btn btn-outline btn-sm"
+                  onClick={() => {
+                    setSelectedId('');
+                    setDetail(null);
+                  }}
+                >
                   <X size={16} />
                   Close
                 </button>
@@ -466,43 +668,145 @@ function PaymentsInner() {
                 <>
                   <div className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
                     <Detail label="Amount" value={money(selectedPayment.amount)} />
-                    <Detail label="Status" value={<StatusBadge tone={statusTone(selectedPayment.status)}>{label(selectedPayment.status)}</StatusBadge>} />
-                    <Detail label="Entity" value={selectedPayment.order_number || selectedPayment.appointment_number || '-'} />
-                    <Detail label="Provider" value={`${selectedPayment.provider || '-'} / ${selectedPayment.payment_method || '-'}`} />
-                    <Detail label="Provider reference" value={maskRef(selectedPayment.provider_reference || selectedPayment.provider_order_id)} />
+                    <Detail
+                      label="Status"
+                      value={
+                        <StatusBadge tone={statusTone(selectedPayment.status)}>
+                          {label(selectedPayment.status)}
+                        </StatusBadge>
+                      }
+                    />
+                    <Detail
+                      label="Entity"
+                      value={
+                        selectedPayment.order_number || selectedPayment.appointment_number || '-'
+                      }
+                    />
+                    <Detail
+                      label="Provider"
+                      value={`${selectedPayment.provider || '-'} / ${selectedPayment.payment_method || '-'}`}
+                    />
+                    <Detail
+                      label="Provider reference"
+                      value={maskRef(
+                        selectedPayment.provider_reference || selectedPayment.provider_order_id
+                      )}
+                    />
                     <Detail label="Updated" value={dateTime(selectedPayment.updated_at)} />
                   </div>
 
                   <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
                     {selectedPayment.pdf_url ? (
-                      <a className="btn btn-outline flex-1" href={receiptUrl(selectedPayment.pdf_url)} target="_blank" rel="noopener noreferrer">
+                      <a
+                        className="btn btn-outline flex-1"
+                        href={receiptUrl(selectedPayment.id)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
                         <ExternalLink size={16} />
                         Open Receipt
                       </a>
                     ) : (
-                      <span className="btn flex-1 cursor-not-allowed bg-bg-alt text-text-light">Receipt not generated</span>
+                      <span className="btn flex-1 cursor-not-allowed bg-bg-alt text-text-light">
+                        Receipt not generated
+                      </span>
                     )}
-                    <button type="button" className="btn btn-accent flex-1" onClick={() => recheck(selectedPayment.id)} disabled={recheckingId === selectedPayment.id}>
+                    <button
+                      type="button"
+                      className="btn btn-accent flex-1"
+                      onClick={() => recheck(selectedPayment.id)}
+                      disabled={recheckingId === selectedPayment.id}
+                    >
                       <RefreshCw size={16} />
-                      {recheckingId === selectedPayment.id ? 'Checking...' : 'Safe Provider Recheck'}
+                      {recheckingId === selectedPayment.id
+                        ? 'Checking...'
+                        : 'Safe Provider Recheck'}
                     </button>
                   </div>
 
                   {selectedPayment.status === 'success' && (
-                    <section className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4" aria-labelledby="refund-heading">
-                      <h3 id="refund-heading" className="font-bold text-navy">Request a refund</h3>
-                      <p className="mt-1 text-sm text-text-light">This records an audited request only. A different authorized person must approve it before provider processing.</p>
-                      {refundMessage && <p role="status" className="mt-3 text-sm font-semibold text-success">{refundMessage}</p>}
+                    <section
+                      className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4"
+                      aria-labelledby="refund-heading"
+                    >
+                      <h3 id="refund-heading" className="font-bold text-navy">
+                        Request a refund
+                      </h3>
+                      <p className="mt-1 text-sm text-text-light">
+                        This records an audited request only. A different authorized person must
+                        approve it before provider processing.
+                      </p>
+                      {refundMessage && (
+                        <p role="status" className="mt-3 text-sm font-semibold text-success">
+                          {refundMessage}
+                        </p>
+                      )}
                       <div className="mt-3 grid gap-3">
-                        <label className="form-group mb-0"><span>Amount in INR</span><input inputMode="decimal" type="number" min="0.01" max={Number(selectedPayment.amount)} step="0.01" value={refundAmount} onChange={(event) => { setRefundAmount(event.target.value); setRefundPreview(false); }} /></label>
-                        <label className="form-group mb-0"><span>Operational reason (minimum 10 characters)</span><textarea maxLength={500} value={refundReason} onChange={(event) => { setRefundReason(event.target.value); setRefundPreview(false); }} /></label>
+                        <label className="form-group mb-0">
+                          <span>Amount in INR</span>
+                          <input
+                            inputMode="decimal"
+                            type="number"
+                            min="0.01"
+                            max={Number(selectedPayment.amount)}
+                            step="0.01"
+                            value={refundAmount}
+                            onChange={(event) => {
+                              setRefundAmount(event.target.value);
+                              setRefundPreview(false);
+                            }}
+                          />
+                        </label>
+                        <label className="form-group mb-0">
+                          <span>Operational reason (minimum 10 characters)</span>
+                          <textarea
+                            maxLength={500}
+                            value={refundReason}
+                            onChange={(event) => {
+                              setRefundReason(event.target.value);
+                              setRefundPreview(false);
+                            }}
+                          />
+                        </label>
                         {!refundPreview ? (
-                          <button type="button" className="btn btn-outline" disabled={Number(refundAmount) <= 0 || Number(refundAmount) > Number(selectedPayment.amount) || refundReason.trim().length < 10} onClick={() => setRefundPreview(true)}>Review refund request</button>
+                          <button
+                            type="button"
+                            className="btn btn-outline"
+                            disabled={
+                              Number(refundAmount) <= 0 ||
+                              Number(refundAmount) > Number(selectedPayment.amount) ||
+                              refundReason.trim().length < 10
+                            }
+                            onClick={() => setRefundPreview(true)}
+                          >
+                            Review refund request
+                          </button>
                         ) : (
-                          <div className="rounded-lg border border-amber-400 bg-white p-3" role="alert">
-                            <p className="font-semibold">Confirm request for {money(refundAmount)}</p>
+                          <div
+                            className="rounded-lg border border-amber-400 bg-white p-3"
+                            role="alert"
+                          >
+                            <p className="font-semibold">
+                              Confirm request for {money(refundAmount)}
+                            </p>
                             <p className="mt-1 text-sm">Reason: {refundReason}</p>
-                            <div className="mt-3 flex gap-2"><button type="button" className="btn btn-accent" disabled={refundSubmitting} onClick={submitRefundRequest}>{refundSubmitting ? 'Recording...' : 'Record refund request'}</button><button type="button" className="btn btn-outline" onClick={() => setRefundPreview(false)}>Go back</button></div>
+                            <div className="mt-3 flex gap-2">
+                              <button
+                                type="button"
+                                className="btn btn-accent"
+                                disabled={refundSubmitting}
+                                onClick={submitRefundRequest}
+                              >
+                                {refundSubmitting ? 'Recording...' : 'Record refund request'}
+                              </button>
+                              <button
+                                type="button"
+                                className="btn btn-outline"
+                                onClick={() => setRefundPreview(false)}
+                              >
+                                Go back
+                              </button>
+                            </div>
                           </div>
                         )}
                       </div>
@@ -515,7 +819,9 @@ function PaymentsInner() {
                   </div>
                 </>
               ) : (
-                <p className="rounded-lg bg-bg-alt p-4 text-sm text-text-light">Select a payment to view details.</p>
+                <p className="rounded-lg bg-bg-alt p-4 text-sm text-text-light">
+                  Select a payment to view details.
+                </p>
               )}
             </aside>
           </div>
@@ -536,7 +842,13 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function AdminPaymentsPage() {
   return (
-    <Suspense fallback={<section className="py-8"><div className="container">Loading payments...</div></section>}>
+    <Suspense
+      fallback={
+        <section className="py-8">
+          <div className="container">Loading payments...</div>
+        </section>
+      }
+    >
       <PaymentsInner />
     </Suspense>
   );
