@@ -270,12 +270,16 @@ export async function createPatient(client: PoolClient, input: PatientInput): Pr
     `SELECT id,
             ARRAY_REMOVE(ARRAY[
               CASE WHEN LOWER(BTRIM(full_name)) = LOWER(BTRIM($1)) THEN 'name' END,
-              CASE WHEN phone = $2 THEN 'phone' END,
+              CASE WHEN RIGHT(regexp_replace(phone,'\D','','g'),10) = RIGHT(regexp_replace($2,'\D','','g'),10) THEN 'phone' END,
               CASE WHEN date_of_birth IS NOT DISTINCT FROM $3::date AND $3::date IS NOT NULL THEN 'date_of_birth' END,
               CASE WHEN LOWER(COALESCE(email, '')) = LOWER(COALESCE($4, '')) AND $4 IS NOT NULL THEN 'email' END
             ], NULL) AS reasons
      FROM patients
-     WHERE id <> $5 AND (phone = $2 OR ($3::date IS NOT NULL AND date_of_birth = $3::date))
+     WHERE id <> $5 AND (
+       (LENGTH(regexp_replace(phone,'\D','','g')) >= 10
+        AND RIGHT(regexp_replace(phone,'\D','','g'),10) = RIGHT(regexp_replace($2,'\D','','g'),10))
+       OR ($3::date IS NOT NULL AND date_of_birth = $3::date)
+     )
      LIMIT 10`,
     [input.full_name, input.phone, input.date_of_birth || null, input.email || null, patientId]
   );

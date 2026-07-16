@@ -75,6 +75,11 @@ export async function searchPatients(
   const result = await query(
     `SELECT p.id,p.full_name,p.date_of_birth,p.age_years,p.gender,p.preferred_language,p.confidentiality,p.updated_at,
             RIGHT(regexp_replace(p.phone,'\\D','','g'),4) AS phone_last4,
+            COALESCE((SELECT target_patient_id FROM patient_redirects redirect
+              WHERE redirect.source_patient_id=p.id AND redirect.reversed_at IS NULL),p.id) AS canonical_patient_id,
+            EXISTS(SELECT 1 FROM patient_redirects redirect
+              WHERE redirect.reversed_at IS NULL
+                AND (redirect.source_patient_id=p.id OR redirect.target_patient_id=p.id)) AS identity_linked,
             EXISTS(SELECT 1 FROM patient_match_reviews mr WHERE (mr.candidate_patient_id=p.id OR mr.possible_patient_id=p.id) AND mr.status='pending') AS duplicate_warning
        FROM patients p
       WHERE p.archived_at IS NULL
@@ -111,7 +116,7 @@ export async function getPatientSummary(id: string, actor: Actor) {
   );
   if (!patient.rows[0]) throw new AppError(404, 'PATIENT_NOT_FOUND', 'Patient record not found');
   await assertPatientClinicalAccess({ query }, id, actor);
-  const [identifiers, relationships] = await Promise.all([
+  const [identifiers, relationships, identityLinks] = await Promise.all([
     query(
       `SELECT id,system,display_masked,status,source,valid_from,valid_until FROM patient_identifiers WHERE patient_id=$1 ORDER BY created_at DESC`,
       [id]
@@ -120,11 +125,19 @@ export async function getPatientSummary(id: string, actor: Actor) {
       `SELECT id,full_name,relationship,access_status,created_at FROM patient_relationships WHERE patient_id=$1 ORDER BY created_at DESC`,
       [id]
     ),
+    query(
+      `SELECT source_patient_id,target_patient_id,merged_at
+       FROM patient_redirects
+       WHERE reversed_at IS NULL AND (source_patient_id=$1 OR target_patient_id=$1)
+       ORDER BY merged_at`,
+      [id]
+    ),
   ]);
   return {
     patient: patient.rows[0],
     identifiers: identifiers.rows,
     relationships: relationships.rows,
+    identity_links: identityLinks.rows,
   };
 }
 
@@ -132,7 +145,17 @@ export async function getPatientAppointments(id: string, actor: Actor) {
   await assertPatientClinicalAccess({ query }, id, actor);
   const scope = scopeSql(actor, 'a');
   const result = await query(
-    `SELECT a.id,a.appointment_date,a.start_time,a.end_time,a.status,a.booking_state,a.appointment_type,
+    `WITH canonical_patient AS (
+       SELECT COALESCE((SELECT target_patient_id FROM patient_redirects
+         WHERE source_patient_id=$1 AND reversed_at IS NULL),$1::uuid) id
+     ), identity_group AS (
+       SELECT id FROM canonical_patient
+       UNION
+       SELECT redirect.source_patient_id FROM patient_redirects redirect
+       JOIN canonical_patient canonical ON canonical.id=redirect.target_patient_id
+       WHERE redirect.reversed_at IS NULL
+     )
+     SELECT a.id,a.patient_id AS source_patient_id,a.appointment_date,a.start_time,a.end_time,a.status,a.booking_state,a.appointment_type,
             a.payment_status,a.doctor_id,d.name doctor_name,a.reschedule_count,a.last_rescheduled_at,
             COALESCE((
               SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
@@ -143,11 +166,38 @@ export async function getPatientAppointments(id: string, actor: Actor) {
             ),'[]'::jsonb) AS reschedule_history,
             a.created_at,a.updated_at
        FROM appointments a JOIN doctors d ON d.id=a.doctor_id
-      WHERE a.patient_id=$1${scope.sql}
+      WHERE a.patient_id IN (SELECT id FROM identity_group)${scope.sql}
       ORDER BY a.appointment_date DESC,a.start_time DESC,a.id DESC LIMIT 100`,
     [id, ...scope.params]
   );
-  return { appointments: result.rows };
+  let packageOrders: any[] = [];
+  if (isClinicalAdministrator(actor)) {
+    const orders = await query(
+      `WITH canonical_patient AS (
+         SELECT COALESCE((SELECT target_patient_id FROM patient_redirects
+           WHERE source_patient_id=$1 AND reversed_at IS NULL),$1::uuid) id
+       ), identity_group AS (
+         SELECT id FROM canonical_patient
+         UNION
+         SELECT redirect.source_patient_id FROM patient_redirects redirect
+         JOIN canonical_patient canonical ON canonical.id=redirect.target_patient_id
+         WHERE redirect.reversed_at IS NULL
+       ), linked_orders AS (
+         SELECT order_id,patient_id FROM package_order_items WHERE patient_id IN (SELECT id FROM identity_group)
+         UNION
+         SELECT order_id,patient_id FROM custom_test_order_items WHERE patient_id IN (SELECT id FROM identity_group)
+       )
+       SELECT DISTINCT order_row.id,order_row.order_number,order_row.status,order_row.order_type,
+              order_row.total_amount,order_row.created_at,linked.source_patient_id
+       FROM package_orders order_row
+       JOIN (SELECT order_id,(ARRAY_AGG(patient_id ORDER BY patient_id))[1] source_patient_id FROM linked_orders GROUP BY order_id) linked
+         ON linked.order_id=order_row.id
+       ORDER BY order_row.created_at DESC,order_row.id DESC LIMIT 100`,
+      [id]
+    );
+    packageOrders = orders.rows;
+  }
+  return { appointments: result.rows, packageOrders };
 }
 
 export async function getPatientClinical(id: string, actor: Actor) {

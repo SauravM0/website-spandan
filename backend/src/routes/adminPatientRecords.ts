@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate } from '../middleware/auth';
+import { authenticate, requireRecentStepUp } from '../middleware/auth';
 import { requirePermission } from '../middleware/authorize';
 import { validateZod } from '../middleware/validate';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -9,12 +9,24 @@ import { PERMISSIONS } from '../security/permissions';
 import { AppError } from '../utils/errors';
 import * as records from '../services/patientRecord';
 import * as documents from '../services/medicalDocuments';
+import * as identityReviews from '../services/patientIdentityReview';
 
 const router = Router();
 router.use(authenticate);
 const id = z.object({ id: z.string().uuid() });
 const patientId = z.object({ patientId: z.string().uuid() });
 const patientDocumentId = patientId.extend({ id: z.string().uuid() });
+const identityReviewId = z.object({ reviewId: z.string().uuid() });
+const identityReviewResolution = z.object({
+  outcome: z.enum(['same_person', 'different_person', 'insufficient_evidence']),
+  canonical_patient_id: z.string().uuid().optional(),
+  confirmed_factors: z
+    .array(z.enum(['name', 'date_of_birth', 'phone', 'authorized_identifier']))
+    .max(4)
+    .default([]),
+  reason: z.string().trim().min(3).max(500),
+  expected_version: z.number().int().positive(),
+});
 const encounter = z.object({
   appointment_id: z.string().uuid().optional(),
   doctor_id: z.string().uuid(),
@@ -81,6 +93,44 @@ router.get(
       )
     )
   )
+);
+router.get(
+  '/identity-reviews',
+  requirePermission(PERMISSIONS.PATIENT_IDENTITY_REVIEW),
+  validateZod({
+    query: z.object({
+      status: z
+        .enum(['pending', 'same_person', 'different_person', 'insufficient_evidence'])
+        .default('pending'),
+      limit: z.coerce.number().int().min(1).max(100).default(50),
+    }),
+  }),
+  asyncHandler(async (req: any, res) =>
+    res.json(await identityReviews.listIdentityReviews(req.query.status, req.query.limit))
+  )
+);
+router.post(
+  '/identity-reviews/:reviewId/resolution',
+  requirePermission(PERMISSIONS.PATIENT_IDENTITY_REVIEW),
+  requireRecentStepUp,
+  validateZod({ params: identityReviewId, body: identityReviewResolution }),
+  asyncHandler(async (req: any, res) => {
+    const idempotencyKey = req.header('idempotency-key');
+    if (!idempotencyKey)
+      throw new AppError(400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required.');
+    res.json({
+      review: await identityReviews.resolveIdentityReview({
+        reviewId: req.params.reviewId,
+        outcome: req.body.outcome,
+        canonicalPatientId: req.body.canonical_patient_id,
+        confirmedFactors: req.body.confirmed_factors,
+        reason: req.body.reason,
+        expectedVersion: req.body.expected_version,
+        actorStaffId: req.user.id,
+        idempotencyKey,
+      }),
+    });
+  })
 );
 router.get(
   '/:patientId/summary',

@@ -28,6 +28,7 @@ databaseTest('migrations create the critical production tables and constraints',
           'appointment_payment_evidence',
           'appointment_transition_events',
           'appointment_reschedule_events',
+          'patient_identity_review_events',
           'payments',
           'package_orders',
           'package_order_events',
@@ -40,6 +41,7 @@ databaseTest('migrations create the critical production tables and constraints',
       'appointment_payment_evidence',
       'appointment_reschedule_events',
       'appointment_transition_events',
+      'patient_identity_review_events',
       'package_order_events',
       'package_order_price_confirmations',
       'package_orders',
@@ -106,10 +108,141 @@ databaseTest('migrations create the critical production tables and constraints',
       'package_order_events_immutable',
       'package_order_price_confirmation_immutable',
     ]);
+    const identityTriggers = await client.query(
+      `SELECT tgname FROM pg_trigger
+       WHERE tgname = ANY($1::text[]) AND NOT tgisinternal`,
+      [
+        [
+          'patient_identity_review_event_immutable',
+          'patient_source_record_delete_blocked',
+          'patient_redirect_evidence_protected',
+        ],
+      ]
+    );
+    assert.deepEqual(identityTriggers.rows.map((row) => row.tgname).sort(), [
+      'patient_identity_review_event_immutable',
+      'patient_redirect_evidence_protected',
+      'patient_source_record_delete_blocked',
+    ]);
   } finally {
     await client.end();
   }
 });
+
+databaseTest(
+  'identity review rejects wrong patients and concurrent reviewers produce one link',
+  async () => {
+    const client = new Client({ connectionString });
+    await client.connect();
+    const suffix = randomUUID();
+    try {
+      const staff = await client.query(
+        `INSERT INTO staff_users(email,password_hash,full_name,role)
+       VALUES($1,'not-a-real-password-hash','Identity Reviewer','staff') RETURNING id`,
+        [`identity-${suffix}@example.test`]
+      );
+      const doctor = await client.query(
+        `INSERT INTO doctors(name,slug,speciality)
+       VALUES('Identity Doctor',$1,'Testing') RETURNING id`,
+        [`identity-doctor-${suffix}`]
+      );
+      const patients = await Promise.all(
+        [0, 1].map((index) =>
+          client.query(
+            `INSERT INTO patients(full_name,phone,date_of_birth)
+           VALUES('Asha Patil',$1,'1985-04-02') RETURNING id`,
+            [`98765432${10 + index}`]
+          )
+        )
+      );
+      for (let index = 0; index < 2; index += 1) {
+        await client.query(
+          `INSERT INTO appointments
+           (patient_id,doctor_id,appointment_date,start_time,end_time,status,booking_state,
+            fee_amount,fee_currency,payment_status,version)
+         VALUES($1,$2,CURRENT_DATE + $3,$4::time,($4::time + interval '30 minutes')::time,
+                'awaiting_payment','payment_required',500,'INR','not_paid',1)`,
+          [patients[index].rows[0].id, doctor.rows[0].id, 10 + index, index ? '11:00' : '10:00']
+        );
+      }
+      const review = await client.query(
+        `INSERT INTO patient_match_reviews(candidate_patient_id,possible_patient_id,reason_codes)
+       VALUES($1,$2,ARRAY['name','date_of_birth']) RETURNING id`,
+        [patients[0].rows[0].id, patients[1].rows[0].id]
+      );
+      const { resolveIdentityReview } = await import('../src/services/patientIdentityReview');
+      const results = await Promise.allSettled(
+        [0, 1].map((index) =>
+          resolveIdentityReview({
+            reviewId: review.rows[0].id,
+            outcome: 'same_person',
+            canonicalPatientId: patients[1].rows[0].id,
+            confirmedFactors: ['name', 'date_of_birth'],
+            reason: `Patient confirmed name and date of birth ${index}`,
+            expectedVersion: 1,
+            actorStaffId: staff.rows[0].id,
+            idempotencyKey: randomUUID(),
+          })
+        )
+      );
+      assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+      assert.equal(
+        results.filter(
+          (result) =>
+            result.status === 'rejected' &&
+            (result.reason as any)?.code === 'IDENTITY_REVIEW_VERSION_CONFLICT'
+        ).length,
+        1
+      );
+      const links = await client.query(
+        'SELECT source_patient_id,target_patient_id FROM patient_redirects WHERE target_patient_id=$1',
+        [patients[1].rows[0].id]
+      );
+      assert.equal(links.rowCount, 1);
+      const journey = await import('../src/services/patientRecord');
+      const combined = await journey.getPatientAppointments(patients[1].rows[0].id, {
+        id: staff.rows[0].id,
+        role: 'admin',
+      });
+      assert.equal(combined.appointments.length, 2);
+      await assert.rejects(
+        client.query('DELETE FROM patients WHERE id=$1', [patients[0].rows[0].id]),
+        (error: any) => error?.code === '55000'
+      );
+
+      const wrongPatients = await Promise.all([
+        client.query(
+          `INSERT INTO patients(full_name,phone,date_of_birth)
+         VALUES('Wrong Person One','9000000001','1970-01-01') RETURNING id`
+        ),
+        client.query(
+          `INSERT INTO patients(full_name,phone,date_of_birth)
+         VALUES('Wrong Person Two','9000000002','1990-02-02') RETURNING id`
+        ),
+      ]);
+      const wrongReview = await client.query(
+        `INSERT INTO patient_match_reviews(candidate_patient_id,possible_patient_id,reason_codes)
+       VALUES($1,$2,ARRAY['manual']) RETURNING id`,
+        [wrongPatients[0].rows[0].id, wrongPatients[1].rows[0].id]
+      );
+      await assert.rejects(
+        resolveIdentityReview({
+          reviewId: wrongReview.rows[0].id,
+          outcome: 'same_person',
+          canonicalPatientId: wrongPatients[0].rows[0].id,
+          confirmedFactors: ['name', 'date_of_birth'],
+          reason: 'Deliberately invalid wrong-patient link',
+          expectedVersion: 1,
+          actorStaffId: staff.rows[0].id,
+          idempotencyKey: randomUUID(),
+        }),
+        (error: any) => error?.code === 'IDENTITY_FACTOR_MISMATCH'
+      );
+    } finally {
+      await client.end();
+    }
+  }
+);
 
 databaseTest(
   'concurrent reschedules cannot take one target slot and failures preserve the original',

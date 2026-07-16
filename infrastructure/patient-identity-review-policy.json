@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP21",
+  "deploymentModel": "sole-administrator",
+  "automaticMerge": false,
+  "signals": ["name", "date_of_birth", "phone", "authorized_identifier"],
+  "outcomes": ["same_person", "different_person", "insufficient_evidence"],
+  "samePerson": {
+    "minimumConfirmedFactors": 2,
+    "canonicalRecordRequired": true,
+    "stepUpRequired": true,
+    "expectedVersionRequired": true,
+    "idempotencyRequired": true
+  },
+  "preservation": {
+    "sourceRecordsImmutable": true,
+    "clinicalHistoryMoved": false,
+    "paymentHistoryMoved": false,
+    "auditEvidenceImmutable": true,
+    "linksReversibleWithoutDeletion": true
+  },
+  "journey": {
+    "linkedAppointmentsVisible": true,
+    "linkedPackageOrdersVisible": true
+  }
+}

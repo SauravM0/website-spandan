@@ -23,6 +23,7 @@ export const PERMISSIONS = {
   INTAKE_WRITE: 'admin.intake.write',
   PATIENTS_READ: 'admin.patients.read',
   PATIENTS_WRITE: 'admin.patients.write',
+  PATIENT_IDENTITY_REVIEW: 'admin.patient_identity.review',
   CLINICAL_READ: 'admin.clinical.read',
   CLINICAL_WRITE: 'admin.clinical.write',
   MEDICATION_REPORT: 'admin.medications.report',

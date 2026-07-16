@@ -49,6 +49,8 @@
       "GET /api/admin/operations/payments"
     ],
     "adminPatient": [
+      "GET /api/admin/patients/identity-reviews",
+      "POST /api/admin/patients/identity-reviews/:reviewId/resolution",
       "GET /api/admin/patients/:id/summary",
       "GET /api/admin/patients/:id/appointments",
       "GET /api/admin/patients/:id/clinical/timeline",
@@ -78,8 +80,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 39,
-    "migrationHead": "039_safe_appointment_rescheduling.sql"
+    "migrationCount": 40,
+    "migrationHead": "040_patient_identity_review.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

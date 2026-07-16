@@ -1299,6 +1299,31 @@ export async function searchAdminPatients(search = '', cursor?: string) {
     `/admin/patients${toQuery({ search, cursor, page_size: 25 })}`
   );
 }
+export async function getPatientIdentityReviews(status = 'pending') {
+  return fetchAPI<{ data: any[] }>(
+    `/admin/patients/identity-reviews${toQuery({ status, limit: 50 })}`
+  );
+}
+export async function resolvePatientIdentityReview(
+  reviewId: string,
+  data: {
+    outcome: 'same_person' | 'different_person' | 'insufficient_evidence';
+    canonical_patient_id?: string;
+    confirmed_factors: string[];
+    reason: string;
+    expected_version: number;
+  }
+) {
+  clearApiCache('/admin/patients');
+  return fetchAPI<{ review: any }>(
+    `/admin/patients/identity-reviews/${encodeURIComponent(reviewId)}/resolution`,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify(data),
+    }
+  );
+}
 export async function getAdminPatient(id: string, signal?: AbortSignal) {
   const patientId = encodeURIComponent(id);
   const [summary, appointments, clinical] = await Promise.all([
