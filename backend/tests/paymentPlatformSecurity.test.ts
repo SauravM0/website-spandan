@@ -3,8 +3,18 @@ import test from 'node:test';
 import fs from 'node:fs';
 
 const service = fs.readFileSync(new URL('../src/services/operations.ts', import.meta.url), 'utf8');
-const routes = fs.readFileSync(new URL('../src/routes/adminOperations.ts', import.meta.url), 'utf8');
-const migration = fs.readFileSync(new URL('../migrations/025_payment_platform_maturity.sql', import.meta.url), 'utf8');
+const evidence = fs.readFileSync(
+  new URL('../src/security/paymentEvidence.ts', import.meta.url),
+  'utf8'
+);
+const routes = fs.readFileSync(
+  new URL('../src/routes/adminOperations.ts', import.meta.url),
+  'utf8'
+);
+const migration = fs.readFileSync(
+  new URL('../migrations/025_payment_platform_maturity.sql', import.meta.url),
+  'utf8'
+);
 
 test('payment writes have database idempotency and concurrency constraints', () => {
   assert.match(migration, /idx_payments_idempotency/);
@@ -15,7 +25,8 @@ test('payment writes have database idempotency and concurrency constraints', () 
 
 test('webhook events are append-only, redacted and deduplicated', () => {
   assert.match(service, /redactPaymentPayload\(payload\)/);
-  assert.match(service, /providerEventHash/);
+  assert.match(evidence, /providerEventHash/);
+  assert.match(service, /paymentEventIdentityHash/);
   assert.match(migration, /idx_payment_webhook_event_hash/);
 });
 

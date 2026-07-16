@@ -150,6 +150,7 @@ export function validateSecurityConfiguration(environment: Environment = process
       environment,
       [
         'PHONEPE_MERCHANT_ID',
+        'PHONEPE_ENVIRONMENT',
         'PHONEPE_CLIENT_ID',
         'PHONEPE_CLIENT_VERSION',
         'PHONEPE_CLIENT_SECRET',
@@ -162,6 +163,29 @@ export function validateSecurityConfiguration(environment: Environment = process
     );
     requireHttpUrl(environment, 'PHONEPE_AUTH_BASE_URL', errors, hosted);
     requireHttpUrl(environment, 'PHONEPE_PG_BASE_URL', errors, hosted);
+    if (!['sandbox', 'production'].includes(environment.PHONEPE_ENVIRONMENT || '')) {
+      errors.push('PHONEPE_ENVIRONMENT must be sandbox or production');
+    }
+    if (deployment === 'production' && environment.PHONEPE_ENVIRONMENT !== 'production') {
+      errors.push('Production deployment cannot use the PhonePe sandbox');
+    }
+    if (deployment === 'staging' && environment.PHONEPE_ENVIRONMENT === 'production') {
+      errors.push('Staging deployment cannot use live PhonePe credentials');
+    }
+    if (deployment === 'production') {
+      const authHost = new URL(environment.PHONEPE_AUTH_BASE_URL || 'https://invalid').hostname;
+      const pgHost = new URL(environment.PHONEPE_PG_BASE_URL || 'https://invalid').hostname;
+      if (authHost !== 'api.phonepe.com' || pgHost !== 'api.phonepe.com') {
+        errors.push('Production PhonePe endpoints must use api.phonepe.com');
+      }
+    }
+    if (deployment === 'staging') {
+      const authHost = new URL(environment.PHONEPE_AUTH_BASE_URL || 'https://invalid').hostname;
+      const pgHost = new URL(environment.PHONEPE_PG_BASE_URL || 'https://invalid').hostname;
+      if (authHost !== 'api-preprod.phonepe.com' || pgHost !== 'api-preprod.phonepe.com') {
+        errors.push('Staging PhonePe endpoints must use api-preprod.phonepe.com');
+      }
+    }
   }
 
   if (enabled(environment, 'EMAIL_NOTIFICATIONS_ENABLED')) {

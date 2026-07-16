@@ -20,6 +20,7 @@ import {
   createCustomTestOrder,
   createPayment,
   getDiagnosticTests,
+  publicPaymentErrorMessage,
   type DiagnosticTest,
 } from '@/lib/api';
 
@@ -191,7 +192,8 @@ export default function CustomTestBuilder() {
       setSuccess({ reference: result.order.order_number, message: result.message });
     } catch (err) {
       setSubmitError(
-        err instanceof Error ? err.message : 'Your test request could not be submitted.'
+        publicPaymentErrorMessage(err) ||
+          (err instanceof Error ? err.message : 'Your test request could not be submitted.')
       );
     } finally {
       setSubmitting(false);

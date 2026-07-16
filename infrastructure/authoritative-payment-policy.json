@@ -1,0 +1,30 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP17",
+  "deploymentModel": "sole-administrator",
+  "productionProvider": "phonepe",
+  "mockEnvironments": ["development", "test"],
+  "productionSandboxForbidden": true,
+  "providerEndpointHostsPinned": true,
+  "checkoutRedirectHostValidated": true,
+  "webhook": {
+    "authenticationRequired": true,
+    "supportedTypesAllowlisted": true,
+    "optionalTimestampWindowMinutes": 15,
+    "callbackIsWakeupOnly": true,
+    "replaySideEffectsRejected": true
+  },
+  "successEvidence": {
+    "providerStatusApiRequired": true,
+    "amountMustMatch": true,
+    "providerOrderMustMatch": true,
+    "hashStored": true,
+    "immutable": true
+  },
+  "reconciliation": {
+    "enabledWhenProviderEnabled": true,
+    "authoritativeStatusApi": true,
+    "maximumDelayMinutes": 5
+  },
+  "providerDisabledError": "PAYMENT_PROVIDER_DISABLED"
+}

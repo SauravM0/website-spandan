@@ -18,6 +18,7 @@ import {
   getDoctorAvailability,
   getDoctors,
   getPublicAppointmentConfig,
+  publicPaymentErrorMessage,
   type PublicAppointmentConfig,
 } from '@/lib/api';
 import { useBookingReducer } from '@/components/booking/BookingReducer';
@@ -250,7 +251,7 @@ export default function BookAppointmentPage() {
       dispatch({ type: 'SET_PHASE', phase: 'redirecting' });
       window.location.href = payment.payment.checkout_url;
     } catch (err) {
-      dispatch({ type: 'SET_ERROR', error: formatError(err) });
+      dispatch({ type: 'SET_ERROR', error: publicPaymentErrorMessage(err) || formatError(err) });
     } finally {
       dispatch({ type: 'SET_LOADING', loading: false });
     }

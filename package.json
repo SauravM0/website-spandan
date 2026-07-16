@@ -30,6 +30,7 @@
     "auth:check": "node scripts/admin-auth-policy-check.mjs",
     "clinical-auth:check": "node scripts/clinical-authorization-policy-check.mjs",
     "public-payments:check": "node scripts/public-payment-access-policy-check.mjs",
+    "authoritative-payments:check": "node scripts/authoritative-payment-policy-check.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
     "baseline:check": "node scripts/production-baseline-check.mjs",

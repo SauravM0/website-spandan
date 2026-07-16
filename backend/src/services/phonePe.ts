@@ -1,6 +1,7 @@
 import crypto from 'crypto';
 import { config } from '../config';
 import { requireApprovedVendor } from '../security/vendorGate';
+import { AppError } from '../utils/errors';
 
 type TokenCache = {
   accessToken: string;
@@ -22,7 +23,9 @@ function assertPhonePeConfigured() {
     ['PHONEPE_CLIENT_ID', config.phonePe.clientId],
     ['PHONEPE_CLIENT_VERSION', config.phonePe.clientVersion],
     ['PHONEPE_CLIENT_SECRET', config.phonePe.clientSecret],
-  ].filter(([, value]) => !value).map(([name]) => name);
+  ]
+    .filter(([, value]) => !value)
+    .map(([name]) => name);
 
   if (missing.length > 0) {
     throw new Error(`PhonePe is enabled but missing configuration: ${missing.join(', ')}`);
@@ -35,7 +38,8 @@ async function requestJson<T>(url: string, init: RequestInit): Promise<T> {
   const text = await response.text();
   const body = text ? JSON.parse(text) : {};
   if (!response.ok) {
-    const message = body?.message || body?.error || `PhonePe request failed with ${response.status}`;
+    const message =
+      body?.message || body?.error || `PhonePe request failed with ${response.status}`;
     throw new Error(message);
   }
   return body as T;
@@ -49,7 +53,10 @@ export function verifyPhonePeWebhookAuthorization(headerValue?: string): boolean
   const { webhookUsername, webhookPassword } = config.phonePe;
   if (!config.phonePe.enabled || !webhookUsername || !webhookPassword) return false;
   if (!headerValue) return false;
-  const expected = crypto.createHash('sha256').update(`${webhookUsername}:${webhookPassword}`).digest('hex');
+  const expected = crypto
+    .createHash('sha256')
+    .update(`${webhookUsername}:${webhookPassword}`)
+    .digest('hex');
   const actual = headerValue
     .replace(/^SHA256\s*/i, '')
     .replace(/^\(/, '')
@@ -57,6 +64,53 @@ export function verifyPhonePeWebhookAuthorization(headerValue?: string): boolean
     .trim();
   if (actual.length !== expected.length) return false;
   return crypto.timingSafeEqual(Buffer.from(actual), Buffer.from(expected));
+}
+
+const supportedCallbackTypes = new Set([
+  'PG_ORDER_COMPLETED',
+  'PG_ORDER_FAILED',
+  'PG_ORDER_EXPIRED',
+  'PG_ORDER_PENDING',
+]);
+
+function callbackTimestamp(body: any): number | null {
+  const value = body?.eventTime ?? body?.timestamp ?? body?.payload?.eventTime;
+  if (value === undefined || value === null || value === '') return null;
+  const numeric = Number(value);
+  if (Number.isFinite(numeric)) return numeric < 10_000_000_000 ? numeric * 1000 : numeric;
+  const parsed = Date.parse(String(value));
+  return Number.isFinite(parsed) ? parsed : Number.NaN;
+}
+
+export function validatePhonePeWebhook(
+  authorization: string | undefined,
+  body: any,
+  now = Date.now()
+) {
+  if (!verifyPhonePeWebhookAuthorization(authorization)) {
+    throw new AppError(401, 'PHONEPE_WEBHOOK_UNAUTHORIZED', 'Invalid webhook authorization.');
+  }
+  const type = String(body?.type || body?.event || '').toUpperCase();
+  if (!supportedCallbackTypes.has(type)) {
+    throw new AppError(400, 'PHONEPE_WEBHOOK_TYPE_INVALID', 'Unsupported webhook event type.');
+  }
+  const payload = body?.payload;
+  const merchantOrderId = String(payload?.merchantOrderId || '').trim();
+  if (!merchantOrderId || merchantOrderId.length > 120) {
+    throw new AppError(400, 'PHONEPE_ORDER_ID_INVALID', 'Webhook order identifier is invalid.');
+  }
+  const timestamp = callbackTimestamp(body);
+  if (
+    timestamp !== null &&
+    (!Number.isFinite(timestamp) || Math.abs(now - timestamp) > 15 * 60_000)
+  ) {
+    throw new AppError(
+      409,
+      'PHONEPE_WEBHOOK_EXPIRED',
+      'Webhook event is outside the acceptance window.'
+    );
+  }
+  return { type, merchantOrderId, payload };
 }
 
 export function normalizePhonePeState(state?: string) {
@@ -124,23 +178,38 @@ export async function initiatePhonePePayment(input: PhonePePaymentInput) {
     body.prefillUserLoginDetails = { phoneNumber: input.phone };
   }
 
-  return requestJson<{ orderId: string; state: string; expireAt: number; redirectUrl: string }>(
-    `${config.phonePe.pgBaseUrl}/checkout/v2/pay`,
-    {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `O-Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-    }
-  );
+  const response = await requestJson<{
+    orderId: string;
+    state: string;
+    expireAt: number;
+    redirectUrl: string;
+  }>(`${config.phonePe.pgBaseUrl}/checkout/v2/pay`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `O-Bearer ${token}`,
+    },
+    body: JSON.stringify(body),
+  });
+  let checkoutUrl: URL;
+  try {
+    checkoutUrl = new URL(response.redirectUrl);
+  } catch {
+    throw new Error('PhonePe returned an invalid checkout URL');
+  }
+  if (
+    checkoutUrl.protocol !== 'https:' ||
+    !(checkoutUrl.hostname === 'phonepe.com' || checkoutUrl.hostname.endsWith('.phonepe.com'))
+  ) {
+    throw new Error('PhonePe returned an untrusted checkout URL');
+  }
+  return response;
 }
 
 export async function getPhonePeOrderStatus(merchantOrderId: string) {
   const token = await getPhonePeAccessToken();
   return requestJson<any>(
-    `${config.phonePe.pgBaseUrl}/checkout/v2/order/${encodeURIComponent(merchantOrderId)}/status?details=false&errorContext=true`,
+    `${config.phonePe.pgBaseUrl}/checkout/v2/order/${encodeURIComponent(merchantOrderId)}/status?details=true&errorContext=true`,
     {
       method: 'GET',
       headers: {

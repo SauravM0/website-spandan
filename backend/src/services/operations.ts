@@ -16,14 +16,16 @@ import {
   bookingStateForPayment,
   isBookingState,
 } from '../domain/appointmentBooking';
-import {
-  assertPaymentTransition,
-  providerEventHash,
-  validateRefundAmount,
-} from '../domain/paymentLifecycle';
+import { assertPaymentTransition, validateRefundAmount } from '../domain/paymentLifecycle';
 import { resolveServicePrice } from './servicePricing';
 import { AppError } from '../utils/errors';
 import { issuePublicPaymentCapabilities } from '../security/publicPaymentCapabilities';
+import {
+  assertPaymentEvidenceAllowed,
+  paymentEventIdentityHash,
+  paymentEvidenceHash,
+  type PaymentEvidence,
+} from '../security/paymentEvidence';
 
 type Queryable = {
   query: (text: string, params?: any[]) => Promise<{ rows: any[]; rowCount?: number | null }>;
@@ -1415,10 +1417,23 @@ export async function createPayment(input: {
       result.rows[0].id,
       capabilityReturnUrl,
     ]);
-    const payment = await updatePaymentStatus(merchantTransactionId, 'success', {
-      mode: 'mock',
-      verified_at: new Date().toISOString(),
-    });
+    const observedAt = new Date();
+    const payment = await updatePaymentStatus(
+      merchantTransactionId,
+      'success',
+      {
+        mode: 'mock',
+        state: 'COMPLETED',
+        orderId: merchantTransactionId,
+        amount: amountPaisa,
+      },
+      {
+        source: 'test.mock',
+        providerVerified: true,
+        observedAt,
+        eventName: 'test.mock.completed',
+      }
+    );
     return { ...payment, redirect_url: capabilityReturnUrl, public_access: publicAccess };
   }
 
@@ -1491,8 +1506,9 @@ export async function updatePaymentStatus(
   merchantTransactionId: string,
   status: string,
   payload: unknown = {},
-  eventName = 'manual.status_update'
+  evidence: PaymentEvidence
 ) {
+  assertPaymentEvidenceAllowed(evidence);
   const client = await getClient();
   try {
     await client.query('BEGIN');
@@ -1504,7 +1520,7 @@ export async function updatePaymentStatus(
 
     const paymentRow = current.rows[0];
     const safePayload = redactPaymentPayload(payload);
-    const eventHash = providerEventHash('phonepe', eventName, safePayload);
+    const eventHash = paymentEventIdentityHash(evidence, safePayload);
     const acceptedEvent = await client.query(
       `INSERT INTO payment_webhook_events
        (payment_id, event_name, merchant_order_id, status, raw_payload, event_hash)
@@ -1513,7 +1529,7 @@ export async function updatePaymentStatus(
        RETURNING id`,
       [
         paymentRow.id,
-        eventName,
+        evidence.eventName,
         merchantTransactionId,
         status,
         JSON.stringify(safePayload),
@@ -1522,7 +1538,7 @@ export async function updatePaymentStatus(
     );
     if (!acceptedEvent.rows[0]) {
       await client.query('COMMIT');
-      return paymentRow;
+      return { ...paymentRow, event_replayed: true };
     }
     const payloadObject = (payload || {}) as any;
     const paymentDetail = extractPhonePePaymentDetail(payloadObject.payload || payloadObject);
@@ -1538,10 +1554,17 @@ export async function updatePaymentStatus(
     const expectedPaisa = Number(
       paymentRow.amount_paisa || amountToPaisa(Number(paymentRow.amount))
     );
+    const providerOrderMatches =
+      !paymentRow.provider_order_id || providerOrderId === paymentRow.provider_order_id;
+    const successEvidenceComplete = Boolean(
+      providerOrderId &&
+      incomingPaisa !== undefined &&
+      incomingPaisa !== null &&
+      Number(incomingPaisa) === expectedPaisa &&
+      providerOrderMatches
+    );
     const nextStatus =
-      status === 'success' && incomingPaisa && Number(incomingPaisa) !== expectedPaisa
-        ? 'verification_required'
-        : status;
+      status === 'success' && !successEvidenceComplete ? 'verification_required' : status;
     const shouldApplyStatus = !(paymentRow.status === 'success' && nextStatus !== 'success');
     const appliedStatus = shouldApplyStatus ? nextStatus : paymentRow.status;
     assertPaymentTransition(paymentRow.status, appliedStatus);
@@ -1557,6 +1580,10 @@ export async function updatePaymentStatus(
       }
     }
 
+    const successEvidenceHash =
+      appliedStatus === 'success' && nextStatus === 'success'
+        ? paymentEvidenceHash(evidence, safePayload)
+        : null;
     const payment = await client.query(
       `UPDATE payments
        SET status = $1,
@@ -1566,6 +1593,9 @@ export async function updatePaymentStatus(
            raw_response = $5,
            status_version = status_version + CASE WHEN status <> $1 THEN 1 ELSE 0 END,
            last_reconciled_at = CASE WHEN $7 THEN NOW() ELSE last_reconciled_at END,
+           provider_evidence_hash = CASE WHEN $8::text IS NOT NULL THEN COALESCE(provider_evidence_hash, $8) ELSE provider_evidence_hash END,
+           provider_evidence_source = CASE WHEN $8::text IS NOT NULL THEN COALESCE(provider_evidence_source, $9) ELSE provider_evidence_source END,
+           provider_observed_at = CASE WHEN $8::text IS NOT NULL THEN COALESCE(provider_observed_at, $10) ELSE provider_observed_at END,
            verified_at = CASE WHEN $1 = 'success' THEN COALESCE(verified_at, NOW()) ELSE verified_at END,
            failed_at = CASE WHEN $1 IN ('failed', 'expired') THEN COALESCE(failed_at, NOW()) ELSE failed_at END,
            updated_at = NOW()
@@ -1578,7 +1608,10 @@ export async function updatePaymentStatus(
         paymentMethod,
         JSON.stringify(safePayload),
         paymentRow.id,
-        eventName === 'phonepe.status_api' || eventName === 'phonepe.reconciliation',
+        evidence.source === 'phonepe.status_api' || evidence.source === 'phonepe.reconciliation',
+        successEvidenceHash,
+        evidence.source,
+        evidence.observedAt,
       ]
     );
 
@@ -1674,12 +1707,12 @@ export async function refreshPaymentFromProvider(payment: any, force = false) {
 
   const providerStatus = await getPhonePeOrderStatus(payment.merchant_transaction_id);
   const nextStatus = normalizePhonePeState(providerStatus.state);
-  return updatePaymentStatus(
-    payment.merchant_transaction_id,
-    nextStatus,
-    providerStatus,
-    force ? 'phonepe.reconciliation' : 'phonepe.status_api'
-  );
+  return updatePaymentStatus(payment.merchant_transaction_id, nextStatus, providerStatus, {
+    source: force ? 'phonepe.reconciliation' : 'phonepe.status_api',
+    providerVerified: true,
+    observedAt: new Date(),
+    eventName: force ? 'phonepe.reconciliation' : 'phonepe.status_api',
+  });
 }
 
 export async function reconcilePendingPayments(limit = 25) {
@@ -3410,6 +3443,7 @@ export async function listPayments(filters: PaymentFilters = {}) {
     query(
       `SELECT p.id, p.order_id, p.appointment_id, p.provider, p.merchant_transaction_id,
               p.amount, p.status, p.payment_method, p.provider_reference, p.provider_order_id,
+              p.provider_evidence_source, p.provider_observed_at,
               p.created_at, p.updated_at, p.verified_at, p.failed_at, p.expires_at,
               po.order_number, a.appointment_number,
               r.id AS receipt_id, r.receipt_number, r.pdf_url,
@@ -3514,6 +3548,7 @@ export async function getAdminPaymentDetail(paymentId: string) {
   const paymentResult = await query(
     `SELECT p.id, p.order_id, p.appointment_id, p.provider, p.merchant_transaction_id,
             p.amount, p.status, p.payment_method, p.provider_reference, p.provider_order_id,
+            p.provider_evidence_source, p.provider_observed_at,
             p.created_at, p.updated_at, p.verified_at, p.failed_at, p.expires_at,
             po.order_number, po.status AS order_status,
             a.appointment_number, a.status AS appointment_status,

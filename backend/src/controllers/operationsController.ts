@@ -52,7 +52,11 @@ import {
   retryNotification,
 } from '../services/notifications';
 import { buildReceiptPdf } from '../services/receiptPdf';
-import { normalizePhonePeState, verifyPhonePeWebhookAuthorization } from '../services/phonePe';
+import {
+  getPhonePeOrderStatus,
+  normalizePhonePeState,
+  validatePhonePeWebhook,
+} from '../services/phonePe';
 import { sendApiError } from '../utils/errors';
 import { config } from '../config';
 import {
@@ -289,26 +293,19 @@ export async function startAppointmentPayment(req: AuthenticatedRequest, res: Re
 
 export async function paymentWebhook(req: AuthenticatedRequest, res: Response) {
   try {
-    if (!verifyPhonePeWebhookAuthorization(req.header('authorization'))) {
-      res.status(401).json({ error: 'Invalid webhook authorization' });
-      return;
-    }
-
-    const payload = req.body.payload || req.body;
-    const transactionId =
-      payload.merchantOrderId || req.body.merchant_transaction_id || req.body.transactionId;
-    const status = normalizePhonePeState(payload.state || req.body.status);
-    if (!transactionId) {
-      res.status(400).json({ error: 'merchantOrderId is required' });
-      return;
-    }
-    const payment = await updatePaymentStatus(
-      transactionId,
-      status,
-      req.body,
-      req.body.event || 'phonepe.webhook'
-    );
-    res.json({ payment });
+    const callback = validatePhonePeWebhook(req.header('authorization'), req.body);
+    // A callback is only a wake-up signal. PhonePe's authenticated status API is the authority.
+    const providerStatus = await getPhonePeOrderStatus(callback.merchantOrderId);
+    const status = normalizePhonePeState(providerStatus.state);
+    const payment = await updatePaymentStatus(callback.merchantOrderId, status, providerStatus, {
+      source: 'phonepe.webhook',
+      providerVerified: true,
+      observedAt: new Date(),
+      eventName: callback.type,
+      identityPayload: req.body,
+      rejectReplay: true,
+    });
+    res.json({ accepted: true, replayed: Boolean(payment.event_replayed) });
   } catch (err) {
     handleError(res, err);
   }

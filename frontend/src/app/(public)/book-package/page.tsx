@@ -8,6 +8,7 @@ import {
   createPayment,
   getPackageCommerceCatalog,
   quotePackageOrder,
+  publicPaymentErrorMessage,
 } from '@/lib/api';
 import {
   usePackageOrderReducer,
@@ -123,7 +124,9 @@ function BookPackageContent() {
     } catch (err) {
       dispatch({
         type: 'SET_ERROR',
-        error: err instanceof Error ? err.message : 'Package booking failed',
+        error:
+          publicPaymentErrorMessage(err) ||
+          (err instanceof Error ? err.message : 'Package booking failed'),
       });
     } finally {
       dispatch({ type: 'SET_LOADING', loading: false });

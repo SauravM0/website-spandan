@@ -73,8 +73,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 35,
-    "migrationHead": "035_public_payment_capabilities.sql"
+    "migrationCount": 36,
+    "migrationHead": "036_authoritative_payment_evidence.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

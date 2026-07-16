@@ -48,6 +48,11 @@ export class ApiError extends Error {
   }
 }
 
+export function publicPaymentErrorMessage(error: unknown): string | null {
+  if (!(error instanceof ApiError) || error.code !== 'PAYMENT_PROVIDER_DISABLED') return null;
+  return 'Online payment is temporarily unavailable. Your request was saved; please contact the clinic to arrange payment.';
+}
+
 function apiErrorMessage(payload: ApiErrorPayload, status: number): string {
   if (typeof payload.error === 'string') return payload.error;
 

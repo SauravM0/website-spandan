@@ -46,12 +46,25 @@ databaseTest('migrations create the critical production tables and constraints',
       `SELECT conname
        FROM pg_constraint
        WHERE conname = ANY($1::text[])`,
-      [['appointments_booking_state_valid', 'appointments_fee_snapshot_valid']]
+      [
+        [
+          'appointments_booking_state_valid',
+          'appointments_fee_snapshot_valid',
+          'payment_provider_evidence_consistent',
+        ],
+      ]
     );
     assert.deepEqual(constraints.rows.map((row) => row.conname).sort(), [
       'appointments_booking_state_valid',
       'appointments_fee_snapshot_valid',
+      'payment_provider_evidence_consistent',
     ]);
+
+    const evidenceTrigger = await client.query(
+      `SELECT 1 FROM pg_trigger
+       WHERE tgname = 'payment_provider_evidence_immutable' AND NOT tgisinternal`
+    );
+    assert.equal(evidenceTrigger.rowCount, 1);
   } finally {
     await client.end();
   }

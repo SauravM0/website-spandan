@@ -444,6 +444,14 @@ function PaymentsInner() {
               {payment.payment_method || '-'}
             </p>
             <p>
+              <strong className="text-text">Evidence:</strong>{' '}
+              {payment.provider_evidence_source
+                ? `${label(payment.provider_evidence_source)} at ${dateTime(payment.provider_observed_at)}`
+                : payment.status === 'success'
+                  ? 'Legacy payment — evidence not recorded'
+                  : 'Awaiting provider confirmation'}
+            </p>
+            <p>
               <strong className="text-text">Updated:</strong> {dateTime(payment.updated_at)}
             </p>
           </div>
@@ -691,6 +699,16 @@ function PaymentsInner() {
                       value={maskRef(
                         selectedPayment.provider_reference || selectedPayment.provider_order_id
                       )}
+                    />
+                    <Detail
+                      label="Success evidence"
+                      value={
+                        selectedPayment.provider_evidence_source
+                          ? `${label(selectedPayment.provider_evidence_source)} at ${dateTime(selectedPayment.provider_observed_at)}`
+                          : selectedPayment.status === 'success'
+                            ? 'Legacy payment — evidence not recorded'
+                            : 'Awaiting provider confirmation'
+                      }
                     />
                     <Detail label="Updated" value={dateTime(selectedPayment.updated_at)} />
                   </div>

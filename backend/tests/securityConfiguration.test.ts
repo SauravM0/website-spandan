@@ -104,6 +104,53 @@ test('enabled providers require complete credentials at startup', () => {
   );
 });
 
+test('production cannot use the PhonePe sandbox and staging cannot use live credentials', () => {
+  const provider = {
+    PHONEPE_ENABLED: 'true',
+    PHONEPE_MERCHANT_ID: 'merchant',
+    PHONEPE_ENVIRONMENT: 'production',
+    PHONEPE_CLIENT_ID: 'client',
+    PHONEPE_CLIENT_VERSION: '1',
+    PHONEPE_CLIENT_SECRET: secret('p'),
+    PHONEPE_WEBHOOK_USERNAME: 'webhook-user',
+    PHONEPE_WEBHOOK_PASSWORD: secret('w'),
+    PHONEPE_AUTH_BASE_URL: 'https://api.phonepe.com/apis/identity-manager',
+    PHONEPE_PG_BASE_URL: 'https://api.phonepe.com/apis/pg',
+  };
+  assert.doesNotThrow(() => validateSecurityConfiguration({ ...hosted(), ...provider }));
+  assert.throws(
+    () =>
+      validateSecurityConfiguration({
+        ...hosted(),
+        ...provider,
+        PHONEPE_ENVIRONMENT: 'sandbox',
+      }),
+    /cannot use the PhonePe sandbox/
+  );
+  assert.throws(
+    () =>
+      validateSecurityConfiguration({
+        ...hosted(),
+        ...provider,
+        PHONEPE_AUTH_BASE_URL: 'https://api-preprod.phonepe.com/apis/pg-sandbox',
+        PHONEPE_PG_BASE_URL: 'https://api-preprod.phonepe.com/apis/pg-sandbox',
+      }),
+    /must use api\.phonepe\.com/
+  );
+  assert.throws(
+    () =>
+      validateSecurityConfiguration({
+        ...hosted(),
+        ...provider,
+        NODE_ENV: 'production',
+        DEPLOYMENT_ENV: 'staging',
+        ENVIRONMENT_NAME: 'spandan-staging',
+        DATA_POLICY: 'synthetic-only',
+      }),
+    /cannot use live PhonePe credentials/
+  );
+});
+
 test('mock payments are explicit and forbidden in hosted environments', () => {
   assert.doesNotThrow(() =>
     validateSecurityConfiguration({ DEPLOYMENT_ENV: 'test', PAYMENT_MOCK_ENABLED: 'true' })

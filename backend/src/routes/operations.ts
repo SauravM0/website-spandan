@@ -78,7 +78,6 @@ router.post(
   validateZod({ body: paymentCreateSchema }),
   asyncHandler(controller.startPayment)
 );
-router.post('/payments/webhook', asyncHandler(controller.paymentWebhook));
 
 router.get(
   '/public/doctors/:id/availability',
