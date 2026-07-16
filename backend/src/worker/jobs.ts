@@ -2,7 +2,7 @@ import { query } from '../config/database';
 import { config } from '../config';
 import { processNotificationOutbox } from '../services/notifications';
 import { processJobs as processDocumentJobs } from '../services/medicalDocuments';
-import { reconcilePendingPayments } from '../services/operations';
+import { processAdminExportJobs, reconcilePendingPayments } from '../services/operations';
 import { isWhatsAppConfigured, sendWhatsAppEnquiryNotification } from '../services/whatsapp';
 import { logger } from '../utils/logger';
 import type { WorkerJobHandler } from './runtime';
@@ -106,6 +106,9 @@ export function createWorkerJobHandlers(): Record<string, WorkerJobHandler> {
            AND created_at < NOW() - INTERVAL '90 days'
            AND COALESCE(is_archived, false) = false`
       );
+    },
+    'admin-export': async (_job, instanceId) => {
+      await processAdminExportJobs(instanceId);
     },
   };
 }

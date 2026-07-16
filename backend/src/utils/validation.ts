@@ -256,7 +256,7 @@ export const adminAppointmentFiltersSchema = z.object({
   to: dateSchema.optional(),
   search: z.string().max(120).transform(stripHtml).optional(),
   sort: z.enum(['date_desc', 'date_asc', 'created_desc', 'created_asc']).optional(),
-  page: z.coerce.number().int().min(1).optional(),
+  cursor: z.string().max(500).optional(),
   pageSize: z.coerce.number().int().min(1).max(50).optional(),
 });
 
@@ -390,13 +390,24 @@ export const adminPaymentFiltersSchema = z.object({
   sort: z
     .enum(['date_desc', 'date_asc', 'updated_desc', 'updated_asc', 'amount_desc', 'amount_asc'])
     .optional(),
-  page: z.coerce.number().int().min(1).optional(),
+  cursor: z.string().max(500).optional(),
   pageSize: z.coerce.number().int().min(1).max(50).optional(),
 });
 
 export const adminPaymentParamsSchema = z.object({
   id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
 });
+
+export const adminExportCreateSchema = z.discriminatedUnion('export_type', [
+  z.object({
+    export_type: z.literal('appointments'),
+    filters: adminAppointmentFiltersSchema.omit({ cursor: true, pageSize: true }).default({}),
+  }),
+  z.object({
+    export_type: z.literal('payments'),
+    filters: adminPaymentFiltersSchema.omit({ cursor: true, pageSize: true }).default({}),
+  }),
+]);
 
 export const adminPaymentRefundSchema = z.object({
   amount: z.coerce.number().positive().multipleOf(0.01).max(10000000),

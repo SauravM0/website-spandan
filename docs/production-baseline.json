@@ -42,6 +42,10 @@
       "GET /api/admin/operations/workflow/needs-action",
       "GET /api/admin/operations/workflow/items/:type/:id",
       "GET /api/admin/events",
+      "GET /api/admin/operations/payments-summary",
+      "POST /api/admin/operations/exports",
+      "GET /api/admin/operations/exports/:id",
+      "GET /api/admin/operations/exports/:id/download",
       "GET /api/admin/operations/appointments",
       "POST /api/admin/operations/appointments/:id/transitions",
       "POST /api/admin/operations/appointments/:id/reschedule",
@@ -84,8 +88,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 41,
-    "migrationHead": "041_admin_domain_events.sql"
+    "migrationCount": 42,
+    "migrationHead": "042_admin_query_performance.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

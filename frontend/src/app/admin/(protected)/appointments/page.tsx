@@ -5,7 +5,6 @@ import { Download, RefreshCw, Search } from 'lucide-react';
 import {
   AdminPageHeader,
   FilterBar,
-  Pagination,
   ResponsiveDataView,
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
@@ -70,7 +69,10 @@ function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger
 export default function AdminAppointmentsPage() {
   const [appointments, setAppointments] = useState<any[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 25, hasMore: false });
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [doctorId, setDoctorId] = useState('');
@@ -97,7 +99,7 @@ export default function AdminAppointmentsPage() {
   useEffect(() => {
     const handle = window.setTimeout(() => {
       setDebouncedSearch(search.trim());
-      setPagination((current) => ({ ...current, page: 1 }));
+      resetPaging();
     }, 350);
     return () => window.clearTimeout(handle);
   }, [search]);
@@ -111,20 +113,10 @@ export default function AdminAppointmentsPage() {
       to,
       search: debouncedSearch,
       sort,
-      page: pagination.page,
+      cursor: cursor || undefined,
       pageSize: pagination.pageSize,
     }),
-    [
-      doctorId,
-      status,
-      source,
-      from,
-      to,
-      debouncedSearch,
-      sort,
-      pagination.page,
-      pagination.pageSize,
-    ]
+    [doctorId, status, source, from, to, debouncedSearch, sort, cursor, pagination.pageSize]
   );
 
   const load = async (mode: 'initial' | 'refresh' = 'initial') => {
@@ -139,7 +131,12 @@ export default function AdminAppointmentsPage() {
       const data = await getAdminAppointments('', filters);
       if (requestIdValue !== requestRef.current) return;
       setAppointments(data.data || []);
-      setPagination(data.pagination || { page: 1, pageSize: 25, total: 0, totalPages: 1 });
+      setPagination((current) => ({
+        ...current,
+        pageSize: data.pagination?.pageSize || 25,
+        hasMore: Boolean(data.pagination?.hasMore),
+      }));
+      setNextCursor(data.cursor || null);
     } catch (err) {
       if (requestIdValue !== requestRef.current) return;
       if (err instanceof ApiError) {
@@ -153,6 +150,27 @@ export default function AdminAppointmentsPage() {
       setLoading(false);
       setRefreshing(false);
     }
+  };
+
+  const resetPaging = () => {
+    setCursor(null);
+    setNextCursor(null);
+    setCursorHistory([]);
+    setPagination((current) => ({ ...current, page: 1, hasMore: false }));
+  };
+
+  const nextPage = () => {
+    if (!nextCursor) return;
+    setCursorHistory((history) => [...history, cursor]);
+    setCursor(nextCursor);
+    setPagination((current) => ({ ...current, page: current.page + 1 }));
+  };
+
+  const previousPage = () => {
+    if (!cursorHistory.length) return;
+    setCursor(cursorHistory[cursorHistory.length - 1]);
+    setCursorHistory((history) => history.slice(0, -1));
+    setPagination((current) => ({ ...current, page: Math.max(1, current.page - 1) }));
   };
 
   useAdminRealtimeRefresh(['appointment.changed', 'payment.changed'], () => load('refresh'));
@@ -177,7 +195,7 @@ export default function AdminAppointmentsPage() {
       setFrom('');
       setTo('');
     }
-    setPagination((current) => ({ ...current, page: 1 }));
+    resetPaging();
   };
 
   const updateStatus = async (row: any, action: string) => {
@@ -358,7 +376,7 @@ export default function AdminAppointmentsPage() {
               value={doctorId}
               onChange={(event) => {
                 setDoctorId(event.target.value);
-                setPagination((p) => ({ ...p, page: 1 }));
+                resetPaging();
               }}
             >
               <option value="">All doctors</option>
@@ -375,7 +393,7 @@ export default function AdminAppointmentsPage() {
               value={status}
               onChange={(event) => {
                 setStatus(event.target.value);
-                setPagination((p) => ({ ...p, page: 1 }));
+                resetPaging();
               }}
             >
               {statuses.map((item) => (
@@ -391,7 +409,7 @@ export default function AdminAppointmentsPage() {
               value={source}
               onChange={(event) => {
                 setSource(event.target.value);
-                setPagination((p) => ({ ...p, page: 1 }));
+                resetPaging();
               }}
             >
               {sources.map((item) => (
@@ -418,7 +436,7 @@ export default function AdminAppointmentsPage() {
               value={from}
               onChange={(event) => {
                 setFrom(event.target.value);
-                setPagination((p) => ({ ...p, page: 1 }));
+                resetPaging();
               }}
             />
           </label>
@@ -429,7 +447,7 @@ export default function AdminAppointmentsPage() {
               value={to}
               onChange={(event) => {
                 setTo(event.target.value);
-                setPagination((p) => ({ ...p, page: 1 }));
+                resetPaging();
               }}
             />
           </label>
@@ -539,15 +557,25 @@ export default function AdminAppointmentsPage() {
                 </div>
               }
             />
-            <Pagination
-              page={pagination.page}
-              totalPages={pagination.totalPages}
-              onPageChange={(page) => setPagination((current) => ({ ...current, page }))}
-            />
-            <p className="mt-2 text-xs text-text-light">
-              Showing page {pagination.page} of {pagination.totalPages}, {pagination.total} total
-              appointment(s).
-            </p>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={!cursorHistory.length}
+                onClick={previousPage}
+              >
+                Previous
+              </button>
+              <p className="text-xs text-text-light">Page {pagination.page}</p>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={!pagination.hasMore || !nextCursor}
+                onClick={nextPage}
+              >
+                Next
+              </button>
+            </div>
           </>
         )}
 

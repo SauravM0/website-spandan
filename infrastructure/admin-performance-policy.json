@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP24",
+  "deploymentModel": "sole-administrator",
+  "criticalLists": ["appointments", "payments", "package_orders", "patients"],
+  "pagination": "deterministic-keyset",
+  "maximumPageSize": 50,
+  "maximumExportRows": 50000,
+  "exports": { "asynchronous": true, "workerOwned": true, "downloadChunkBytes": 65536 },
+  "patientTimeline": { "initialPageSize": 25, "lazy": true },
+  "targetsMs": { "adminListP95": 500, "dashboardP95": 750, "mutationP95": 800 },
+  "queryPlanReview": {
+    "command": "EXPLAIN (ANALYZE, BUFFERS)",
+    "productionDataAllowed": false,
+    "syntheticProductionShapeRequired": true
+  },
+  "requiredIndexes": [
+    "appointments_date_start_id",
+    "appointments_doctor_date_start_id",
+    "payments_created_id",
+    "payments_updated_id",
+    "payments_amount_created_id",
+    "payments_amount_asc_created_id",
+    "patients_updated_id"
+  ]
+}

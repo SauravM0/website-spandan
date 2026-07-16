@@ -9,7 +9,6 @@ import type {
   LeadEnquiry,
   LeadDetail,
   Notification,
-  PaginatedResponse,
   AdminUser,
 } from './types';
 import { BROWSER_API_BASE, browserApiUrl } from './apiUrl';
@@ -392,7 +391,7 @@ export async function getAdminPackagesFiltered(
     category?: string;
     status?: string;
     sort?: string;
-    page?: number;
+    cursor?: string;
     pageSize?: number;
   } = {}
 ) {
@@ -778,12 +777,14 @@ export async function getAdminAppointments(
     pageSize?: number;
   } = {}
 ) {
-  return fetchAPI<PaginatedResponse<Appointment>>(
-    `/admin/operations/appointments${toQuery(filters)}`,
-    {
-      headers: authHeaders(token),
-    }
-  );
+  return fetchAPI<{
+    data: Appointment[];
+    cursor: string | null;
+    pagination: { pageSize: number; hasMore: boolean };
+    filters?: Record<string, unknown>;
+  }>(`/admin/operations/appointments${toQuery(filters)}`, {
+    headers: authHeaders(token),
+  });
 }
 
 export async function getAdminAvailabilityRules(token = '', filters: { doctor_id?: string } = {}) {
@@ -1049,16 +1050,29 @@ export async function getAdminPayments(
     provider?: string;
     entity?: string;
     sort?: string;
-    page?: number;
+    cursor?: string;
     pageSize?: number;
   } = {}
 ) {
-  return fetchAPI<{ payments: any[]; pagination?: any; summary?: any }>(
+  return fetchAPI<{ payments: any[]; cursor: string | null; pagination: any }>(
     `/admin/operations/payments${toQuery(filters)}`,
     {
       headers: authHeaders(token),
     }
   );
+}
+
+export async function getAdminPaymentsSummary(
+  filters: {
+    status?: string;
+    from?: string;
+    to?: string;
+    search?: string;
+    provider?: string;
+    entity?: string;
+  } = {}
+) {
+  return fetchAPI<{ summary: any }>(`/admin/operations/payments-summary${toQuery(filters)}`);
 }
 
 export type BillableService = {
@@ -1157,10 +1171,28 @@ export async function downloadAdminExport(
   kind: 'appointments' | 'payments',
   filters: Record<string, string | undefined> = {}
 ) {
-  const res = await fetch(`${API_URL}/admin/operations/${kind}/export${toQuery(filters)}`, {
-    credentials: 'include',
+  const created = await fetchAPI<{ job: { id: string } }>('/admin/operations/exports', {
+    method: 'POST',
     headers: authHeaders(token),
+    body: JSON.stringify({ export_type: kind, filters }),
   });
+  let status = '';
+  for (let attempt = 0; attempt < 60; attempt += 1) {
+    const result = await fetchAPI<{ job: { status: string; error_code?: string } }>(
+      `/admin/operations/exports/${encodeURIComponent(created.job.id)}`,
+      { headers: authHeaders(token) }
+    );
+    status = result.job.status;
+    if (status === 'ready') break;
+    if (['failed', 'expired'].includes(status))
+      throw new Error(result.job.error_code || 'Export generation failed.');
+    await new Promise((resolve) => window.setTimeout(resolve, 1_000));
+  }
+  if (status !== 'ready') throw new Error('Export is still processing. Try again shortly.');
+  const res = await fetch(
+    `${API_URL}/admin/operations/exports/${encodeURIComponent(created.job.id)}/download`,
+    { credentials: 'include', headers: authHeaders(token) }
+  );
   if (!res.ok) {
     throw new Error(`Export failed with HTTP ${res.status}`);
   }
@@ -1345,6 +1377,11 @@ export async function getAdminPatient(id: string, signal?: AbortSignal) {
     fetchAPI<any>(`/admin/patients/${patientId}/clinical/timeline`, { signal }),
   ]);
   return { ...summary, ...appointments, ...clinical };
+}
+export async function getAdminPatientAppointments(id: string, cursor?: string) {
+  return fetchAPI<{ appointments: any[]; appointmentsCursor: string | null }>(
+    `/admin/patients/${encodeURIComponent(id)}/appointments${toQuery({ cursor, page_size: 25 })}`
+  );
 }
 export async function openPatientEncounter(patientId: string, data: Record<string, unknown>) {
   return fetchAPI<{ encounter: any }>(

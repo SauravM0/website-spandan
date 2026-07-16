@@ -36,6 +36,7 @@ import {
   billableServiceCreateSchema,
   billableServiceUpdateSchema,
   billableServiceParamsSchema,
+  adminExportCreateSchema,
 } from '../utils/validation';
 
 const router = Router();
@@ -209,6 +210,34 @@ router.get(
   requirePermission(PERMISSIONS.PAYMENTS_READ),
   validateZod({ query: adminPaymentFiltersSchema }),
   asyncHandler(controller.adminPayments)
+);
+router.get(
+  '/payments-summary',
+  requirePermission(PERMISSIONS.PAYMENTS_READ),
+  validateZod({ query: adminPaymentFiltersSchema }),
+  asyncHandler(controller.adminPaymentsSummary)
+);
+router.post(
+  '/exports',
+  requirePermission(PERMISSIONS.EXPORT_SENSITIVE),
+  requireRecentStepUp,
+  validateZod({ body: adminExportCreateSchema }),
+  auditAccess('export.create', 'admin_export'),
+  asyncHandler(controller.adminCreateExport)
+);
+router.get(
+  '/exports/:id',
+  requirePermission(PERMISSIONS.EXPORT_SENSITIVE),
+  validateZod({ params: adminPaymentParamsSchema }),
+  asyncHandler(controller.adminExportStatus)
+);
+router.get(
+  '/exports/:id/download',
+  requirePermission(PERMISSIONS.EXPORT_SENSITIVE),
+  requireRecentStepUp,
+  validateZod({ params: adminPaymentParamsSchema }),
+  auditAccess('export.download', 'admin_export'),
+  asyncHandler(controller.adminExportDownload)
 );
 router.get(
   '/service-pricing',

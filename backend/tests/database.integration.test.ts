@@ -621,3 +621,69 @@ databaseTest('admin domain events commit and roll back with their source write',
     await client.end();
   }
 });
+
+databaseTest('appointment keyset paging has no duplicates during concurrent inserts', async () => {
+  const client = new Client({ connectionString });
+  await client.connect();
+  const suffix = randomUUID();
+  try {
+    const doctor = await client.query(
+      `INSERT INTO doctors(name,slug,speciality) VALUES('Paging Doctor',$1,'Testing') RETURNING id`,
+      [`paging-doctor-${suffix}`]
+    );
+    const patient = await client.query(
+      `INSERT INTO patients(full_name,phone,date_of_birth)
+       VALUES('Paging Patient','9666655554','1991-01-01') RETURNING id`
+    );
+    await client.query(
+      `INSERT INTO appointments
+         (patient_id,doctor_id,appointment_date,start_time,end_time,status,booking_state,
+          fee_amount,fee_currency,payment_status,version,source)
+       SELECT $1,$2,CURRENT_DATE-(n/10),('08:00'::time+(n||' minutes')::interval),
+              ('08:30'::time+(n||' minutes')::interval),'completed','confirmed',500,'INR','paid_cash',1,'admin'
+       FROM generate_series(1,60) n`,
+      [patient.rows[0].id, doctor.rows[0].id]
+    );
+    const operations = await import('../src/services/operations');
+    const first = await operations.listAppointmentsPage({
+      doctorId: doctor.rows[0].id,
+      sort: 'date_desc',
+      pageSize: 25,
+    });
+    await client.query(
+      `INSERT INTO appointments
+         (patient_id,doctor_id,appointment_date,start_time,end_time,status,booking_state,
+          fee_amount,fee_currency,payment_status,version,source)
+       VALUES($1,$2,CURRENT_DATE,'07:00','07:30','completed','confirmed',500,'INR','paid_cash',1,'admin')`,
+      [patient.rows[0].id, doctor.rows[0].id]
+    );
+    const second = await operations.listAppointmentsPage({
+      doctorId: doctor.rows[0].id,
+      sort: 'date_desc',
+      pageSize: 25,
+      cursor: first.cursor || undefined,
+    });
+    const firstIds = new Set(first.data.map((row) => row.id));
+    assert.equal(
+      second.data.some((row) => firstIds.has(row.id)),
+      false
+    );
+    assert.equal(first.data.length, 25);
+    assert.equal(second.data.length, 25);
+
+    await client.query('SET enable_seqscan=off');
+    const plan = await client.query(
+      `EXPLAIN (ANALYZE,BUFFERS,FORMAT TEXT)
+       SELECT id FROM appointments WHERE doctor_id=$1
+       ORDER BY appointment_date DESC,start_time DESC,id DESC LIMIT 25`,
+      [doctor.rows[0].id]
+    );
+    assert.match(
+      plan.rows.map((row) => row['QUERY PLAN']).join('\n'),
+      /appointments_doctor_date_start_id/
+    );
+  } finally {
+    await client.query('RESET enable_seqscan').catch(() => undefined);
+    await client.end();
+  }
+});

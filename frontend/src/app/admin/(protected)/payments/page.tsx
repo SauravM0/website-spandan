@@ -8,13 +8,13 @@ import {
   downloadAdminExport,
   getAdminPaymentDetail,
   getAdminPayments,
+  getAdminPaymentsSummary,
   recheckAdminPayment,
   requestAdminPaymentRefund,
 } from '@/lib/api';
 import {
   AdminPageHeader,
   FilterBar,
-  Pagination,
   ResponsiveDataView,
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
@@ -48,7 +48,6 @@ type PaymentFilters = {
   provider: string;
   entity: string;
   sort: string;
-  page: number;
   pageSize: number;
 };
 
@@ -97,7 +96,6 @@ function filtersFromParams(params: URLSearchParams): PaymentFilters {
     provider: params.get('provider') || '',
     entity: params.get('entity') || '',
     sort: params.get('sort') || 'date_desc',
-    page: Number(params.get('page') || 1),
     pageSize: Number(params.get('pageSize') || 25),
   };
 }
@@ -106,7 +104,6 @@ function queryFromFilters(filters: PaymentFilters) {
   const params = new URLSearchParams();
   Object.entries(filters).forEach(([key, value]) => {
     if (value === '' || value === undefined) return;
-    if (key === 'page' && value === 1) return;
     if (key === 'pageSize' && value === 25) return;
     params.set(key, String(value));
   });
@@ -181,7 +178,10 @@ function PaymentsInner() {
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<PaymentFilters>(() => filtersFromParams(searchParams));
   const [payments, setPayments] = useState<any[]>([]);
-  const [pagination, setPagination] = useState({ page: 1, pageSize: 25, total: 0, totalPages: 1 });
+  const [pagination, setPagination] = useState({ page: 1, pageSize: 25, hasMore: false });
+  const [cursor, setCursor] = useState<string | null>(null);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+  const [cursorHistory, setCursorHistory] = useState<Array<string | null>>([]);
   const [summary, setSummary] = useState<any>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -201,14 +201,22 @@ function PaymentsInner() {
 
   useEffect(() => {
     setFilters(filtersFromParams(searchParams));
+    setCursor(null);
+    setNextCursor(null);
+    setCursorHistory([]);
+    setPagination((current) => ({ ...current, page: 1, hasMore: false }));
   }, [searchParams]);
 
   const updateFilters = useCallback(
     (patch: Partial<PaymentFilters>) => {
       setFilters((current) => {
-        const next = { ...current, ...patch, page: patch.page ?? 1 };
+        const next = { ...current, ...patch };
         const query = queryFromFilters(next);
         router.replace(query ? `${pathname}?${query}` : pathname, { scroll: false });
+        setCursor(null);
+        setNextCursor(null);
+        setCursorHistory([]);
+        setPagination((paging) => ({ ...paging, page: 1, hasMore: false }));
         return next;
       });
     },
@@ -216,25 +224,26 @@ function PaymentsInner() {
   );
 
   const load = useCallback(
-    async (nextFilters = filters, keepVisible = true) => {
+    async (nextFilters = filters, keepVisible = true, pageCursor: string | null = cursor) => {
       const requestId = requestRef.current + 1;
       requestRef.current = requestId;
       setError('');
       if (keepVisible) setRefreshing(true);
       else setLoading(true);
       try {
-        const data = await getAdminPayments('', nextFilters);
+        const [data, summaryResult] = await Promise.all([
+          getAdminPayments('', { ...nextFilters, cursor: pageCursor || undefined }),
+          pageCursor ? Promise.resolve(null) : getAdminPaymentsSummary(nextFilters),
+        ]);
         if (requestRef.current !== requestId) return;
         setPayments(data.payments || []);
-        setPagination(
-          data.pagination || {
-            page: nextFilters.page,
-            pageSize: nextFilters.pageSize,
-            total: 0,
-            totalPages: 1,
-          }
-        );
-        setSummary(data.summary || {});
+        setPagination((current) => ({
+          ...current,
+          pageSize: data.pagination?.pageSize || nextFilters.pageSize,
+          hasMore: Boolean(data.pagination?.hasMore),
+        }));
+        setNextCursor(data.cursor || null);
+        if (summaryResult) setSummary(summaryResult.summary || {});
       } catch (err) {
         if (requestRef.current !== requestId) return;
         setError(err instanceof Error ? err.message : 'Could not load payments.');
@@ -246,14 +255,28 @@ function PaymentsInner() {
         }
       }
     },
-    [filters]
+    [cursor, filters]
   );
 
-  useAdminRealtimeRefresh(['payment.changed'], () => void load(filters, true));
+  useAdminRealtimeRefresh(['payment.changed'], () => void load(filters, true, cursor));
 
   useEffect(() => {
-    load(filters, hasLoadedRef.current);
-  }, [filters, load]);
+    load(filters, hasLoadedRef.current, cursor);
+  }, [cursor, filters, load]);
+
+  const nextPage = () => {
+    if (!nextCursor) return;
+    setCursorHistory((history) => [...history, cursor]);
+    setCursor(nextCursor);
+    setPagination((current) => ({ ...current, page: current.page + 1 }));
+  };
+
+  const previousPage = () => {
+    if (!cursorHistory.length) return;
+    setCursor(cursorHistory[cursorHistory.length - 1]);
+    setCursorHistory((history) => history.slice(0, -1));
+    setPagination((current) => ({ ...current, page: Math.max(1, current.page - 1) }));
+  };
 
   const loadDetail = async (paymentId: string) => {
     setSelectedId(paymentId);
@@ -511,7 +534,7 @@ function PaymentsInner() {
         />
 
         <div className="mb-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          <SummaryCard label="Matched payments" value={summary.total ?? pagination.total} />
+          <SummaryCard label="Matched payments" value={summary.total ?? 0} />
           <SummaryCard label="Successful" value={summary.success ?? 0} tone="success" />
           <SummaryCard label="Pending review" value={summary.pending ?? 0} tone="warning" />
           <SummaryCard label="Issues" value={summary.issues ?? 0} tone="danger" />
@@ -636,15 +659,27 @@ function PaymentsInner() {
                 </p>
               }
             />
-            <Pagination
-              page={pagination.page}
-              totalPages={pagination.totalPages}
-              onPageChange={(page) => updateFilters({ page })}
-            />
-            <p className="mt-3 text-xs text-text-light">
-              Showing {payments.length} of {pagination.total} matched payment(s). All amounts and
-              states come from the backend payment record.
-            </p>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={!cursorHistory.length}
+                onClick={previousPage}
+              >
+                Previous
+              </button>
+              <p className="text-xs text-text-light">
+                Page {pagination.page} · {payments.length} payment(s)
+              </p>
+              <button
+                type="button"
+                className="btn btn-outline"
+                disabled={!pagination.hasMore || !nextCursor}
+                onClick={nextPage}
+              >
+                Next
+              </button>
+            </div>
           </>
         )}
 

@@ -4,6 +4,7 @@ import { useParams } from 'next/navigation';
 import {
   createClinicalResource,
   getAdminPatient,
+  getAdminPatientAppointments,
   saveClinicalNote,
   signClinicalNote,
 } from '../../../../../lib/api';
@@ -29,6 +30,7 @@ export default function PatientRecordPage() {
   const [source, setSource] = useState('patient');
   const [note, setNote] = useState('');
   const [draft, setDraft] = useState<any>();
+  const [journeyLoading, setJourneyLoading] = useState(false);
   const load = () => {
     setError('');
     return getAdminPatient(id)
@@ -64,6 +66,22 @@ export default function PatientRecordPage() {
       setError(e.message);
     } finally {
       setBusy(false);
+    }
+  }
+  async function loadMoreJourney() {
+    if (!data?.appointmentsCursor) return;
+    setJourneyLoading(true);
+    try {
+      const result = await getAdminPatientAppointments(id, data.appointmentsCursor);
+      setData((current: any) => ({
+        ...current,
+        appointments: [...(current.appointments || []), ...(result.appointments || [])],
+        appointmentsCursor: result.appointmentsCursor,
+      }));
+    } catch (e: any) {
+      setError(e.message || 'Could not load more patient history.');
+    } finally {
+      setJourneyLoading(false);
     }
   }
   async function saveDraft() {
@@ -152,6 +170,9 @@ export default function PatientRecordPage() {
         patientId={p.id}
         appointments={data.appointments || []}
         packageOrders={data.packageOrders || []}
+        hasMore={Boolean(data.appointmentsCursor)}
+        loading={journeyLoading}
+        onLoadMore={loadMoreJourney}
       />
       <MedicationManager
         patientId={id}
@@ -306,10 +327,16 @@ function OperationalJourney({
   patientId,
   appointments,
   packageOrders,
+  hasMore,
+  loading,
+  onLoadMore,
 }: {
   patientId: string;
   appointments: any[];
   packageOrders: any[];
+  hasMore: boolean;
+  loading: boolean;
+  onLoadMore: () => void;
 }) {
   return (
     <section className="mb-5 rounded-md border border-border bg-white p-4">
@@ -353,6 +380,16 @@ function OperationalJourney({
           </ul>
         </div>
       </div>
+      {hasMore && (
+        <button
+          type="button"
+          className="btn btn-outline mt-4"
+          disabled={loading}
+          onClick={onLoadMore}
+        >
+          {loading ? 'Loading history...' : 'Load older appointments'}
+        </button>
+      )}
     </section>
   );
 }

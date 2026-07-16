@@ -2026,37 +2026,35 @@ export async function getAdminDashboard(options: { doctorId?: string } = {}) {
       ),
       query(
         `WITH clinic AS (
-         SELECT (NOW() AT TIME ZONE 'Asia/Kolkata')::date AS clinic_date
-       )
-       SELECT
-         (SELECT COUNT(*) FROM appointments a, clinic c
-          WHERE a.appointment_date = c.clinic_date ${doctorAppointmentFilter}) AS appointments_today,
-         (SELECT COUNT(*) FROM appointments a, clinic c
-          WHERE a.appointment_date = c.clinic_date AND a.status = 'confirmed' ${doctorAppointmentFilter}) AS confirmed_appointments,
-         (SELECT COUNT(*) FROM appointments a, clinic c
-          WHERE a.appointment_date = c.clinic_date AND a.status IN ('awaiting_payment', 'payment_pending') ${doctorAppointmentFilter}) AS awaiting_payment,
-         (SELECT COUNT(*) FROM appointments a, clinic c
-          WHERE a.appointment_date = c.clinic_date AND a.status = 'checked_in' ${doctorAppointmentFilter}) AS checked_in,
-         (SELECT COUNT(*) FROM appointments a, clinic c
-          WHERE a.appointment_date = c.clinic_date AND a.status = 'completed' ${doctorAppointmentFilter}) AS completed,
-         (SELECT COUNT(*) FROM package_orders po, clinic c
-          WHERE ${options.doctorId ? 'false' : "(po.created_at AT TIME ZONE 'Asia/Kolkata')::date = c.clinic_date"}) AS orders_today,
-         (SELECT COALESCE(SUM(p.amount), 0) FROM payments p
-          ${doctorPaymentJoin}, clinic c
-          WHERE p.status = 'success'
-            AND (p.created_at AT TIME ZONE 'Asia/Kolkata')::date = c.clinic_date
-            ${doctorPaymentFilter}) AS collections_today,
-         (SELECT COUNT(*) FROM payments p
-          ${doctorPaymentJoin}, clinic c
-          WHERE p.status IN ('failed', 'verification_required', 'pending')
-            AND (p.created_at AT TIME ZONE 'Asia/Kolkata')::date >= c.clinic_date - INTERVAL '7 days'
-            ${doctorPaymentFilter}) AS payment_issues,
-         (SELECT COUNT(*) FROM notification_outbox no
-          ${doctorNotificationJoin}
-          WHERE no.status IN ('failed', 'retrying', 'skipped_no_destination')
-            ${doctorNotificationFilter}) AS notification_failures,
-         (SELECT COUNT(*) FROM appointment_holds ah
-          WHERE ah.status = 'active' AND ah.expires_at < NOW() ${doctorHoldFilter}) AS expired_holds`,
+           SELECT (NOW() AT TIME ZONE 'Asia/Kolkata')::date clinic_date,
+                  ((NOW() AT TIME ZONE 'Asia/Kolkata')::date::timestamp AT TIME ZONE 'Asia/Kolkata') day_start,
+                  ((((NOW() AT TIME ZONE 'Asia/Kolkata')::date+1)::timestamp) AT TIME ZONE 'Asia/Kolkata') day_end
+         ), appointment_metrics AS (
+           SELECT COUNT(*)::int appointments_today,
+             COUNT(*) FILTER(WHERE a.status='confirmed')::int confirmed_appointments,
+             COUNT(*) FILTER(WHERE a.status IN ('awaiting_payment','payment_pending'))::int awaiting_payment,
+             COUNT(*) FILTER(WHERE a.status='checked_in')::int checked_in,
+             COUNT(*) FILTER(WHERE a.status='completed')::int completed
+           FROM appointments a,clinic c
+           WHERE a.appointment_date=c.clinic_date ${doctorAppointmentFilter}
+         ), order_metrics AS (
+           SELECT COUNT(*)::int orders_today FROM package_orders po,clinic c
+           WHERE ${options.doctorId ? 'false' : 'po.created_at>=c.day_start AND po.created_at<c.day_end'}
+         ), payment_metrics AS (
+           SELECT COALESCE(SUM(p.amount) FILTER(WHERE p.status='success' AND p.created_at>=c.day_start AND p.created_at<c.day_end),0) collections_today,
+             COUNT(*) FILTER(WHERE p.status IN ('failed','verification_required','pending') AND p.created_at>=c.day_start-INTERVAL '7 days')::int payment_issues
+           FROM payments p ${doctorPaymentJoin},clinic c
+           WHERE true ${doctorPaymentFilter}
+         ), notification_metrics AS (
+           SELECT COUNT(*)::int notification_failures FROM notification_outbox no
+           ${doctorNotificationJoin}
+           WHERE no.status IN ('failed','retrying','skipped_no_destination') ${doctorNotificationFilter}
+         ), hold_metrics AS (
+           SELECT COUNT(*)::int expired_holds FROM appointment_holds ah
+           WHERE ah.status='active' AND ah.expires_at<NOW() ${doctorHoldFilter}
+         )
+         SELECT * FROM appointment_metrics CROSS JOIN order_metrics CROSS JOIN payment_metrics
+         CROSS JOIN notification_metrics CROSS JOIN hold_metrics`,
         values
       ),
       query(
@@ -2186,6 +2184,7 @@ type AppointmentFilters = {
   to?: string;
   search?: string;
   sort?: string;
+  cursor?: string;
 };
 
 export function appointmentAllowedActions(status: string): string[] {
@@ -2205,15 +2204,72 @@ export function appointmentAllowedActions(status: string): string[] {
 function appointmentOrderBy(sort?: string): string {
   switch (sort) {
     case 'date_asc':
-      return 'a.appointment_date ASC, a.start_time ASC';
+      return 'a.appointment_date ASC, a.start_time ASC, a.id ASC';
     case 'created_desc':
-      return 'a.created_at DESC';
+      return 'a.created_at DESC, a.id DESC';
     case 'created_asc':
-      return 'a.created_at ASC';
+      return 'a.created_at ASC, a.id ASC';
     case 'date_desc':
     default:
-      return 'a.appointment_date DESC, a.start_time DESC';
+      return 'a.appointment_date DESC, a.start_time DESC, a.id DESC';
   }
+}
+
+type ListCursor = { sort: string; values: string[] };
+
+function encodeListCursor(cursor: ListCursor): string {
+  return Buffer.from(JSON.stringify(cursor)).toString('base64url');
+}
+
+function decodeListCursor(cursor: string | undefined, sort: string): ListCursor | null {
+  if (!cursor) return null;
+  try {
+    const parsed = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (
+      parsed?.sort !== sort ||
+      !Array.isArray(parsed.values) ||
+      parsed.values.some((value: unknown) => typeof value !== 'string')
+    )
+      return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function appointmentCursorFor(row: any, sort: string): string {
+  return encodeListCursor({
+    sort,
+    values: sort.startsWith('created')
+      ? [new Date(row.created_at).toISOString(), row.id]
+      : [formatClinicDate(row.appointment_date), String(row.start_time), row.id],
+  });
+}
+
+function applyAppointmentCursor(
+  conditions: string[],
+  values: any[],
+  cursor: ListCursor | null,
+  sort: string
+) {
+  if (!cursor) return;
+  const ascending = sort.endsWith('_asc');
+  const operator = ascending ? '>' : '<';
+  if (sort.startsWith('created') && cursor.values.length === 2) {
+    values.push(cursor.values[0], cursor.values[1]);
+    conditions.push(
+      `(a.created_at,a.id) ${operator} ($${values.length - 1}::timestamptz,$${values.length}::uuid)`
+    );
+    return;
+  }
+  if (cursor.values.length === 3) {
+    values.push(cursor.values[0], cursor.values[1], cursor.values[2]);
+    conditions.push(
+      `(a.appointment_date,a.start_time,a.id) ${operator} ($${values.length - 2}::date,$${values.length - 1}::time,$${values.length}::uuid)`
+    );
+    return;
+  }
+  throw new AppError(400, 'INVALID_CURSOR', 'Appointment cursor is invalid.');
 }
 
 function buildAppointmentFilterSql(filters: AppointmentFilters = {}) {
@@ -2278,41 +2334,37 @@ export async function listAppointments(filters: AppointmentFilters = {}) {
 }
 
 export async function listAppointmentsPage(
-  filters: AppointmentFilters & { page?: number; pageSize?: number } = {}
+  filters: AppointmentFilters & { pageSize?: number } = {}
 ) {
-  const page = Math.max(1, Number(filters.page || 1));
   const pageSize = Math.min(50, Math.max(1, Number(filters.pageSize || 25)));
-  const offset = (page - 1) * pageSize;
-  const { values, where } = buildAppointmentFilterSql(filters);
-
-  const countResult = await query(
-    `SELECT COUNT(*)::int AS total
-     FROM appointments a
-     JOIN patients p ON p.id = a.patient_id
-     JOIN doctors d ON d.id = a.doctor_id
-     ${where}`,
-    values
-  );
-  const total = Number(countResult.rows[0]?.total || 0);
+  const sort = filters.sort || 'date_desc';
+  const decodedCursor = decodeListCursor(filters.cursor, sort);
+  if (filters.cursor && !decodedCursor)
+    throw new AppError(400, 'INVALID_CURSOR', 'Appointment cursor is invalid or expired.');
+  const built = buildAppointmentFilterSql(filters);
+  const values = [...built.values];
+  const conditions = built.where ? [built.where.replace(/^WHERE /, '')] : [];
+  applyAppointmentCursor(conditions, values, decodedCursor, sort);
+  values.push(pageSize + 1);
   const result = await query(
     `SELECT a.*, p.full_name AS patient_name, p.phone, d.name AS doctor_name
      FROM appointments a
      JOIN patients p ON p.id = a.patient_id
      JOIN doctors d ON d.id = a.doctor_id
-     ${where}
-     ORDER BY ${appointmentOrderBy(filters.sort)}
-     LIMIT $${values.length + 1}
-     OFFSET $${values.length + 2}`,
-    [...values, pageSize, offset]
+     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+     ORDER BY ${appointmentOrderBy(sort)}
+     LIMIT $${values.length}`,
+    values
   );
+  const hasMore = result.rows.length > pageSize;
+  const rows = result.rows.slice(0, pageSize);
 
   return {
-    data: decorateAppointmentRows(result.rows),
+    data: decorateAppointmentRows(rows),
+    cursor: hasMore ? appointmentCursorFor(rows[rows.length - 1], sort) : null,
     pagination: {
-      page,
       pageSize,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
+      hasMore,
     },
     filters: {
       doctor_id: filters.doctorId || '',
@@ -2356,7 +2408,14 @@ function csvLine(values: unknown[]): string {
 }
 
 export async function exportAppointmentsCsv(filters: AppointmentFilters = {}): Promise<string> {
-  const rows = await listAppointments(filters);
+  const rows: any[] = [];
+  let cursor: string | undefined;
+  for (;;) {
+    const result = await listAppointmentsPage({ ...filters, cursor, pageSize: 50 });
+    rows.push(...result.data);
+    if (!result.cursor || rows.length >= 50_000) break;
+    cursor = result.cursor;
+  }
   const header = [
     'Appointment Date',
     'Start Time',
@@ -4461,23 +4520,33 @@ export async function listPackageOrders(filters: PackageOrderFilters = {}) {
   }
   values.push(pageSize + 1);
   const result = await query(
-    `SELECT po.id, po.order_number, po.purchaser_name, po.phone, po.preferred_date,
+    `WITH candidate_orders AS MATERIALIZED (
+       SELECT po.* FROM package_orders po
+       ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+       ORDER BY po.created_at DESC,po.id DESC LIMIT $${values.length}
+     ), package_items AS (
+       SELECT item.order_id,COUNT(*)::int item_count
+       FROM package_order_items item JOIN candidate_orders candidate ON candidate.id=item.order_id
+       GROUP BY item.order_id
+     ), custom_items AS (
+       SELECT item.order_id,COUNT(*)::int item_count,
+              ARRAY_AGG(item.test_name_snapshot ORDER BY item.sort_order,item.id) test_names
+       FROM custom_test_order_items item JOIN candidate_orders candidate ON candidate.id=item.order_id
+       GROUP BY item.order_id
+     )
+     SELECT po.id, po.order_number, po.purchaser_name, po.phone, po.preferred_date,
             po.total_amount, po.status, po.fulfilment_status, po.created_at,po.updated_at,
             po.version,po.owner_staff_id,po.due_at,po.scheduled_for,owner.full_name AS owner_name,
             po.order_type, po.price_status,
-            CASE WHEN po.order_type = 'custom_tests'
-              THEN (SELECT COUNT(*)::int FROM custom_test_order_items ctoi WHERE ctoi.order_id = po.id)
-              ELSE (SELECT COUNT(*)::int FROM package_order_items poi WHERE poi.order_id = po.id)
-            END AS item_count,
-            CASE WHEN po.order_type = 'custom_tests'
-              THEN (SELECT ARRAY_AGG(ctoi.test_name_snapshot ORDER BY ctoi.sort_order) FROM custom_test_order_items ctoi WHERE ctoi.order_id = po.id)
-              ELSE ARRAY[]::TEXT[]
-            END AS test_names
-     FROM package_orders po
+            CASE WHEN po.order_type='custom_tests' THEN COALESCE(custom_items.item_count,0)
+              ELSE COALESCE(package_items.item_count,0) END item_count,
+            CASE WHEN po.order_type='custom_tests' THEN COALESCE(custom_items.test_names,ARRAY[]::TEXT[])
+              ELSE ARRAY[]::TEXT[] END test_names
+     FROM candidate_orders po
      LEFT JOIN staff_users owner ON owner.id=po.owner_staff_id
-     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
-     ORDER BY po.created_at DESC, po.id DESC
-     LIMIT $${values.length}`,
+     LEFT JOIN package_items ON package_items.order_id=po.id
+     LEFT JOIN custom_items ON custom_items.order_id=po.id
+     ORDER BY po.created_at DESC, po.id DESC`,
     values
   );
   const hasMore = result.rows.length > pageSize;
@@ -4503,7 +4572,7 @@ type PaymentFilters = {
   provider?: string;
   entity?: 'appointment' | 'package_order';
   sort?: 'date_desc' | 'date_asc' | 'updated_desc' | 'updated_asc' | 'amount_desc' | 'amount_asc';
-  page?: number;
+  cursor?: string;
   pageSize?: number;
 };
 
@@ -4516,11 +4585,15 @@ function buildPaymentFilters(filters: PaymentFilters = {}) {
   }
   if (filters.from) {
     values.push(filters.from);
-    conditions.push(`p.created_at::date >= $${values.length}`);
+    conditions.push(
+      `p.created_at >= ($${values.length}::date::timestamp AT TIME ZONE 'Asia/Kolkata')`
+    );
   }
   if (filters.to) {
     values.push(filters.to);
-    conditions.push(`p.created_at::date <= $${values.length}`);
+    conditions.push(
+      `p.created_at < (($${values.length}::date + 1)::timestamp AT TIME ZONE 'Asia/Kolkata')`
+    );
   }
   if (filters.search) {
     values.push(`%${filters.search.trim()}%`);
@@ -4557,26 +4630,67 @@ function paymentOrderBy(sort: PaymentFilters['sort']) {
     case 'updated_asc':
       return 'p.updated_at ASC, p.id ASC';
     case 'amount_desc':
-      return 'p.amount DESC, p.created_at DESC';
+      return 'p.amount DESC, p.created_at DESC, p.id DESC';
     case 'amount_asc':
-      return 'p.amount ASC, p.created_at DESC';
+      return 'p.amount ASC, p.created_at DESC, p.id DESC';
     case 'date_desc':
     default:
       return 'p.created_at DESC, p.id DESC';
   }
 }
 
+function paymentCursorFor(row: any, sort: NonNullable<PaymentFilters['sort']>): string {
+  const timeField = sort.startsWith('updated') ? row.updated_at : row.created_at;
+  return encodeListCursor({
+    sort,
+    values: sort.startsWith('amount')
+      ? [String(row.amount), new Date(row.created_at).toISOString(), row.id]
+      : [new Date(timeField).toISOString(), row.id],
+  });
+}
+
+function applyPaymentCursor(
+  conditions: string[],
+  values: any[],
+  cursor: ListCursor | null,
+  sort: NonNullable<PaymentFilters['sort']>
+) {
+  if (!cursor) return;
+  if (sort.startsWith('amount') && cursor.values.length === 3) {
+    values.push(cursor.values[0], cursor.values[1], cursor.values[2]);
+    const amountOperator = sort === 'amount_asc' ? '>' : '<';
+    conditions.push(
+      `(p.amount ${amountOperator} $${values.length - 2}::numeric OR
+        (p.amount=$${values.length - 2}::numeric AND
+         (p.created_at,p.id)<($${values.length - 1}::timestamptz,$${values.length}::uuid)))`
+    );
+    return;
+  }
+  if (cursor.values.length === 2) {
+    const column = sort.startsWith('updated') ? 'p.updated_at' : 'p.created_at';
+    const operator = sort.endsWith('_asc') ? '>' : '<';
+    values.push(cursor.values[0], cursor.values[1]);
+    conditions.push(
+      `(${column},p.id) ${operator} ($${values.length - 1}::timestamptz,$${values.length}::uuid)`
+    );
+    return;
+  }
+  throw new AppError(400, 'INVALID_CURSOR', 'Payment cursor is invalid.');
+}
+
 export async function listPayments(filters: PaymentFilters = {}) {
-  const page = Math.max(1, Number(filters.page || 1));
   const pageSize = Math.min(50, Math.max(1, Number(filters.pageSize || 25)));
-  const offset = (page - 1) * pageSize;
-  const { values, where } = buildPaymentFilters(filters);
-  const countValues = [...values];
-  const summaryValues = [...values];
-  const pageValues = [...values, pageSize, offset];
-  const [result, countResult, summaryResult] = await Promise.all([
-    query(
-      `SELECT p.id, p.order_id, p.appointment_id, p.provider, p.merchant_transaction_id,
+  const sort = filters.sort || 'date_desc';
+  const decodedCursor = decodeListCursor(filters.cursor, sort);
+  if (filters.cursor && !decodedCursor)
+    throw new AppError(400, 'INVALID_CURSOR', 'Payment cursor is invalid or expired.');
+  const built = buildPaymentFilters(filters);
+  const values = [...built.values];
+  const conditions = built.where ? [built.where.replace(/^WHERE /, '')] : [];
+  applyPaymentCursor(conditions, values, decodedCursor, sort);
+  values.push(pageSize + 1);
+  const result = await query(
+    `SELECT p.id, p.order_id, p.appointment_id, p.provider, p.merchant_transaction_id,
               p.amount, p.status, p.payment_method, p.provider_reference, p.provider_order_id,
               p.provider_evidence_source, p.provider_observed_at,
               p.created_at, p.updated_at, p.verified_at, p.failed_at, p.expires_at,
@@ -4595,60 +4709,54 @@ export async function listPayments(filters: PaymentFilters = {}) {
        ORDER BY no.created_at DESC
        LIMIT 1
      ) latest_notification ON true
-     ${where}
-     ORDER BY ${paymentOrderBy(filters.sort)}
-     LIMIT $${pageValues.length - 1} OFFSET $${pageValues.length}`,
-      pageValues
-    ),
-    query(
-      `SELECT COUNT(*)::int AS total
-       FROM payments p
-       LEFT JOIN package_orders po ON po.id = p.order_id
-       LEFT JOIN appointments a ON a.id = p.appointment_id
-       ${where}`,
-      countValues
-    ),
-    query(
-      `SELECT
-         COUNT(*)::int AS total,
-         COUNT(*) FILTER (WHERE p.status = 'success')::int AS success,
-         COUNT(*) FILTER (WHERE p.status IN ('created', 'pending', 'verification_required'))::int AS pending,
-         COUNT(*) FILTER (WHERE p.status IN ('failed', 'expired', 'disputed'))::int AS issues,
-         COALESCE(SUM(p.amount) FILTER (WHERE p.status = 'success'), 0) AS success_amount
-       FROM payments p
-       LEFT JOIN package_orders po ON po.id = p.order_id
-       LEFT JOIN appointments a ON a.id = p.appointment_id
-       ${where}`,
-      summaryValues
-    ),
-  ]);
-  const total = Number(countResult.rows[0]?.total || 0);
+     ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
+     ORDER BY ${paymentOrderBy(sort)}
+     LIMIT $${values.length}`,
+    values
+  );
+  const hasMore = result.rows.length > pageSize;
+  const rows = result.rows.slice(0, pageSize);
   return {
-    payments: result.rows,
-    pagination: {
-      page,
-      pageSize,
-      total,
-      totalPages: Math.max(1, Math.ceil(total / pageSize)),
-    },
-    summary: summaryResult.rows[0] || {
+    payments: rows,
+    cursor: hasMore ? paymentCursorFor(rows[rows.length - 1], sort) : null,
+    pagination: { pageSize, hasMore },
+  };
+}
+
+export async function getPaymentsSummary(filters: PaymentFilters = {}) {
+  const { values, where } = buildPaymentFilters(filters);
+  const result = await query(
+    `SELECT
+       COUNT(*)::int AS total,
+       COUNT(*) FILTER (WHERE p.status = 'success')::int AS success,
+       COUNT(*) FILTER (WHERE p.status IN ('created','pending','verification_required'))::int AS pending,
+       COUNT(*) FILTER (WHERE p.status IN ('failed','expired','disputed'))::int AS issues,
+       COALESCE(SUM(p.amount) FILTER (WHERE p.status='success'),0) AS success_amount
+     FROM payments p
+     LEFT JOIN package_orders po ON po.id=p.order_id
+     LEFT JOIN appointments a ON a.id=p.appointment_id
+     ${where}`,
+    values
+  );
+  return (
+    result.rows[0] || {
       total: 0,
       success: 0,
       pending: 0,
       issues: 0,
       success_amount: 0,
-    },
-  };
+    }
+  );
 }
 
 export async function exportPaymentsCsv(filters: PaymentFilters = {}): Promise<string> {
   const rows: any[] = [];
-  let page = 1;
+  let cursor: string | undefined;
   for (;;) {
-    const result = await listPayments({ ...filters, page, pageSize: 50 });
+    const result = await listPayments({ ...filters, cursor, pageSize: 50 });
     rows.push(...result.payments);
-    if (page >= result.pagination.totalPages) break;
-    page += 1;
+    if (!result.cursor || rows.length >= 50_000) break;
+    cursor = result.cursor;
   }
   const header = [
     'Payment Date',
@@ -4677,6 +4785,95 @@ export async function exportPaymentsCsv(filters: PaymentFilters = {}): Promise<s
     ])
   );
   return [csvLine(header), ...body].join('\n');
+}
+
+export async function createAdminExportJob(input: {
+  exportType: 'appointments' | 'payments';
+  filters: Record<string, unknown>;
+  actorStaffId: string;
+}) {
+  const result = await query(
+    `INSERT INTO admin_export_jobs(export_type,filters,requested_by_staff_id)
+     VALUES($1,$2,$3) RETURNING id,export_type,status,created_at,expires_at`,
+    [input.exportType, JSON.stringify(input.filters), input.actorStaffId]
+  );
+  return result.rows[0];
+}
+
+export async function getAdminExportJob(id: string, actorStaffId: string) {
+  const result = await query(
+    `SELECT id,export_type,status,row_count,error_code,created_at,started_at,completed_at,expires_at
+     FROM admin_export_jobs WHERE id=$1 AND requested_by_staff_id=$2`,
+    [id, actorStaffId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function getAdminExportDownload(id: string, actorStaffId: string) {
+  const result = await query(
+    `SELECT export_type,result_csv FROM admin_export_jobs
+     WHERE id=$1 AND requested_by_staff_id=$2 AND status='ready' AND expires_at>NOW()`,
+    [id, actorStaffId]
+  );
+  return result.rows[0] || null;
+}
+
+export async function processAdminExportJobs(instanceId: string) {
+  const client = await getClient();
+  let job: any;
+  try {
+    await client.query('BEGIN');
+    const claimed = await client.query(
+      `UPDATE admin_export_jobs SET status='processing',lease_owner=$1,
+              lease_expires_at=NOW()+INTERVAL '2 minutes',started_at=COALESCE(started_at,NOW()),
+              attempts=attempts+1
+       WHERE id=(
+         SELECT id FROM admin_export_jobs
+         WHERE (status='queued' OR (status='processing' AND lease_expires_at<NOW()))
+           AND available_at<=NOW() AND expires_at>NOW()
+         ORDER BY created_at,id FOR UPDATE SKIP LOCKED LIMIT 1
+       ) RETURNING *`,
+      [instanceId]
+    );
+    job = claimed.rows[0];
+    await client.query('COMMIT');
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
+  if (!job) {
+    await query(
+      `UPDATE admin_export_jobs SET status='expired',result_csv=NULL
+       WHERE status IN ('queued','ready','failed') AND expires_at<=NOW()`
+    );
+    return { processed: 0 };
+  }
+  try {
+    const csv =
+      job.export_type === 'appointments'
+        ? await exportAppointmentsCsv(job.filters || {})
+        : await exportPaymentsCsv(job.filters || {});
+    const rowCount = Math.max(0, csv.split('\n').length - 1);
+    await query(
+      `UPDATE admin_export_jobs SET status='ready',result_csv=$1,row_count=$2,
+              completed_at=NOW(),lease_owner=NULL,lease_expires_at=NULL,error_code=NULL
+       WHERE id=$3 AND lease_owner=$4`,
+      [csv, rowCount, job.id, instanceId]
+    );
+    return { processed: 1, status: 'ready' };
+  } catch {
+    await query(
+      `UPDATE admin_export_jobs SET
+         status=CASE WHEN attempts>=5 THEN 'failed' ELSE 'queued' END,
+         error_code='EXPORT_GENERATION_FAILED',available_at=NOW()+INTERVAL '30 seconds',
+         lease_owner=NULL,lease_expires_at=NULL
+       WHERE id=$1 AND lease_owner=$2`,
+      [job.id, instanceId]
+    );
+    return { processed: 1, status: 'retrying' };
+  }
 }
 
 export async function getAdminPaymentDetail(paymentId: string) {

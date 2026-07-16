@@ -11,8 +11,6 @@ import {
   createPackageOrder,
   createPayment,
   createSlotHold,
-  exportAppointmentsCsv,
-  exportPaymentsCsv,
   getAdminDashboard,
   getAdminCalendarView,
   getScheduleConflictCase,
@@ -33,6 +31,7 @@ import {
   assignPackageOrder,
   confirmPackageOrderPrice,
   listPayments,
+  getPaymentsSummary,
   listSlots,
   quotePackageOrder,
   recheckAdminPayment,
@@ -46,6 +45,9 @@ import {
   requestPaymentRefund,
   recordScheduleConflictResolutions,
   applyScheduleConflictCase,
+  createAdminExportJob,
+  getAdminExportJob,
+  getAdminExportDownload,
 } from '../services/operations';
 import {
   bulkRetryNotifications,
@@ -522,7 +524,7 @@ export async function adminAppointments(_req: AuthenticatedRequest, res: Respons
         to: req.query.to ? String(req.query.to) : undefined,
         search: req.query.search ? String(req.query.search) : undefined,
         sort: req.query.sort ? String(req.query.sort) : undefined,
-        page: req.query.page ? Number(req.query.page) : undefined,
+        cursor: req.query.cursor ? String(req.query.cursor) : undefined,
         pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
       })
     );
@@ -540,18 +542,24 @@ export async function adminAppointmentsExport(_req: AuthenticatedRequest, res: R
         : req.query.doctor_id
           ? String(req.query.doctor_id)
           : undefined;
-    const csv = await exportAppointmentsCsv({
-      doctorId,
-      status: req.query.status ? String(req.query.status) : undefined,
-      source: req.query.source ? String(req.query.source) : undefined,
-      from: req.query.from ? String(req.query.from) : undefined,
-      to: req.query.to ? String(req.query.to) : undefined,
-      search: req.query.search ? String(req.query.search) : undefined,
-      sort: req.query.sort ? String(req.query.sort) : undefined,
+    if (!req.user?.id) {
+      sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required');
+      return;
+    }
+    const job = await createAdminExportJob({
+      exportType: 'appointments',
+      actorStaffId: req.user.id,
+      filters: {
+        doctorId,
+        status: req.query.status ? String(req.query.status) : undefined,
+        source: req.query.source ? String(req.query.source) : undefined,
+        from: req.query.from ? String(req.query.from) : undefined,
+        to: req.query.to ? String(req.query.to) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined,
+        sort: req.query.sort ? String(req.query.sort) : undefined,
+      },
     });
-    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="appointments-export.csv"');
-    res.send(csv);
+    res.status(202).json({ job });
   } catch (err) {
     handleError(res, err);
   }
@@ -902,10 +910,30 @@ export async function adminPayments(_req: AuthenticatedRequest, res: Response) {
         ? (String(req.query.entity) as 'appointment' | 'package_order')
         : undefined,
       sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
-      page: req.query.page ? Number(req.query.page) : undefined,
+      cursor: req.query.cursor ? String(req.query.cursor) : undefined,
       pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
     });
     res.json(result);
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminPaymentsSummary(_req: AuthenticatedRequest, res: Response) {
+  try {
+    const req = _req;
+    res.json({
+      summary: await getPaymentsSummary({
+        status: req.query.status ? String(req.query.status) : undefined,
+        from: req.query.from ? String(req.query.from) : undefined,
+        to: req.query.to ? String(req.query.to) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined,
+        provider: req.query.provider ? String(req.query.provider) : undefined,
+        entity: req.query.entity
+          ? (String(req.query.entity) as 'appointment' | 'package_order')
+          : undefined,
+      }),
+    });
   } catch (err) {
     handleError(res, err);
   }
@@ -998,20 +1026,96 @@ export async function adminPaymentRefundRequest(req: AuthenticatedRequest, res: 
 export async function adminPaymentsExport(_req: AuthenticatedRequest, res: Response) {
   try {
     const req = _req;
-    const csv = await exportPaymentsCsv({
-      status: req.query.status ? String(req.query.status) : undefined,
-      from: req.query.from ? String(req.query.from) : undefined,
-      to: req.query.to ? String(req.query.to) : undefined,
-      search: req.query.search ? String(req.query.search) : undefined,
-      provider: req.query.provider ? String(req.query.provider) : undefined,
-      entity: req.query.entity
-        ? (String(req.query.entity) as 'appointment' | 'package_order')
-        : undefined,
-      sort: req.query.sort ? (String(req.query.sort) as any) : undefined,
+    if (!req.user?.id) {
+      sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required');
+      return;
+    }
+    const job = await createAdminExportJob({
+      exportType: 'payments',
+      actorStaffId: req.user.id,
+      filters: {
+        status: req.query.status ? String(req.query.status) : undefined,
+        from: req.query.from ? String(req.query.from) : undefined,
+        to: req.query.to ? String(req.query.to) : undefined,
+        search: req.query.search ? String(req.query.search) : undefined,
+        provider: req.query.provider ? String(req.query.provider) : undefined,
+        entity: req.query.entity ? String(req.query.entity) : undefined,
+        sort: req.query.sort ? String(req.query.sort) : undefined,
+      },
     });
+    res.status(202).json({ job });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminCreateExport(req: AuthenticatedRequest, res: Response) {
+  try {
+    if (!req.user?.id) {
+      sendApiError(res, 401, 'AUTHENTICATION_REQUIRED', 'Authentication required');
+      return;
+    }
+    const requested = req.body.filters || {};
+    const filters =
+      req.body.export_type === 'appointments'
+        ? {
+            doctorId:
+              req.user.role === 'doctor'
+                ? req.user.doctor_id || undefined
+                : requested.doctor_id || undefined,
+            status: requested.status || undefined,
+            source: requested.source || undefined,
+            from: requested.from || undefined,
+            to: requested.to || undefined,
+            search: requested.search || undefined,
+            sort: requested.sort || undefined,
+          }
+        : {
+            status: requested.status || undefined,
+            from: requested.from || undefined,
+            to: requested.to || undefined,
+            search: requested.search || undefined,
+            provider: requested.provider || undefined,
+            entity: requested.entity || undefined,
+            sort: requested.sort || undefined,
+          };
+    const job = await createAdminExportJob({
+      exportType: req.body.export_type,
+      filters,
+      actorStaffId: req.user.id,
+    });
+    res.status(202).json({ job });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminExportStatus(req: AuthenticatedRequest, res: Response) {
+  try {
+    const job = req.user?.id ? await getAdminExportJob(req.params.id, req.user.id) : null;
+    if (!job) {
+      sendApiError(res, 404, 'EXPORT_NOT_FOUND', 'Export job not found.');
+      return;
+    }
+    res.json({ job });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminExportDownload(req: AuthenticatedRequest, res: Response) {
+  try {
+    const result = req.user?.id ? await getAdminExportDownload(req.params.id, req.user.id) : null;
+    if (!result) {
+      sendApiError(res, 404, 'EXPORT_NOT_READY', 'Export is unavailable or has expired.');
+      return;
+    }
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
-    res.setHeader('Content-Disposition', 'attachment; filename="payments-export.csv"');
-    res.send(csv);
+    res.setHeader('Content-Disposition', `attachment; filename="${result.export_type}-export.csv"`);
+    const csv = String(result.result_csv);
+    for (let offset = 0; offset < csv.length; offset += 64 * 1024)
+      res.write(csv.slice(offset, offset + 64 * 1024));
+    res.end();
   } catch (err) {
     handleError(res, err);
   }

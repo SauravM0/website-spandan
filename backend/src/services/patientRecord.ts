@@ -65,6 +65,53 @@ function scopeSql(actor: Actor, alias = 'e') {
     : { sql: '', params: [] as unknown[] };
 }
 
+function encodePatientCursor(row: { updated_at: unknown; id: string }): string {
+  return Buffer.from(
+    JSON.stringify([new Date(row.updated_at as any).toISOString(), row.id])
+  ).toString('base64url');
+}
+
+function decodePatientCursor(cursor?: string): [string, string] | null {
+  if (!cursor) return null;
+  try {
+    const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (
+      !Array.isArray(value) ||
+      value.length !== 2 ||
+      Number.isNaN(Date.parse(value[0])) ||
+      !/^[0-9a-f-]{36}$/i.test(value[1])
+    )
+      return null;
+    return value as [string, string];
+  } catch {
+    return null;
+  }
+}
+
+function encodeJourneyCursor(row: { appointment_date: unknown; start_time: unknown; id: string }) {
+  return Buffer.from(
+    JSON.stringify([String(row.appointment_date).slice(0, 10), String(row.start_time), row.id])
+  ).toString('base64url');
+}
+
+function decodeJourneyCursor(cursor?: string): [string, string, string] | null {
+  if (!cursor) return null;
+  try {
+    const value = JSON.parse(Buffer.from(cursor, 'base64url').toString('utf8'));
+    if (
+      !Array.isArray(value) ||
+      value.length !== 3 ||
+      !/^\d{4}-\d{2}-\d{2}$/.test(value[0]) ||
+      !/^\d{2}:\d{2}/.test(value[1]) ||
+      !/^[0-9a-f-]{36}$/i.test(value[2])
+    )
+      return null;
+    return value as [string, string, string];
+  } catch {
+    return null;
+  }
+}
+
 export async function searchPatients(
   search: string,
   pageSize: number,
@@ -72,6 +119,9 @@ export async function searchPatients(
   cursor?: string
 ) {
   const term = search.trim();
+  const decodedCursor = decodePatientCursor(cursor);
+  if (cursor && !decodedCursor)
+    throw new AppError(400, 'INVALID_CURSOR', 'Patient cursor is invalid or expired.');
   const result = await query(
     `SELECT p.id,p.full_name,p.date_of_birth,p.age_years,p.gender,p.preferred_language,p.confidentiality,p.updated_at,
             RIGHT(regexp_replace(p.phone,'\\D','','g'),4) AS phone_last4,
@@ -91,21 +141,22 @@ export async function searchPatients(
         ))
         AND ($1='' OR p.full_name ILIKE '%'||$1||'%' OR RIGHT(regexp_replace(p.phone,'\\D','','g'),4)=$1
         OR EXISTS(SELECT 1 FROM patient_identifiers pi WHERE pi.patient_id=p.id AND pi.status='active' AND pi.value_normalized ILIKE '%'||LOWER($1)||'%'))
-        AND ($2::timestamptz IS NULL OR p.updated_at < $2)
+        AND ($2::timestamptz IS NULL OR (p.updated_at,p.id) < ($2::timestamptz,$7::uuid))
       ORDER BY p.updated_at DESC,p.id DESC LIMIT $3`,
     [
       term,
-      cursor || null,
+      decodedCursor?.[0] || null,
       pageSize + 1,
       actor.role === 'doctor' ? actor.doctor_id : null,
       isClinicalAdministrator(actor),
       actor.id,
+      decodedCursor?.[1] || null,
     ]
   );
   const rows = result.rows.slice(0, pageSize);
   return {
     data: rows,
-    cursor: result.rows.length > pageSize ? rows[rows.length - 1].updated_at : null,
+    cursor: result.rows.length > pageSize ? encodePatientCursor(rows[rows.length - 1]) : null,
   };
 }
 
@@ -141,9 +192,17 @@ export async function getPatientSummary(id: string, actor: Actor) {
   };
 }
 
-export async function getPatientAppointments(id: string, actor: Actor) {
+export async function getPatientAppointments(
+  id: string,
+  actor: Actor,
+  pageSize = 25,
+  cursor?: string
+) {
   await assertPatientClinicalAccess({ query }, id, actor);
   const scope = scopeSql(actor, 'a');
+  const decodedCursor = decodeJourneyCursor(cursor);
+  if (cursor && !decodedCursor)
+    throw new AppError(400, 'INVALID_CURSOR', 'Patient journey cursor is invalid or expired.');
   const result = await query(
     `WITH canonical_patient AS (
        SELECT COALESCE((SELECT target_patient_id FROM patient_redirects
@@ -167,11 +226,21 @@ export async function getPatientAppointments(id: string, actor: Actor) {
             a.created_at,a.updated_at
        FROM appointments a JOIN doctors d ON d.id=a.doctor_id
       WHERE a.patient_id IN (SELECT id FROM identity_group)${scope.sql}
-      ORDER BY a.appointment_date DESC,a.start_time DESC,a.id DESC LIMIT 100`,
-    [id, ...scope.params]
+        AND ($${2 + scope.params.length}::date IS NULL OR
+          (a.appointment_date,a.start_time,a.id)<($${2 + scope.params.length}::date,$${3 + scope.params.length}::time,$${4 + scope.params.length}::uuid))
+      ORDER BY a.appointment_date DESC,a.start_time DESC,a.id DESC LIMIT $${5 + scope.params.length}`,
+    [
+      id,
+      ...scope.params,
+      decodedCursor?.[0] || null,
+      decodedCursor?.[1] || null,
+      decodedCursor?.[2] || null,
+      pageSize + 1,
+    ]
   );
+  const appointments = result.rows.slice(0, pageSize);
   let packageOrders: any[] = [];
-  if (isClinicalAdministrator(actor)) {
+  if (isClinicalAdministrator(actor) && !cursor) {
     const orders = await query(
       `WITH canonical_patient AS (
          SELECT COALESCE((SELECT target_patient_id FROM patient_redirects
@@ -192,12 +261,17 @@ export async function getPatientAppointments(id: string, actor: Actor) {
        FROM package_orders order_row
        JOIN (SELECT order_id,(ARRAY_AGG(patient_id ORDER BY patient_id))[1] source_patient_id FROM linked_orders GROUP BY order_id) linked
          ON linked.order_id=order_row.id
-       ORDER BY order_row.created_at DESC,order_row.id DESC LIMIT 100`,
+      ORDER BY order_row.created_at DESC,order_row.id DESC LIMIT 25`,
       [id]
     );
     packageOrders = orders.rows;
   }
-  return { appointments: result.rows, packageOrders };
+  const last = appointments[appointments.length - 1];
+  return {
+    appointments,
+    appointmentsCursor: result.rows.length > pageSize && last ? encodeJourneyCursor(last) : null,
+    packageOrders,
+  };
 }
 
 export async function getPatientClinical(id: string, actor: Actor) {
@@ -211,7 +285,7 @@ export async function getPatientClinical(id: string, actor: Actor) {
       `SELECT e.id,e.patient_id,e.appointment_id,e.doctor_id,e.status,e.type,e.started_at,e.ended_at,e.version,e.created_at,e.updated_at,d.name doctor_name
          FROM encounters e JOIN doctors d ON d.id=e.doctor_id
         WHERE e.patient_id=$1${scope.sql}
-        ORDER BY COALESCE(e.started_at,e.created_at) DESC LIMIT 100`,
+        ORDER BY COALESCE(e.started_at,e.created_at) DESC,e.id DESC LIMIT 25`,
       [id, ...scope.params]
     ),
     query(
@@ -221,7 +295,7 @@ export async function getPatientClinical(id: string, actor: Actor) {
         WHERE cr.patient_id=$1
           AND (cr.encounter_id IS NULL OR EXISTS(SELECT 1 FROM encounters e WHERE e.id=cr.encounter_id${scope.sql}))
           ${restrictedResources.sql}
-        ORDER BY cr.authored_at DESC LIMIT 200`,
+        ORDER BY cr.authored_at DESC,cr.id DESC LIMIT 25`,
       [id, ...scope.params, ...restrictedResources.params]
     ),
     query(
@@ -231,7 +305,7 @@ export async function getPatientClinical(id: string, actor: Actor) {
         WHERE n.patient_id=$1
           AND EXISTS(SELECT 1 FROM encounters e WHERE e.id=n.encounter_id${scope.sql})
           ${restrictedNotes.sql}
-        ORDER BY n.created_at DESC LIMIT 100`,
+        ORDER BY n.created_at DESC,n.id DESC LIMIT 25`,
       [id, ...scope.params, ...restrictedNotes.params]
     ),
   ]);

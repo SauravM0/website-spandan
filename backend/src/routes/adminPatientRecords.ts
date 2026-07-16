@@ -80,7 +80,7 @@ router.get(
     query: z.object({
       search: z.string().max(100).default(''),
       page_size: z.coerce.number().int().min(1).max(50).default(25),
-      cursor: z.string().datetime().optional(),
+      cursor: z.string().max(500).optional(),
     }),
   }),
   asyncHandler(async (req: any, res) =>
@@ -145,9 +145,22 @@ router.get(
   '/:patientId/appointments',
   auditSensitiveAccess('patient.appointments.read', 'patient'),
   requirePermission(PERMISSIONS.APPOINTMENTS_READ),
-  validateZod({ params: patientId }),
+  validateZod({
+    params: patientId,
+    query: z.object({
+      page_size: z.coerce.number().int().min(1).max(50).default(25),
+      cursor: z.string().max(500).optional(),
+    }),
+  }),
   asyncHandler(async (req: any, res) =>
-    res.json(await records.getPatientAppointments(req.params.patientId, actor(req)))
+    res.json(
+      await records.getPatientAppointments(
+        req.params.patientId,
+        actor(req),
+        req.query.page_size,
+        req.query.cursor
+      )
+    )
   )
 );
 router.get(
