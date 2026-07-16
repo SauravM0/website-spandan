@@ -1,14 +1,437 @@
 'use client';
-import {FormEvent,useEffect,useMemo,useState} from 'react';import {getObservationCatalog,getPatientObservations,recordPatientObservation,reviewPatientObservation} from '../../lib/api';
-const empty={catalog_code:'',context:'',numeric_value:'',systolic_value:'',diastolic_value:'',unit:'',effective_at:'',source:'patient',raw_source:''};
-function value(o:any){if(o.value_kind==='blood_pressure')return `${o.systolic_value}/${o.diastolic_value} ${o.unit}`;if(o.value_kind==='quantity')return `${o.numeric_value} ${o.unit}`;if(o.value_kind==='document_reference')return 'Linked document';return o.text_summary}
-export default function ObservationManager({patientId,patientName,encounters}:{patientId:string;patientName:string;encounters:any[]}){const [items,setItems]=useState<any[]>([]),[catalog,setCatalog]=useState<any[]>([]),[draft,setDraft]=useState<any>(empty),[writes,setWrites]=useState(false),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[selected,setSelected]=useState<any>(),[reason,setReason]=useState('');const encounter=encounters.find(e=>e.status==='in_progress');const load=()=>Promise.all([getPatientObservations(patientId),getObservationCatalog()]).then(([o,c])=>{setItems(o.data);setWrites(o.writesEnabled);setCatalog(c.catalog);if(!draft.catalog_code&&c.catalog[0])choose(c.catalog[0],c.catalog)});useEffect(()=>{load().catch(e=>setMessage(e.message))},[patientId]);function choose(c:any,list=catalog){const x=typeof c==='string'?list.find(x=>x.code===c):c;if(x)setDraft({...empty,catalog_code:x.code,catalog_version:x.catalog_version,value_kind:x.value_kind,context:x.allowed_contexts[0]||'',unit:x.allowed_units[0]||''})}
- async function save(e:FormEvent){e.preventDefault();setBusy(true);setMessage('');try{const payload:any={...draft,effective_at:new Date(draft.effective_at).toISOString(),status:'final',provenance:{entry_path:'staff_portal'}};for(const k of ['numeric_value','systolic_value','diastolic_value'])if(payload[k]!=='')payload[k]=Number(payload[k]);else delete payload[k];for(const k of ['unit','text_summary','document_id'])if(!payload[k])delete payload[k];await recordPatientObservation(patientId,payload);choose(draft.catalog_code);await load();setMessage('Observation saved as unverified.')}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
- async function review(action:string){if(!selected||!encounter)return;setBusy(true);try{await reviewPatientObservation(patientId,selected.id,{encounter_id:encounter.id,expected_version:selected.version,confirm_patient_id:patientId,action,reason});setSelected(undefined);setReason('');await load();setMessage('Review recorded as a new attributable version.')}catch(e:any){setMessage(e.message)}finally{setBusy(false)}}
- const current=items.filter(x=>x.is_current),history=items.filter(x=>!x.is_current);const series=useMemo(()=>{const groups=new Map<string,any[]>();for(const x of current)if(x.value_kind==='quantity'&&x.status!=='entered_in_error'){const k=`${x.catalog_code}|${x.unit}|${x.context}`;groups.set(k,[...(groups.get(k)||[]),x])}return [...groups.entries()].filter(([,v])=>v.length>1)},[items]);
- return <section className="my-6" aria-labelledby="observations-title"><h2 id="observations-title" className="text-lg font-bold text-navy">Clinical observations</h2><p className="text-sm text-text-light">Values are shown with their source, context, unit, time, status, and verification. No diagnostic or treatment conclusions are generated.</p>{message&&<p role="status" className="my-3 rounded bg-blue-50 p-3">{message}</p>}
- <div className="mt-3 overflow-x-auto"><table className="min-w-full border-collapse text-left text-sm"><caption className="sr-only">Current clinical observations</caption><thead><tr>{['Measure and value','Measured','Context','Source','Status','Verification'].map(x=><th key={x} className="border-b p-2">{x}</th>)}</tr></thead><tbody>{current.map(o=><tr key={o.id} className={o.quality_status==='needs_review'?'bg-amber-50':''}><td className="border-b p-2"><strong>{o.display}</strong><br/>{value(o)}{o.quality_status==='needs_review'&&<span className="block font-semibold">Unusual value—review required</span>}</td><td className="border-b p-2">{new Date(o.effective_at).toLocaleString('en-IN',{timeZone:'Asia/Kolkata'})} IST</td><td className="border-b p-2">{o.context.replaceAll('_',' ')}</td><td className="border-b p-2">{o.source}{o.performer?` · ${o.performer}`:''}</td><td className="border-b p-2">{o.status}</td><td className="border-b p-2"><strong>{o.verification_status==='verified'?'Clinician verified':'Not clinician verified'}</strong><br/>{o.verification_status}{o.verification_status!=='verified'&&<button disabled={!writes||!encounter} onClick={()=>setSelected(o)} className="block min-h-11 underline disabled:opacity-50">Review</button>}</td></tr>)}</tbody></table>{!current.length&&<p className="rounded border p-4">No structured observations recorded.</p>}</div>
- {series.length>0&&<section className="mt-5" aria-labelledby="trends"><h3 id="trends" className="font-bold">Comparable trends</h3><p className="text-sm">Each row groups only the same measure, exact unit, and exact context. Use the table above for dates and source details.</p>{series.map(([k,v])=><div key={k} className="mt-2 rounded border p-3"><strong>{v[0].display} · {v[0].unit} · {v[0].context.replaceAll('_',' ')}</strong><ol className="mt-2 flex flex-wrap gap-3" aria-label={`${v[0].display} trend`}>{[...v].reverse().map((x:any)=><li key={x.id} className="rounded bg-slate-100 px-2 py-1">{x.numeric_value}<span className="sr-only"> on {new Date(x.effective_at).toLocaleDateString('en-IN')}</span></li>)}</ol></div>)}</section>}
- {selected&&<div role="dialog" aria-modal="true" aria-labelledby="observation-review" className="my-4 rounded border-2 border-navy bg-white p-4"><h3 id="observation-review" className="font-bold">Review {selected.display} for {patientName}</h3><p>{value(selected)} · {selected.source} · currently {selected.verification_status}. Compare with the raw source; do not infer missing units or context.</p><label className="mt-3 grid gap-1 font-semibold">Review reason<textarea value={reason} onChange={e=>setReason(e.target.value)} className="rounded border p-2"/></label><div className="mt-3 flex flex-wrap gap-2"><button disabled={reason.trim().length<5||busy} onClick={()=>review('verify')} className="min-h-11 rounded bg-navy px-3 text-white disabled:opacity-50">Verify unchanged</button><button disabled={reason.trim().length<5||busy} onClick={()=>review('unable_to_verify')} className="min-h-11 rounded border px-3 disabled:opacity-50">Unable to verify</button><button onClick={()=>setSelected(undefined)} className="min-h-11 rounded border px-3">Cancel</button></div></div>}
- <details className="mt-4"><summary className="cursor-pointer font-semibold">Correction history ({history.length})</summary>{history.map(o=><p key={o.id} className="border-l-2 p-2 text-sm">{o.display}, version {o.version}: {value(o)} · {o.verification_status}</p>)}</details>
- <form onSubmit={save} className="mt-5 rounded border bg-white p-4"><h3 className="font-bold">Record an observation</h3><p className="text-sm">Enter exactly what the source reports. Measurement time, source, context, and original wording are required. Unusual but plausible values are retained for review.</p><fieldset disabled={!writes||busy} className="mt-3 grid gap-3 sm:grid-cols-2"><label className="grid gap-1 font-semibold sm:col-span-2">Measure<select value={draft.catalog_code} onChange={e=>choose(e.target.value)} className="min-h-11 rounded border px-2">{catalog.map(c=><option value={c.code} key={`${c.code}-${c.catalog_version}`}>{c.display}</option>)}</select></label>{draft.value_kind==='quantity'&&<label className="grid gap-1 font-semibold">Value<input required type="number" step="any" value={draft.numeric_value} onChange={e=>setDraft({...draft,numeric_value:e.target.value})} className="min-h-11 rounded border px-3"/></label>}{draft.value_kind==='blood_pressure'&&<><label className="grid gap-1 font-semibold">Systolic<input required type="number" value={draft.systolic_value} onChange={e=>setDraft({...draft,systolic_value:e.target.value})} className="min-h-11 rounded border px-3"/></label><label className="grid gap-1 font-semibold">Diastolic<input required type="number" value={draft.diastolic_value} onChange={e=>setDraft({...draft,diastolic_value:e.target.value})} className="min-h-11 rounded border px-3"/></label></>}{draft.value_kind==='summary'&&<label className="grid gap-1 font-semibold sm:col-span-2">Summary<textarea required value={draft.text_summary||''} onChange={e=>setDraft({...draft,text_summary:e.target.value})} className="rounded border p-2"/></label>}{draft.value_kind==='document_reference'&&<label className="grid gap-1 font-semibold sm:col-span-2">Reviewed document ID<input required value={draft.document_id||''} onChange={e=>setDraft({...draft,document_id:e.target.value})} className="min-h-11 rounded border px-3"/></label>}{draft.unit&&<label className="grid gap-1 font-semibold">Unit<select value={draft.unit} onChange={e=>setDraft({...draft,unit:e.target.value})} className="min-h-11 rounded border px-2">{catalog.find(c=>c.code===draft.catalog_code)?.allowed_units.map((u:string)=><option key={u}>{u}</option>)}</select></label>}<label className="grid gap-1 font-semibold">Context<select value={draft.context} onChange={e=>setDraft({...draft,context:e.target.value})} className="min-h-11 rounded border px-2">{catalog.find(c=>c.code===draft.catalog_code)?.allowed_contexts.map((x:string)=><option value={x} key={x}>{x.replaceAll('_',' ')}</option>)}</select></label><label className="grid gap-1 font-semibold">Measured date and time<input required type="datetime-local" value={draft.effective_at} onChange={e=>setDraft({...draft,effective_at:e.target.value})} className="min-h-11 rounded border px-2"/></label><label className="grid gap-1 font-semibold">Source<select value={draft.source} onChange={e=>setDraft({...draft,source:e.target.value})} className="min-h-11 rounded border px-2">{['patient','guardian','clinician','lab','device','document','import'].map(x=><option key={x}>{x}</option>)}</select></label><label className="grid gap-1 font-semibold sm:col-span-2">Original source wording<textarea required value={draft.raw_source} onChange={e=>setDraft({...draft,raw_source:e.target.value})} className="rounded border p-2"/></label><button className="min-h-11 rounded bg-navy px-4 font-semibold text-white sm:col-span-2">Save as unverified</button></fieldset>{!writes&&<p className="mt-3 rounded bg-amber-50 p-3">Observation entry is disabled until the catalog and clinical workflow are approved.</p>}</form></section>}
+import { FormEvent, useEffect, useMemo, useState } from 'react';
+import {
+  getObservationCatalog,
+  getPatientObservations,
+  recordPatientObservation,
+  reviewPatientObservation,
+} from '../../lib/api';
+const empty = {
+  catalog_code: '',
+  context: '',
+  numeric_value: '',
+  systolic_value: '',
+  diastolic_value: '',
+  unit: '',
+  effective_at: '',
+  source: 'patient',
+  raw_source: '',
+};
+function value(o: any) {
+  if (o.value_kind === 'blood_pressure')
+    return `${o.systolic_value}/${o.diastolic_value} ${o.unit}`;
+  if (o.value_kind === 'quantity') return `${o.numeric_value} ${o.unit}`;
+  if (o.value_kind === 'document_reference') return 'Linked document';
+  return o.text_summary;
+}
+export default function ObservationManager({
+  patientId,
+  patientName,
+  encounters,
+}: {
+  patientId: string;
+  patientName: string;
+  encounters: any[];
+}) {
+  const [items, setItems] = useState<any[]>([]),
+    [catalog, setCatalog] = useState<any[]>([]),
+    [draft, setDraft] = useState<any>(empty),
+    [writes, setWrites] = useState(false),
+    [message, setMessage] = useState(''),
+    [busy, setBusy] = useState(false),
+    [selected, setSelected] = useState<any>(),
+    [reason, setReason] = useState('');
+  const encounter = encounters.find((e) => e.status === 'in_progress');
+  const load = () =>
+    Promise.all([getPatientObservations(patientId), getObservationCatalog()]).then(([o, c]) => {
+      setItems(o.data);
+      setWrites(o.writesEnabled);
+      setCatalog(c.catalog);
+      if (!draft.catalog_code && c.catalog[0]) choose(c.catalog[0], c.catalog);
+    });
+  useEffect(() => {
+    load().catch((e) => setMessage(e.message));
+  }, [patientId]);
+  function choose(c: any, list = catalog) {
+    const x = typeof c === 'string' ? list.find((x) => x.code === c) : c;
+    if (x)
+      setDraft({
+        ...empty,
+        catalog_code: x.code,
+        catalog_version: x.catalog_version,
+        value_kind: x.value_kind,
+        context: x.allowed_contexts[0] || '',
+        unit: x.allowed_units[0] || '',
+      });
+  }
+  async function save(e: FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    setMessage('');
+    try {
+      const payload: any = {
+        ...draft,
+        effective_at: new Date(draft.effective_at).toISOString(),
+        status: 'final',
+        provenance: { entry_path: 'staff_portal' },
+      };
+      for (const k of ['numeric_value', 'systolic_value', 'diastolic_value'])
+        if (payload[k] !== '') payload[k] = Number(payload[k]);
+        else delete payload[k];
+      for (const k of ['unit', 'text_summary', 'document_id']) if (!payload[k]) delete payload[k];
+      await recordPatientObservation(patientId, payload);
+      choose(draft.catalog_code);
+      await load();
+      setMessage('Observation saved as unverified.');
+    } catch (e: any) {
+      setMessage(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  async function review(action: string) {
+    if (!selected || !encounter) return;
+    setBusy(true);
+    try {
+      await reviewPatientObservation(patientId, selected.id, {
+        encounter_id: encounter.id,
+        expected_version: selected.version,
+        confirm_patient_id: patientId,
+        action,
+        reason,
+      });
+      setSelected(undefined);
+      setReason('');
+      await load();
+      setMessage('Review recorded as a new attributable version.');
+    } catch (e: any) {
+      setMessage(e.message);
+    } finally {
+      setBusy(false);
+    }
+  }
+  const current = items.filter((x) => x.is_current),
+    history = items.filter((x) => !x.is_current);
+  const series = useMemo(() => {
+    const groups = new Map<string, any[]>();
+    for (const x of current)
+      if (x.value_kind === 'quantity' && x.status !== 'entered_in_error') {
+        const k = `${x.catalog_code}|${x.unit}|${x.context}`;
+        groups.set(k, [...(groups.get(k) || []), x]);
+      }
+    return [...groups.entries()].filter(([, v]) => v.length > 1);
+  }, [items]);
+  return (
+    <section className="my-6" aria-labelledby="observations-title">
+      <h2 id="observations-title" className="text-lg font-bold text-navy">
+        Clinical observations
+      </h2>
+      <p className="text-sm text-text-light">
+        Values are shown with their source, context, unit, time, status, and verification. No
+        diagnostic or treatment conclusions are generated.
+      </p>
+      {message && (
+        <p role="status" className="my-3 rounded bg-blue-50 p-3">
+          {message}
+        </p>
+      )}
+      <div className="mt-3 overflow-x-auto">
+        <table className="min-w-full border-collapse text-left text-sm">
+          <caption className="sr-only">Current clinical observations</caption>
+          <thead>
+            <tr>
+              {['Measure and value', 'Measured', 'Context', 'Source', 'Status', 'Verification'].map(
+                (x) => (
+                  <th key={x} className="border-b p-2">
+                    {x}
+                  </th>
+                )
+              )}
+            </tr>
+          </thead>
+          <tbody>
+            {current.map((o) => (
+              <tr key={o.id} className={o.quality_status === 'needs_review' ? 'bg-amber-50' : ''}>
+                <td className="border-b p-2">
+                  <strong>{o.display}</strong>
+                  <br />
+                  {value(o)}
+                  {o.quality_status === 'needs_review' && (
+                    <span className="block font-semibold">Unusual value—review required</span>
+                  )}
+                </td>
+                <td className="border-b p-2">
+                  {new Date(o.effective_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })}{' '}
+                  IST
+                </td>
+                <td className="border-b p-2">{o.context.replaceAll('_', ' ')}</td>
+                <td className="border-b p-2">
+                  {o.source}
+                  {o.performer ? ` · ${o.performer}` : ''}
+                </td>
+                <td className="border-b p-2">{o.status}</td>
+                <td className="border-b p-2">
+                  <strong>
+                    {o.verification_status === 'verified'
+                      ? 'Clinician verified'
+                      : 'Not clinician verified'}
+                  </strong>
+                  <br />
+                  {o.verification_status}
+                  {o.verification_status !== 'verified' && (
+                    <button
+                      disabled={!writes || !encounter}
+                      onClick={() => setSelected(o)}
+                      className="block min-h-11 underline disabled:opacity-50"
+                    >
+                      Review
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {!current.length && (
+          <p className="rounded border p-4">No structured observations recorded.</p>
+        )}
+      </div>
+      {series.length > 0 && (
+        <section className="mt-5" aria-labelledby="trends">
+          <h3 id="trends" className="font-bold">
+            Comparable trends
+          </h3>
+          <p className="text-sm">
+            Each row groups only the same measure, exact unit, and exact context. Use the table
+            above for dates and source details.
+          </p>
+          {series.map(([k, v]) => (
+            <div key={k} className="mt-2 rounded border p-3">
+              <strong>
+                {v[0].display} · {v[0].unit} · {v[0].context.replaceAll('_', ' ')}
+              </strong>
+              <ol className="mt-2 flex flex-wrap gap-3" aria-label={`${v[0].display} trend`}>
+                {[...v].reverse().map((x: any) => (
+                  <li key={x.id} className="rounded bg-slate-100 px-2 py-1">
+                    {x.numeric_value}
+                    <span className="sr-only">
+                      {' '}
+                      on {new Date(x.effective_at).toLocaleDateString('en-IN')}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ))}
+        </section>
+      )}
+      {selected && (
+        <div
+          role="region"
+          aria-labelledby="observation-review"
+          className="my-4 rounded border-2 border-navy bg-white p-4"
+        >
+          <h3 id="observation-review" className="font-bold">
+            Review {selected.display} for {patientName}
+          </h3>
+          <p>
+            {value(selected)} · {selected.source} · currently {selected.verification_status}.
+            Compare with the raw source; do not infer missing units or context.
+          </p>
+          <label className="mt-3 grid gap-1 font-semibold">
+            Review reason
+            <textarea
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="rounded border p-2"
+            />
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              disabled={reason.trim().length < 5 || busy}
+              onClick={() => review('verify')}
+              className="min-h-11 rounded bg-navy px-3 text-white disabled:opacity-50"
+            >
+              Verify unchanged
+            </button>
+            <button
+              disabled={reason.trim().length < 5 || busy}
+              onClick={() => review('unable_to_verify')}
+              className="min-h-11 rounded border px-3 disabled:opacity-50"
+            >
+              Unable to verify
+            </button>
+            <button onClick={() => setSelected(undefined)} className="min-h-11 rounded border px-3">
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+      <details className="mt-4">
+        <summary className="cursor-pointer font-semibold">
+          Correction history ({history.length})
+        </summary>
+        {history.map((o) => (
+          <p key={o.id} className="border-l-2 p-2 text-sm">
+            {o.display}, version {o.version}: {value(o)} · {o.verification_status}
+          </p>
+        ))}
+      </details>
+      <form onSubmit={save} className="mt-5 rounded border bg-white p-4">
+        <h3 className="font-bold">Record an observation</h3>
+        <p className="text-sm">
+          Enter exactly what the source reports. Measurement time, source, context, and original
+          wording are required. Unusual but plausible values are retained for review.
+        </p>
+        <fieldset disabled={!writes || busy} className="mt-3 grid gap-3 sm:grid-cols-2">
+          <label className="grid gap-1 font-semibold sm:col-span-2">
+            Measure
+            <select
+              value={draft.catalog_code}
+              onChange={(e) => choose(e.target.value)}
+              className="min-h-11 rounded border px-2"
+            >
+              {catalog.map((c) => (
+                <option value={c.code} key={`${c.code}-${c.catalog_version}`}>
+                  {c.display}
+                </option>
+              ))}
+            </select>
+          </label>
+          {draft.value_kind === 'quantity' && (
+            <label className="grid gap-1 font-semibold">
+              Value
+              <input
+                required
+                type="number"
+                step="any"
+                value={draft.numeric_value}
+                onChange={(e) => setDraft({ ...draft, numeric_value: e.target.value })}
+                className="min-h-11 rounded border px-3"
+              />
+            </label>
+          )}
+          {draft.value_kind === 'blood_pressure' && (
+            <>
+              <label className="grid gap-1 font-semibold">
+                Systolic
+                <input
+                  required
+                  type="number"
+                  value={draft.systolic_value}
+                  onChange={(e) => setDraft({ ...draft, systolic_value: e.target.value })}
+                  className="min-h-11 rounded border px-3"
+                />
+              </label>
+              <label className="grid gap-1 font-semibold">
+                Diastolic
+                <input
+                  required
+                  type="number"
+                  value={draft.diastolic_value}
+                  onChange={(e) => setDraft({ ...draft, diastolic_value: e.target.value })}
+                  className="min-h-11 rounded border px-3"
+                />
+              </label>
+            </>
+          )}
+          {draft.value_kind === 'summary' && (
+            <label className="grid gap-1 font-semibold sm:col-span-2">
+              Summary
+              <textarea
+                required
+                value={draft.text_summary || ''}
+                onChange={(e) => setDraft({ ...draft, text_summary: e.target.value })}
+                className="rounded border p-2"
+              />
+            </label>
+          )}
+          {draft.value_kind === 'document_reference' && (
+            <label className="grid gap-1 font-semibold sm:col-span-2">
+              Reviewed document ID
+              <input
+                required
+                value={draft.document_id || ''}
+                onChange={(e) => setDraft({ ...draft, document_id: e.target.value })}
+                className="min-h-11 rounded border px-3"
+              />
+            </label>
+          )}
+          {draft.unit && (
+            <label className="grid gap-1 font-semibold">
+              Unit
+              <select
+                value={draft.unit}
+                onChange={(e) => setDraft({ ...draft, unit: e.target.value })}
+                className="min-h-11 rounded border px-2"
+              >
+                {catalog
+                  .find((c) => c.code === draft.catalog_code)
+                  ?.allowed_units.map((u: string) => (
+                    <option key={u}>{u}</option>
+                  ))}
+              </select>
+            </label>
+          )}
+          <label className="grid gap-1 font-semibold">
+            Context
+            <select
+              value={draft.context}
+              onChange={(e) => setDraft({ ...draft, context: e.target.value })}
+              className="min-h-11 rounded border px-2"
+            >
+              {catalog
+                .find((c) => c.code === draft.catalog_code)
+                ?.allowed_contexts.map((x: string) => (
+                  <option value={x} key={x}>
+                    {x.replaceAll('_', ' ')}
+                  </option>
+                ))}
+            </select>
+          </label>
+          <label className="grid gap-1 font-semibold">
+            Measured date and time
+            <input
+              required
+              type="datetime-local"
+              value={draft.effective_at}
+              onChange={(e) => setDraft({ ...draft, effective_at: e.target.value })}
+              className="min-h-11 rounded border px-2"
+            />
+          </label>
+          <label className="grid gap-1 font-semibold">
+            Source
+            <select
+              value={draft.source}
+              onChange={(e) => setDraft({ ...draft, source: e.target.value })}
+              className="min-h-11 rounded border px-2"
+            >
+              {['patient', 'guardian', 'clinician', 'lab', 'device', 'document', 'import'].map(
+                (x) => (
+                  <option key={x}>{x}</option>
+                )
+              )}
+            </select>
+          </label>
+          <label className="grid gap-1 font-semibold sm:col-span-2">
+            Original source wording
+            <textarea
+              required
+              value={draft.raw_source}
+              onChange={(e) => setDraft({ ...draft, raw_source: e.target.value })}
+              className="rounded border p-2"
+            />
+          </label>
+          <button className="min-h-11 rounded bg-navy px-4 font-semibold text-white sm:col-span-2">
+            Save as unverified
+          </button>
+        </fieldset>
+        {!writes && (
+          <p className="mt-3 rounded bg-amber-50 p-3">
+            Observation entry is disabled until the catalog and clinical workflow are approved.
+          </p>
+        )}
+      </form>
+    </section>
+  );
+}

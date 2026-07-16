@@ -73,7 +73,10 @@ export default function LeadMutationForm({
       </div>
 
       <div className="mb-4">
-        <label htmlFor="mutation-notes" className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-light">
+        <label
+          htmlFor="mutation-notes"
+          className="mb-1 block text-xs font-semibold uppercase tracking-wide text-text-light"
+        >
           Notes (optional)
         </label>
         <textarea
@@ -87,14 +90,16 @@ export default function LeadMutationForm({
       </div>
 
       {error && (
-        <p className="mb-3 rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">{error}</p>
+        <p className="mb-3 rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">
+          {error}
+        </p>
       )}
 
       <button
         type="button"
         onClick={handleSubmit}
         disabled={!selectedStatus || submitting}
-        className="btn btn-primary min-h-10 w-full sm:w-auto"
+        className="btn btn-primary min-h-11 w-full sm:w-auto"
       >
         {submitting ? 'Updating...' : `Mark as ${selectedStatus ? label(selectedStatus) : '...'}`}
       </button>

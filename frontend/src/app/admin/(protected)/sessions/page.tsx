@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, changeAdminPassword, getAdminSessions, revokeAdminSession } from '@/lib/api';
+import { confirmAdminAction } from '@/lib/adminDialogs';
 
 type Session = {
   id: string;
@@ -45,7 +46,14 @@ export default function AdminSessionsPage() {
   }, [load]);
 
   const revoke = async (session: Session) => {
-    if (!window.confirm(`Revoke ${session.current ? 'this session' : 'the selected session'}?`))
+    if (
+      !(await confirmAdminAction({
+        title: 'Revoke administrator session?',
+        description: `This will revoke ${session.current ? 'your current session and sign you out' : 'the selected session'}.`,
+        confirmLabel: 'Revoke session',
+        danger: true,
+      }))
+    )
       return;
     try {
       const result = await revokeAdminSession(session.id, 'Administrator revoked this session');

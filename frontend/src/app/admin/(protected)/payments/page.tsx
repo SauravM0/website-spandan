@@ -13,13 +13,16 @@ import {
   requestAdminPaymentRefund,
 } from '@/lib/api';
 import {
+  AdminDrawer,
   AdminPageHeader,
+  CursorPagination,
   FilterBar,
   ResponsiveDataView,
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
 import { browserApiUrl } from '@/lib/apiUrl';
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
+import type { AdminPayment } from '@/lib/types';
 
 const statuses = [
   '',
@@ -177,7 +180,7 @@ function PaymentsInner() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const [filters, setFilters] = useState<PaymentFilters>(() => filtersFromParams(searchParams));
-  const [payments, setPayments] = useState<any[]>([]);
+  const [payments, setPayments] = useState<AdminPayment[]>([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 25, hasMore: false });
   const [cursor, setCursor] = useState<string | null>(null);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -659,228 +662,214 @@ function PaymentsInner() {
                 </p>
               }
             />
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={!cursorHistory.length}
-                onClick={previousPage}
-              >
-                Previous
-              </button>
-              <p className="text-xs text-text-light">
-                Page {pagination.page} · {payments.length} payment(s)
-              </p>
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={!pagination.hasMore || !nextCursor}
-                onClick={nextPage}
-              >
-                Next
-              </button>
-            </div>
+            <CursorPagination
+              page={pagination.page}
+              canPrevious={cursorHistory.length > 0}
+              canNext={pagination.hasMore && Boolean(nextCursor)}
+              onPrevious={previousPage}
+              onNext={nextPage}
+              itemLabel="payments"
+              itemCount={payments.length}
+            />
           </>
         )}
 
         {selectedId && (
-          <div className="fixed inset-0 z-50 bg-black/40">
-            <aside className="ml-auto flex h-full w-full max-w-2xl flex-col overflow-y-auto bg-white p-5 shadow-xl">
-              <div className="mb-4 flex items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-xl font-bold text-navy">Payment detail</h2>
-                  <p className="text-sm text-text-light">
-                    {selectedPayment
-                      ? maskRef(selectedPayment.merchant_transaction_id)
-                      : selectedId}
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
-                  onClick={() => {
-                    setSelectedId('');
-                    setDetail(null);
-                  }}
-                >
-                  <X size={16} />
-                  Close
-                </button>
-              </div>
-
-              {detailLoading ? (
-                <div className="h-40 animate-pulse rounded-lg bg-bg-alt" />
-              ) : selectedPayment ? (
-                <>
-                  <div className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
-                    <Detail label="Amount" value={money(selectedPayment.amount)} />
-                    <Detail
-                      label="Status"
-                      value={
-                        <StatusBadge tone={statusTone(selectedPayment.status)}>
-                          {label(selectedPayment.status)}
-                        </StatusBadge>
-                      }
-                    />
-                    <Detail
-                      label="Entity"
-                      value={
-                        selectedPayment.order_number || selectedPayment.appointment_number || '-'
-                      }
-                    />
-                    <Detail
-                      label="Provider"
-                      value={`${selectedPayment.provider || '-'} / ${selectedPayment.payment_method || '-'}`}
-                    />
-                    <Detail
-                      label="Provider reference"
-                      value={maskRef(
-                        selectedPayment.provider_reference || selectedPayment.provider_order_id
-                      )}
-                    />
-                    <Detail
-                      label="Success evidence"
-                      value={
-                        selectedPayment.provider_evidence_source
-                          ? `${label(selectedPayment.provider_evidence_source)} at ${dateTime(selectedPayment.provider_observed_at)}`
-                          : selectedPayment.status === 'success'
-                            ? 'Legacy payment — evidence not recorded'
-                            : 'Awaiting provider confirmation'
-                      }
-                    />
-                    <Detail label="Updated" value={dateTime(selectedPayment.updated_at)} />
-                  </div>
-
-                  <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
-                    {selectedPayment.pdf_url ? (
-                      <a
-                        className="btn btn-outline flex-1"
-                        href={receiptUrl(selectedPayment.id)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        <ExternalLink size={16} />
-                        Open Receipt
-                      </a>
-                    ) : (
-                      <span className="btn flex-1 cursor-not-allowed bg-bg-alt text-text-light">
-                        Receipt not generated
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      className="btn btn-accent flex-1"
-                      onClick={() => recheck(selectedPayment.id)}
-                      disabled={recheckingId === selectedPayment.id}
-                    >
-                      <RefreshCw size={16} />
-                      {recheckingId === selectedPayment.id
-                        ? 'Checking...'
-                        : 'Safe Provider Recheck'}
-                    </button>
-                  </div>
-
-                  {selectedPayment.status === 'success' && (
-                    <section
-                      className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4"
-                      aria-labelledby="refund-heading"
-                    >
-                      <h3 id="refund-heading" className="font-bold text-navy">
-                        Request a refund
-                      </h3>
-                      <p className="mt-1 text-sm text-text-light">
-                        This records an audited request only. A different authorized person must
-                        approve it before provider processing.
-                      </p>
-                      {refundMessage && (
-                        <p role="status" className="mt-3 text-sm font-semibold text-success">
-                          {refundMessage}
-                        </p>
-                      )}
-                      <div className="mt-3 grid gap-3">
-                        <label className="form-group mb-0">
-                          <span>Amount in INR</span>
-                          <input
-                            inputMode="decimal"
-                            type="number"
-                            min="0.01"
-                            max={Number(selectedPayment.amount)}
-                            step="0.01"
-                            value={refundAmount}
-                            onChange={(event) => {
-                              setRefundAmount(event.target.value);
-                              setRefundPreview(false);
-                            }}
-                          />
-                        </label>
-                        <label className="form-group mb-0">
-                          <span>Operational reason (minimum 10 characters)</span>
-                          <textarea
-                            maxLength={500}
-                            value={refundReason}
-                            onChange={(event) => {
-                              setRefundReason(event.target.value);
-                              setRefundPreview(false);
-                            }}
-                          />
-                        </label>
-                        {!refundPreview ? (
-                          <button
-                            type="button"
-                            className="btn btn-outline"
-                            disabled={
-                              Number(refundAmount) <= 0 ||
-                              Number(refundAmount) > Number(selectedPayment.amount) ||
-                              refundReason.trim().length < 10
-                            }
-                            onClick={() => setRefundPreview(true)}
-                          >
-                            Review refund request
-                          </button>
-                        ) : (
-                          <div
-                            className="rounded-lg border border-amber-400 bg-white p-3"
-                            role="alert"
-                          >
-                            <p className="font-semibold">
-                              Confirm request for {money(refundAmount)}
-                            </p>
-                            <p className="mt-1 text-sm">Reason: {refundReason}</p>
-                            <div className="mt-3 flex gap-2">
-                              <button
-                                type="button"
-                                className="btn btn-accent"
-                                disabled={refundSubmitting}
-                                onClick={submitRefundRequest}
-                              >
-                                {refundSubmitting ? 'Recording...' : 'Record refund request'}
-                              </button>
-                              <button
-                                type="button"
-                                className="btn btn-outline"
-                                onClick={() => setRefundPreview(false)}
-                              >
-                                Go back
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </section>
-                  )}
-
-                  <div className="mt-6">
-                    <h3 className="mb-3 text-lg font-bold text-navy">Timeline</h3>
-                    <PaymentTimeline events={detail?.events || []} />
-                  </div>
-                </>
-              ) : (
-                <p className="rounded-lg bg-bg-alt p-4 text-sm text-text-light">
-                  Select a payment to view details.
+          <AdminDrawer
+            label="Payment detail"
+            onClose={() => {
+              setSelectedId('');
+              setDetail(null);
+            }}
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-navy">Payment detail</h2>
+                <p className="text-sm text-text-light">
+                  {selectedPayment ? maskRef(selectedPayment.merchant_transaction_id) : selectedId}
                 </p>
-              )}
-            </aside>
-          </div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-outline btn-sm"
+                onClick={() => {
+                  setSelectedId('');
+                  setDetail(null);
+                }}
+              >
+                <X size={16} />
+                Close
+              </button>
+            </div>
+
+            {detailLoading ? (
+              <div className="h-40 animate-pulse rounded-lg bg-bg-alt" />
+            ) : selectedPayment ? (
+              <>
+                <div className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
+                  <Detail label="Amount" value={money(selectedPayment.amount)} />
+                  <Detail
+                    label="Status"
+                    value={
+                      <StatusBadge tone={statusTone(selectedPayment.status)}>
+                        {label(selectedPayment.status)}
+                      </StatusBadge>
+                    }
+                  />
+                  <Detail
+                    label="Entity"
+                    value={
+                      selectedPayment.order_number || selectedPayment.appointment_number || '-'
+                    }
+                  />
+                  <Detail
+                    label="Provider"
+                    value={`${selectedPayment.provider || '-'} / ${selectedPayment.payment_method || '-'}`}
+                  />
+                  <Detail
+                    label="Provider reference"
+                    value={maskRef(
+                      selectedPayment.provider_reference || selectedPayment.provider_order_id
+                    )}
+                  />
+                  <Detail
+                    label="Success evidence"
+                    value={
+                      selectedPayment.provider_evidence_source
+                        ? `${label(selectedPayment.provider_evidence_source)} at ${dateTime(selectedPayment.provider_observed_at)}`
+                        : selectedPayment.status === 'success'
+                          ? 'Legacy payment — evidence not recorded'
+                          : 'Awaiting provider confirmation'
+                    }
+                  />
+                  <Detail label="Updated" value={dateTime(selectedPayment.updated_at)} />
+                </div>
+
+                <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
+                  {selectedPayment.pdf_url ? (
+                    <a
+                      className="btn btn-outline flex-1"
+                      href={receiptUrl(selectedPayment.id)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink size={16} />
+                      Open Receipt
+                    </a>
+                  ) : (
+                    <span className="btn flex-1 cursor-not-allowed bg-bg-alt text-text-light">
+                      Receipt not generated
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    className="btn btn-accent flex-1"
+                    onClick={() => recheck(selectedPayment.id)}
+                    disabled={recheckingId === selectedPayment.id}
+                  >
+                    <RefreshCw size={16} />
+                    {recheckingId === selectedPayment.id ? 'Checking...' : 'Safe Provider Recheck'}
+                  </button>
+                </div>
+
+                {selectedPayment.status === 'success' && (
+                  <section
+                    className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4"
+                    aria-labelledby="refund-heading"
+                  >
+                    <h3 id="refund-heading" className="font-bold text-navy">
+                      Request a refund
+                    </h3>
+                    <p className="mt-1 text-sm text-text-light">
+                      This records an audited request only. A different authorized person must
+                      approve it before provider processing.
+                    </p>
+                    {refundMessage && (
+                      <p role="status" className="mt-3 text-sm font-semibold text-success">
+                        {refundMessage}
+                      </p>
+                    )}
+                    <div className="mt-3 grid gap-3">
+                      <label className="form-group mb-0">
+                        <span>Amount in INR</span>
+                        <input
+                          inputMode="decimal"
+                          type="number"
+                          min="0.01"
+                          max={Number(selectedPayment.amount)}
+                          step="0.01"
+                          value={refundAmount}
+                          onChange={(event) => {
+                            setRefundAmount(event.target.value);
+                            setRefundPreview(false);
+                          }}
+                        />
+                      </label>
+                      <label className="form-group mb-0">
+                        <span>Operational reason (minimum 10 characters)</span>
+                        <textarea
+                          maxLength={500}
+                          value={refundReason}
+                          onChange={(event) => {
+                            setRefundReason(event.target.value);
+                            setRefundPreview(false);
+                          }}
+                        />
+                      </label>
+                      {!refundPreview ? (
+                        <button
+                          type="button"
+                          className="btn btn-outline"
+                          disabled={
+                            Number(refundAmount) <= 0 ||
+                            Number(refundAmount) > Number(selectedPayment.amount) ||
+                            refundReason.trim().length < 10
+                          }
+                          onClick={() => setRefundPreview(true)}
+                        >
+                          Review refund request
+                        </button>
+                      ) : (
+                        <div
+                          className="rounded-lg border border-amber-400 bg-white p-3"
+                          role="alert"
+                        >
+                          <p className="font-semibold">Confirm request for {money(refundAmount)}</p>
+                          <p className="mt-1 text-sm">Reason: {refundReason}</p>
+                          <div className="mt-3 flex gap-2">
+                            <button
+                              type="button"
+                              className="btn btn-accent"
+                              disabled={refundSubmitting}
+                              onClick={submitRefundRequest}
+                            >
+                              {refundSubmitting ? 'Recording...' : 'Record refund request'}
+                            </button>
+                            <button
+                              type="button"
+                              className="btn btn-outline"
+                              onClick={() => setRefundPreview(false)}
+                            >
+                              Go back
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </section>
+                )}
+
+                <div className="mt-6">
+                  <h3 className="mb-3 text-lg font-bold text-navy">Timeline</h3>
+                  <PaymentTimeline events={detail?.events || []} />
+                </div>
+              </>
+            ) : (
+              <p className="rounded-lg bg-bg-alt p-4 text-sm text-text-light">
+                Select a payment to view details.
+              </p>
+            )}
+          </AdminDrawer>
         )}
       </div>
     </section>

@@ -1,42 +1,35 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Search } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { searchAdminWorkflow } from '../../lib/api';
+import type { AdminSearchResult } from '../../lib/types';
+import { useDebouncedValue, useLatestRequest } from '../../features/admin/shared/hooks';
 
 export default function AdminGlobalSearch() {
   const router = useRouter();
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<any[]>([]);
+  const [results, setResults] = useState<AdminSearchResult[]>([]);
   const [open, setOpen] = useState(false);
-  const request = useRef(0);
+  const debouncedQuery = useDebouncedValue(query.trim(), 250);
+  const runLatest = useLatestRequest();
 
   useEffect(() => {
-    if (query.trim().length < 2) {
+    if (debouncedQuery.length < 2) {
       setResults([]);
       setOpen(false);
       return;
     }
-    const controller = new AbortController();
-    const current = ++request.current;
-    const timer = window.setTimeout(() => {
-      searchAdminWorkflow(query.trim(), controller.signal)
-        .then((response) => {
-          if (current === request.current) {
-            setResults(response.data);
-            setOpen(true);
-          }
-        })
-        .catch(() => {
-          if (!controller.signal.aborted && current === request.current) setResults([]);
-        });
-    }, 250);
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [query]);
+    void runLatest((signal) => searchAdminWorkflow(debouncedQuery, signal))
+      .then((response) => {
+        if (response) {
+          setResults(response.data);
+          setOpen(true);
+        }
+      })
+      .catch(() => setResults([]));
+  }, [debouncedQuery, runLatest]);
 
   return (
     <div className="relative hidden w-full max-w-xl md:block">

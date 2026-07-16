@@ -30,6 +30,7 @@ import FocusTrap from '../ui/FocusTrap';
 import StepUpDialog from '../admin/StepUpDialog';
 import AdminGlobalSearch from '../admin/AdminGlobalSearch';
 import AdminRealtimeBridge from '../admin/AdminRealtimeBridge';
+import AdminActionDialog from '../admin/AdminActionDialog';
 
 const navGroups = [
   {
@@ -359,6 +360,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     <AdminSessionProvider user={user}>
       {shell}
       <StepUpDialog />
+      <AdminActionDialog />
     </AdminSessionProvider>
   );
 }

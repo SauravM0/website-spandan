@@ -259,7 +259,9 @@ export default function PackageDetailClient({ id }: { id: string }) {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to save package.';
       if (message.includes('409') || message.includes('CONFLICT') || message.includes('modified')) {
-        setError('This package was modified by another user. Please review changes and save again.');
+        setError(
+          'This package was modified by another user. Please review changes and save again.'
+        );
       } else {
         setError(message);
       }
@@ -327,7 +329,8 @@ export default function PackageDetailClient({ id }: { id: string }) {
           <div className="min-w-0">
             <h1 className="truncate text-xl font-bold text-navy sm:text-2xl">{pkg.name}</h1>
             <p className="text-sm text-text-light">
-              v{pkg.version} &middot; {pkg.category} &middot; {pkg.is_active ? 'Active' : 'Inactive'}
+              v{pkg.version} &middot; {pkg.category} &middot;{' '}
+              {pkg.is_active ? 'Active' : 'Inactive'}
             </p>
           </div>
           <div className="flex items-center gap-2">
@@ -348,7 +351,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
               type="button"
               onClick={handleSave}
               disabled={saving || !dirty}
-              className="btn btn-primary btn-sm min-h-10"
+              className="btn btn-primary btn-sm min-h-11"
             >
               {saving ? 'Saving...' : 'Save'}
             </button>
@@ -356,10 +359,14 @@ export default function PackageDetailClient({ id }: { id: string }) {
         </div>
 
         {error && (
-          <p className="mb-4 rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">{error}</p>
+          <p className="mb-4 rounded-md bg-danger/10 p-3 text-sm font-semibold text-danger">
+            {error}
+          </p>
         )}
         {success && (
-          <p className="mb-4 rounded-md bg-success/10 p-3 text-sm font-semibold text-success">{success}</p>
+          <p className="mb-4 rounded-md bg-success/10 p-3 text-sm font-semibold text-success">
+            {success}
+          </p>
         )}
 
         <div className="space-y-6">
@@ -385,19 +392,39 @@ export default function PackageDetailClient({ id }: { id: string }) {
               </div>
               <div className="form-group sm:col-span-2">
                 <label>Short Description</label>
-                <textarea name="short_description" value={form.short_description} onChange={handleChange} rows={2} />
+                <textarea
+                  name="short_description"
+                  value={form.short_description}
+                  onChange={handleChange}
+                  rows={2}
+                />
               </div>
               <div className="form-group sm:col-span-2">
                 <label>Description</label>
-                <textarea name="description" value={form.description} onChange={handleChange} rows={4} />
+                <textarea
+                  name="description"
+                  value={form.description}
+                  onChange={handleChange}
+                  rows={4}
+                />
               </div>
               <div className="form-group">
                 <label>Display Order</label>
-                <input name="display_order" type="number" min="0" value={form.display_order} onChange={handleChange} />
+                <input
+                  name="display_order"
+                  type="number"
+                  min="0"
+                  value={form.display_order}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group">
                 <label>Primary Doctor ID</label>
-                <input name="primary_doctor_id" value={form.primary_doctor_id} onChange={handleChange} />
+                <input
+                  name="primary_doctor_id"
+                  value={form.primary_doctor_id}
+                  onChange={handleChange}
+                />
               </div>
             </div>
           </div>
@@ -415,7 +442,10 @@ export default function PackageDetailClient({ id }: { id: string }) {
             ) : (
               <div className="space-y-3">
                 {tests.map((test, index) => (
-                  <div key={index} className="flex flex-wrap items-start gap-2 rounded-lg border border-border p-3">
+                  <div
+                    key={index}
+                    className="flex flex-wrap items-start gap-2 rounded-lg border border-border p-3"
+                  >
                     <div className="flex items-center gap-1 pt-1">
                       <button
                         type="button"
@@ -482,41 +512,102 @@ export default function PackageDetailClient({ id }: { id: string }) {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="form-group">
                 <label>Base Price *</label>
-                <input name="base_price" type="number" min="0" step="0.01" value={form.base_price} onChange={handleChange} required />
+                <input
+                  name="base_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.base_price}
+                  onChange={handleChange}
+                  required
+                />
                 <p className="mt-1 text-xs text-text-light">{formatPrice(form.base_price)}</p>
               </div>
               <div className="form-group">
                 <label>Discounted Price</label>
-                <input name="discounted_price" type="number" min="0" step="0.01" value={form.discounted_price} onChange={handleChange} />
-                {form.discounted_price && <p className="mt-1 text-xs text-text-light">{formatPrice(form.discounted_price)}</p>}
+                <input
+                  name="discounted_price"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.discounted_price}
+                  onChange={handleChange}
+                />
+                {form.discounted_price && (
+                  <p className="mt-1 text-xs text-text-light">
+                    {formatPrice(form.discounted_price)}
+                  </p>
+                )}
               </div>
               <div className="form-group">
                 <label>Discount Label</label>
-                <input name="discount_label" value={form.discount_label} onChange={handleChange} placeholder="e.g. 20% off" />
+                <input
+                  name="discount_label"
+                  value={form.discount_label}
+                  onChange={handleChange}
+                  placeholder="e.g. 20% off"
+                />
               </div>
               <div className="form-group">
                 <label>Tax Rate (%)</label>
-                <input name="tax_rate" type="number" min="0" max="100" step="0.01" value={form.tax_rate} onChange={handleChange} />
+                <input
+                  name="tax_rate"
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={form.tax_rate}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group">
                 <label>Tax Name</label>
-                <input name="tax_name" value={form.tax_name} onChange={handleChange} placeholder="e.g. GST" />
+                <input
+                  name="tax_name"
+                  value={form.tax_name}
+                  onChange={handleChange}
+                  placeholder="e.g. GST"
+                />
               </div>
               <div className="form-group">
                 <label>Convenience Fee</label>
-                <input name="convenience_fee" type="number" min="0" step="0.01" value={form.convenience_fee} onChange={handleChange} />
+                <input
+                  name="convenience_fee"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  value={form.convenience_fee}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group">
                 <label>Gateway Fee Policy</label>
-                <input name="gateway_fee_policy" value={form.gateway_fee_policy} onChange={handleChange} placeholder="e.g. included" />
+                <input
+                  name="gateway_fee_policy"
+                  value={form.gateway_fee_policy}
+                  onChange={handleChange}
+                  placeholder="e.g. included"
+                />
               </div>
               <div className="form-group">
                 <label>Max Bookings / Day</label>
-                <input name="max_bookings_per_day" type="number" min="1" value={form.max_bookings_per_day} onChange={handleChange} />
+                <input
+                  name="max_bookings_per_day"
+                  type="number"
+                  min="1"
+                  value={form.max_bookings_per_day}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group">
                 <label>
-                  <input type="checkbox" name="tax_applicable" checked={form.tax_applicable} onChange={handleChange} className="mr-2" />
+                  <input
+                    type="checkbox"
+                    name="tax_applicable"
+                    checked={form.tax_applicable}
+                    onChange={handleChange}
+                    className="mr-2"
+                  />
                   Tax Applicable
                 </label>
               </div>
@@ -529,27 +620,57 @@ export default function PackageDetailClient({ id }: { id: string }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="form-group">
                 <label>Effective From</label>
-                <input name="effective_start" type="date" value={form.effective_start} onChange={handleChange} />
+                <input
+                  name="effective_start"
+                  type="date"
+                  value={form.effective_start}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group">
                 <label>Effective Until</label>
-                <input name="effective_end" type="date" value={form.effective_end} onChange={handleChange} />
+                <input
+                  name="effective_end"
+                  type="date"
+                  value={form.effective_end}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group">
                 <label>Available Days</label>
-                <input name="available_days" value={form.available_days} onChange={handleChange} placeholder="Monday, Tuesday, ..." />
+                <input
+                  name="available_days"
+                  value={form.available_days}
+                  onChange={handleChange}
+                  placeholder="Monday, Tuesday, ..."
+                />
               </div>
               <div className="form-group">
                 <label>Blackout Dates</label>
-                <input name="blackout_dates" value={form.blackout_dates} onChange={handleChange} placeholder="YYYY-MM-DD, YYYY-MM-DD" />
+                <input
+                  name="blackout_dates"
+                  value={form.blackout_dates}
+                  onChange={handleChange}
+                  placeholder="YYYY-MM-DD, YYYY-MM-DD"
+                />
               </div>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="preferred_date_required" checked={form.preferred_date_required} onChange={handleChange} />
+                  <input
+                    type="checkbox"
+                    name="preferred_date_required"
+                    checked={form.preferred_date_required}
+                    onChange={handleChange}
+                  />
                   Preferred Date Required
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="date_optional" checked={form.date_optional} onChange={handleChange} />
+                  <input
+                    type="checkbox"
+                    name="date_optional"
+                    checked={form.date_optional}
+                    onChange={handleChange}
+                  />
                   Date Optional
                 </label>
               </div>
@@ -562,39 +683,86 @@ export default function PackageDetailClient({ id }: { id: string }) {
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="form-group sm:col-span-2">
                 <label>Prep Instructions</label>
-                <textarea name="prep_instructions" value={form.prep_instructions} onChange={handleChange} rows={3} />
+                <textarea
+                  name="prep_instructions"
+                  value={form.prep_instructions}
+                  onChange={handleChange}
+                  rows={3}
+                />
               </div>
               <div className="form-group">
                 <label>Age / Sex Applicability</label>
-                <input name="age_sex_applicability" value={form.age_sex_applicability} onChange={handleChange} placeholder="e.g. All ages, Both genders" />
+                <input
+                  name="age_sex_applicability"
+                  value={form.age_sex_applicability}
+                  onChange={handleChange}
+                  placeholder="e.g. All ages, Both genders"
+                />
               </div>
               <div className="form-group">
                 <label>Exclusions</label>
-                <input name="exclusions" value={form.exclusions} onChange={handleChange} placeholder="e.g. Not for pregnant women" />
+                <input
+                  name="exclusions"
+                  value={form.exclusions}
+                  onChange={handleChange}
+                  placeholder="e.g. Not for pregnant women"
+                />
               </div>
               <div className="form-group">
                 <label>Fasting Duration</label>
-                <input name="fasting_duration" value={form.fasting_duration} onChange={handleChange} placeholder="e.g. 8-12 hours" />
+                <input
+                  name="fasting_duration"
+                  value={form.fasting_duration}
+                  onChange={handleChange}
+                  placeholder="e.g. 8-12 hours"
+                />
               </div>
               <div className="form-group">
                 <label>Fasting Hours</label>
-                <input name="fasting_hours" type="number" min="0" max="24" value={form.fasting_hours} onChange={handleChange} />
+                <input
+                  name="fasting_hours"
+                  type="number"
+                  min="0"
+                  max="24"
+                  value={form.fasting_hours}
+                  onChange={handleChange}
+                />
               </div>
               <div className="form-group">
                 <label>Report Turnaround</label>
-                <input name="report_turnaround" value={form.report_turnaround} onChange={handleChange} placeholder="e.g. 24-48 hours" />
+                <input
+                  name="report_turnaround"
+                  value={form.report_turnaround}
+                  onChange={handleChange}
+                  placeholder="e.g. 24-48 hours"
+                />
               </div>
               <div className="form-group sm:col-span-2">
                 <label>Medical Disclaimer</label>
-                <textarea name="medical_disclaimer" value={form.medical_disclaimer} onChange={handleChange} rows={2} />
+                <textarea
+                  name="medical_disclaimer"
+                  value={form.medical_disclaimer}
+                  onChange={handleChange}
+                  rows={2}
+                />
               </div>
               <div className="flex gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="consultation_included" checked={form.consultation_included} onChange={handleChange} />
+                  <input
+                    type="checkbox"
+                    name="consultation_included"
+                    checked={form.consultation_included}
+                    onChange={handleChange}
+                  />
                   Consultation Included
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="fasting_required" checked={form.fasting_required} onChange={handleChange} />
+                  <input
+                    type="checkbox"
+                    name="fasting_required"
+                    checked={form.fasting_required}
+                    onChange={handleChange}
+                  />
                   Fasting Required
                 </label>
               </div>
@@ -607,7 +775,11 @@ export default function PackageDetailClient({ id }: { id: string }) {
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="form-group">
                 <label>Publication Status</label>
-                <select name="publication_status" value={form.publication_status} onChange={handleChange}>
+                <select
+                  name="publication_status"
+                  value={form.publication_status}
+                  onChange={handleChange}
+                >
                   <option value="draft">Draft</option>
                   <option value="published">Published</option>
                 </select>
@@ -622,19 +794,39 @@ export default function PackageDetailClient({ id }: { id: string }) {
               </div>
               <div className="form-group">
                 <label>Badge Text</label>
-                <input name="badge_text" value={form.badge_text} onChange={handleChange} placeholder="e.g. Popular" />
+                <input
+                  name="badge_text"
+                  value={form.badge_text}
+                  onChange={handleChange}
+                  placeholder="e.g. Popular"
+                />
               </div>
               <div className="flex flex-wrap gap-4">
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="is_active" checked={form.is_active} onChange={handleChange} />
+                  <input
+                    type="checkbox"
+                    name="is_active"
+                    checked={form.is_active}
+                    onChange={handleChange}
+                  />
                   Active
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="is_featured" checked={form.is_featured} onChange={handleChange} />
+                  <input
+                    type="checkbox"
+                    name="is_featured"
+                    checked={form.is_featured}
+                    onChange={handleChange}
+                  />
                   Featured
                 </label>
                 <label className="flex items-center gap-2 cursor-pointer">
-                  <input type="checkbox" name="purchase_enabled" checked={form.purchase_enabled} onChange={handleChange} />
+                  <input
+                    type="checkbox"
+                    name="purchase_enabled"
+                    checked={form.purchase_enabled}
+                    onChange={handleChange}
+                  />
                   Purchase Enabled
                 </label>
               </div>
@@ -647,11 +839,21 @@ export default function PackageDetailClient({ id }: { id: string }) {
             <div className="grid gap-4">
               <div className="form-group">
                 <label>Terms Text</label>
-                <textarea name="terms_text" value={form.terms_text} onChange={handleChange} rows={3} />
+                <textarea
+                  name="terms_text"
+                  value={form.terms_text}
+                  onChange={handleChange}
+                  rows={3}
+                />
               </div>
               <div className="form-group">
                 <label>No-Refund Acknowledgement</label>
-                <textarea name="no_refund_text" value={form.no_refund_text} onChange={handleChange} rows={2} />
+                <textarea
+                  name="no_refund_text"
+                  value={form.no_refund_text}
+                  onChange={handleChange}
+                  rows={2}
+                />
               </div>
             </div>
           </div>
@@ -670,7 +872,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
                 type="button"
                 onClick={handleSave}
                 disabled={saving || !dirty}
-                className="btn btn-primary min-h-10"
+                className="btn btn-primary min-h-11"
               >
                 {saving ? 'Saving...' : 'Save package'}
               </button>

@@ -4,14 +4,20 @@ import { useEffect, useRef } from 'react';
 
 const focusableSelector = [
   'a[href]',
-  'button:not([disabled])',
+  'button:not([disabled]):not([tabindex="-1"])',
   'input:not([disabled])',
   'select:not([disabled])',
   'textarea:not([disabled])',
   '[tabindex]:not([tabindex="-1"])',
 ].join(', ');
 
-export default function FocusTrap({ children, active = true }: { children: React.ReactNode; active?: boolean }) {
+export default function FocusTrap({
+  children,
+  active = true,
+}: {
+  children: React.ReactNode;
+  active?: boolean;
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {

@@ -1,6 +1,8 @@
 'use client';
 
 import React from 'react';
+import { useEffect } from 'react';
+import FocusTrap from '../ui/FocusTrap';
 
 export function AdminPageHeader({
   title,
@@ -30,7 +32,13 @@ export function FilterBar({ children }: { children: React.ReactNode }) {
   );
 }
 
-export function StatusBadge({ children, tone = 'neutral' }: { children: React.ReactNode; tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info' }) {
+export function StatusBadge({
+  children,
+  tone = 'neutral',
+}: {
+  children: React.ReactNode;
+  tone?: 'neutral' | 'success' | 'warning' | 'danger' | 'info';
+}) {
   const tones = {
     neutral: 'bg-bg-alt text-text-light',
     success: 'bg-success/10 text-success',
@@ -40,9 +48,109 @@ export function StatusBadge({ children, tone = 'neutral' }: { children: React.Re
   };
 
   return (
-    <span className={`inline-flex min-h-[28px] items-center rounded-full px-3 text-xs font-semibold ${tones[tone]}`}>
+    <span
+      className={`inline-flex min-h-[28px] items-center rounded-full px-3 text-xs font-semibold ${tones[tone]}`}
+    >
       {children}
     </span>
+  );
+}
+
+export function CursorPagination({
+  page,
+  canPrevious,
+  canNext,
+  onPrevious,
+  onNext,
+  itemLabel,
+  itemCount,
+}: {
+  page: number;
+  canPrevious: boolean;
+  canNext: boolean;
+  onPrevious: () => void;
+  onNext: () => void;
+  itemLabel: string;
+  itemCount?: number;
+}) {
+  return (
+    <nav className="mt-4 flex items-center justify-between gap-3" aria-label={`${itemLabel} pages`}>
+      <button
+        type="button"
+        className="btn btn-outline min-h-[44px]"
+        disabled={!canPrevious}
+        onClick={onPrevious}
+      >
+        Previous
+      </button>
+      <p className="text-xs text-text-light" aria-live="polite">
+        Page {page}
+        {itemCount === undefined ? '' : ` · ${itemCount} ${itemLabel}`}
+      </p>
+      <button
+        type="button"
+        className="btn btn-outline min-h-[44px]"
+        disabled={!canNext}
+        onClick={onNext}
+      >
+        Next
+      </button>
+    </nav>
+  );
+}
+
+export function AdminFeedback({ message, error = false }: { message?: string; error?: boolean }) {
+  if (!message) return null;
+  return (
+    <div
+      role={error ? 'alert' : 'status'}
+      aria-live={error ? 'assertive' : 'polite'}
+      className={`rounded-md p-3 text-sm ${error ? 'bg-red-50 text-red-900' : 'bg-blue-50 text-navy'}`}
+    >
+      {message}
+    </div>
+  );
+}
+
+export function AdminDrawer({
+  label,
+  onClose,
+  children,
+  widthClass = 'max-w-2xl',
+}: {
+  label: string;
+  onClose: () => void;
+  children: React.ReactNode;
+  widthClass?: string;
+}) {
+  useEffect(() => {
+    const close = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', close);
+    return () => document.removeEventListener('keydown', close);
+  }, [onClose]);
+
+  return (
+    <FocusTrap>
+      <div className="fixed inset-0 z-50">
+        <button
+          type="button"
+          tabIndex={-1}
+          aria-label={`Close ${label}`}
+          className="absolute inset-0 bg-black/40"
+          onClick={onClose}
+        />
+        <aside
+          role="dialog"
+          aria-modal="true"
+          aria-label={label}
+          className={`absolute right-0 top-0 h-full w-full ${widthClass} overflow-y-auto bg-white p-5 shadow-xl`}
+        >
+          {children}
+        </aside>
+      </div>
+    </FocusTrap>
   );
 }
 
@@ -59,7 +167,7 @@ export function Pagination({
     <div className="mt-4 flex items-center justify-between gap-3 text-sm">
       <button
         type="button"
-        className="btn btn-outline min-h-10 px-3 py-2"
+        className="btn btn-outline min-h-11 px-3 py-2"
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
       >
@@ -70,7 +178,7 @@ export function Pagination({
       </span>
       <button
         type="button"
-        className="btn btn-outline min-h-10 px-3 py-2"
+        className="btn btn-outline min-h-11 px-3 py-2"
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
       >

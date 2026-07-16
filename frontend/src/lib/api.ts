@@ -6,6 +6,9 @@ import type {
   DashboardData,
   AppointmentHold,
   Appointment,
+  AdminAppointment,
+  AdminPayment,
+  AdminSearchResult,
   LeadEnquiry,
   LeadDetail,
   Notification,
@@ -708,9 +711,12 @@ export async function getAdminDashboard(token = '') {
 }
 
 export async function searchAdminWorkflow(query: string, signal?: AbortSignal) {
-  return fetchAPI<{ data: any[] }>(`/admin/operations/workflow/search${toQuery({ q: query })}`, {
-    signal,
-  });
+  return fetchAPI<{ data: AdminSearchResult[] }>(
+    `/admin/operations/workflow/search${toQuery({ q: query })}`,
+    {
+      signal,
+    }
+  );
 }
 
 export async function getAdminWorkItem(type: string, id: string, signal?: AbortSignal) {
@@ -778,7 +784,7 @@ export async function getAdminAppointments(
   } = {}
 ) {
   return fetchAPI<{
-    data: Appointment[];
+    data: AdminAppointment[];
     cursor: string | null;
     pagination: { pageSize: number; hasMore: boolean };
     filters?: Record<string, unknown>;
@@ -1054,12 +1060,13 @@ export async function getAdminPayments(
     pageSize?: number;
   } = {}
 ) {
-  return fetchAPI<{ payments: any[]; cursor: string | null; pagination: any }>(
-    `/admin/operations/payments${toQuery(filters)}`,
-    {
-      headers: authHeaders(token),
-    }
-  );
+  return fetchAPI<{
+    payments: AdminPayment[];
+    cursor: string | null;
+    pagination: { pageSize: number; hasMore: boolean };
+  }>(`/admin/operations/payments${toQuery(filters)}`, {
+    headers: authHeaders(token),
+  });
 }
 
 export async function getAdminPaymentsSummary(

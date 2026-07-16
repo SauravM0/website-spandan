@@ -9,6 +9,7 @@ import {
   getAdminPackageOrders,
   transitionAdminPackageOrder,
 } from '@/lib/api';
+import { promptAdminAction } from '@/lib/adminDialogs';
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 
 const statuses = [
@@ -113,19 +114,40 @@ export default function AdminPackageOrdersPage() {
 
   const transition = async (action: string) => {
     if (!selected?.order) return;
-    const reason = window.prompt(`Reason for ${label(action)}:`)?.trim();
+    const reason = (
+      await promptAdminAction({
+        title: `Record ${label(action)}`,
+        description: 'This becomes permanent package-order audit evidence.',
+        label: 'Reason',
+        multiline: true,
+        minLength: 3,
+      })
+    )?.trim();
     if (!reason || reason.length < 3) return;
     let scheduledFor: string | undefined;
     let fulfilmentNotes: string | undefined;
     if (action === 'schedule') {
-      const local = window
-        .prompt('Schedule date/time in ISO format with offset:', '2026-07-20T09:00:00+05:30')
-        ?.trim();
+      const local = (
+        await promptAdminAction({
+          title: 'Schedule package order',
+          description: 'Enter an ISO date/time including the UTC offset.',
+          label: 'Schedule date and time',
+          defaultValue: '2026-07-20T09:00:00+05:30',
+          minLength: 20,
+        })
+      )?.trim();
       if (!local) return;
       scheduledFor = local;
     }
     if (action === 'fulfill') {
-      fulfilmentNotes = window.prompt('Fulfilment notes:')?.trim();
+      fulfilmentNotes = (
+        await promptAdminAction({
+          title: 'Record fulfilment',
+          description: 'Add the final fulfilment notes.',
+          label: 'Fulfilment notes',
+          multiline: true,
+        })
+      )?.trim();
     }
     setBusy(true);
     try {
@@ -146,10 +168,24 @@ export default function AdminPackageOrdersPage() {
 
   const assignToMe = async () => {
     if (!selected?.order) return;
-    const dueAt = window
-      .prompt('Due date/time in ISO format with offset:', '2026-07-20T17:00:00+05:30')
-      ?.trim();
-    const reason = window.prompt('Assignment reason:')?.trim();
+    const dueAt = (
+      await promptAdminAction({
+        title: 'Assign package order',
+        description: 'Enter a due date/time including the UTC offset.',
+        label: 'Due date and time',
+        defaultValue: '2026-07-20T17:00:00+05:30',
+        minLength: 20,
+      })
+    )?.trim();
+    const reason = (
+      await promptAdminAction({
+        title: 'Record assignment reason',
+        description: 'This becomes audit evidence.',
+        label: 'Reason',
+        multiline: true,
+        minLength: 3,
+      })
+    )?.trim();
     if (!dueAt || !reason || reason.length < 3) return;
     setBusy(true);
     try {
@@ -171,12 +207,26 @@ export default function AdminPackageOrdersPage() {
     const prices: Array<{ item_id: string; unit_price: number }> = [];
     for (const item of selected.items) {
       const price = Number(
-        window.prompt(`Price for ${item.test_name_snapshot}:`, String(item.unit_price || ''))
+        await promptAdminAction({
+          title: 'Confirm test price',
+          description: `Enter the price for ${item.test_name_snapshot}.`,
+          label: 'Price',
+          defaultValue: String(item.unit_price || ''),
+          minLength: 1,
+        })
       );
       if (!Number.isFinite(price) || price <= 0) return;
       prices.push({ item_id: item.id, unit_price: price });
     }
-    const reason = window.prompt('Price confirmation reason:')?.trim();
+    const reason = (
+      await promptAdminAction({
+        title: 'Confirm package prices',
+        description: 'Explain why these prices are being confirmed.',
+        label: 'Confirmation reason',
+        multiline: true,
+        minLength: 3,
+      })
+    )?.trim();
     if (!reason || reason.length < 3) return;
     setBusy(true);
     try {

@@ -37,6 +37,7 @@
     "admin-workflow:check": "node scripts/admin-workflow-policy-check.mjs",
     "admin-realtime:check": "node scripts/admin-realtime-policy-check.mjs",
     "admin-performance:check": "node scripts/admin-performance-policy-check.mjs",
+    "admin-frontend:check": "node scripts/admin-frontend-policy-check.mjs",
     "package-orders:check": "node scripts/package-order-lifecycle-policy-check.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",

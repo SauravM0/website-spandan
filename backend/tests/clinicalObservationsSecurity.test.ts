@@ -46,5 +46,5 @@ test('UI exposes required provenance and groups trends by code, exact unit, and 
     assert.match(ui, new RegExp(word));
   assert.match(ui, /catalog_code\}\|\$\{x\.unit\}\|\$\{x\.context/);
   assert.match(ui, /Not clinician verified/);
-  assert.match(ui, /timeZone:'Asia\/Kolkata'/);
+  assert.match(ui, /timeZone:\s*'Asia\/Kolkata'/);
 });

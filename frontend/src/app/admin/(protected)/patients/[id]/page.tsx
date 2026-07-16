@@ -8,6 +8,7 @@ import {
   saveClinicalNote,
   signClinicalNote,
 } from '../../../../../lib/api';
+import { confirmAdminAction } from '../../../../../lib/adminDialogs';
 import MedicationManager from '../../../../../components/admin/MedicationManager';
 import ObservationManager from '../../../../../components/admin/ObservationManager';
 import DeviceImportManager from '../../../../../components/admin/DeviceImportManager';
@@ -103,9 +104,11 @@ export default function PatientRecordPage() {
   }
   async function sign() {
     if (
-      !confirm(
-        `Sign this note for ${data.patient.full_name}? Signed content cannot be edited; corrections require an amendment.`
-      )
+      !(await confirmAdminAction({
+        title: 'Sign clinical note?',
+        description: `Sign this note for ${data.patient.full_name}. Signed content cannot be edited; corrections require an amendment.`,
+        confirmLabel: 'Sign note',
+      }))
     )
       return;
     setBusy(true);

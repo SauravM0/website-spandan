@@ -2,8 +2,11 @@
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Download, RefreshCw, Search } from 'lucide-react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   AdminPageHeader,
+  AdminDrawer,
+  CursorPagination,
   FilterBar,
   ResponsiveDataView,
   StatusBadge,
@@ -19,6 +22,8 @@ import {
   type AppointmentTransitionEvidence,
 } from '@/lib/api';
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
+import { promptAdminAction } from '@/lib/adminDialogs';
+import type { AdminAppointment } from '@/lib/types';
 
 const statuses = [
   '',
@@ -67,7 +72,10 @@ function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger
 }
 
 export default function AdminAppointmentsPage() {
-  const [appointments, setAppointments] = useState<any[]>([]);
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const [appointments, setAppointments] = useState<AdminAppointment[]>([]);
   const [doctors, setDoctors] = useState<any[]>([]);
   const [pagination, setPagination] = useState({ page: 1, pageSize: 25, hasMore: false });
   const [cursor, setCursor] = useState<string | null>(null);
@@ -83,12 +91,38 @@ export default function AdminAppointmentsPage() {
   const [search, setSearch] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [sort, setSort] = useState('date_desc');
-  const [selected, setSelected] = useState<any | null>(null);
+  const [selected, setSelected] = useState<AdminAppointment | null>(null);
   const [exporting, setExporting] = useState(false);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState('');
   const [requestId, setRequestId] = useState('');
   const requestRef = useRef(0);
+
+  useEffect(() => {
+    setDoctorId(searchParams.get('doctor_id') || '');
+    setStatus(searchParams.get('status') || '');
+    setSource(searchParams.get('source') || '');
+    setFrom(searchParams.get('from') ?? clinicToday());
+    setTo(searchParams.get('to') || '');
+    setSearch(searchParams.get('search') || '');
+    setSort(searchParams.get('sort') || 'date_desc');
+    resetPaging();
+  }, [searchParams]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      const query = new URLSearchParams();
+      if (doctorId) query.set('doctor_id', doctorId);
+      if (status) query.set('status', status);
+      if (source) query.set('source', source);
+      if (from) query.set('from', from);
+      if (to) query.set('to', to);
+      if (search.trim()) query.set('search', search.trim());
+      if (sort !== 'date_desc') query.set('sort', sort);
+      router.replace(query.size ? `${pathname}?${query}` : pathname, { scroll: false });
+    }, 300);
+    return () => window.clearTimeout(timer);
+  }, [doctorId, from, pathname, router, search, sort, source, status, to]);
 
   useEffect(() => {
     getDoctors(false)
@@ -198,32 +232,63 @@ export default function AdminAppointmentsPage() {
     resetPaging();
   };
 
-  const updateStatus = async (row: any, action: string) => {
-    const reason = window.prompt(`Reason for ${action.replace(/_/g, ' ')}:`)?.trim();
+  const updateStatus = async (row: AdminAppointment, action: string) => {
+    const reason = (
+      await promptAdminAction({
+        title: `Record ${action.replace(/_/g, ' ')}`,
+        description: 'This becomes permanent appointment audit evidence.',
+        label: 'Reason',
+        multiline: true,
+        minLength: 3,
+      })
+    )?.trim();
     if (!reason || reason.length < 3) return;
     let evidence: AppointmentTransitionEvidence | undefined;
     const requiresEvidence = ['confirm', 'check_in', 'complete'].includes(action);
     const hasEvidence = ['paid_online', 'paid_cash', 'waived'].includes(row.payment_status);
     if (requiresEvidence && !hasEvidence) {
-      const kind = window
-        .prompt('Payment evidence: automatic, cash, or waiver?', 'automatic')
+      const kind = (
+        await promptAdminAction({
+          title: 'Select payment evidence',
+          description: 'Enter automatic, cash, or waiver.',
+          label: 'Evidence type',
+          defaultValue: 'automatic',
+          minLength: 4,
+        })
+      )
         ?.trim()
         .toLowerCase();
       if (!kind) return;
       if (kind === 'cash') {
         const amount = Number(
-          window.prompt(
-            'Exact cash amount received:',
-            String(row.fee_amount || row.amount_snapshot || '')
-          )
+          await promptAdminAction({
+            title: 'Record cash payment',
+            description: 'Enter the exact amount received.',
+            label: 'Cash amount',
+            defaultValue: String(row.fee_amount || row.amount_snapshot || ''),
+            minLength: 1,
+          })
         );
-        const reference = window.prompt('Cash receipt/reference:')?.trim();
+        const reference = (
+          await promptAdminAction({
+            title: 'Record cash reference',
+            description: 'Use the issued receipt or clinic reference.',
+            label: 'Receipt or reference',
+            minLength: 2,
+          })
+        )?.trim();
         if (!Number.isFinite(amount) || amount <= 0 || !reference) return;
         evidence = { kind: 'cash', amount, reference };
       } else if (kind === 'waiver') {
-        const approvalReason = window
-          .prompt('Approved waiver reason (at least 10 characters):')
-          ?.trim();
+        const approvalReason = (
+          await promptAdminAction({
+            title: 'Record approved waiver',
+            description: 'Explain why payment was waived.',
+            label: 'Waiver reason',
+            multiline: true,
+            minLength: 10,
+          })
+        )?.trim();
         if (!approvalReason || approvalReason.length < 10) return;
         evidence = { kind: 'waiver', approval_reason: approvalReason };
       } else if (kind !== 'automatic') {
@@ -249,10 +314,16 @@ export default function AdminAppointmentsPage() {
     }
   };
 
-  const reschedule = async (row: any) => {
-    const doctorName = window
-      .prompt(`Doctor (${doctors.map((doctor) => doctor.name).join(', ')}):`, row.doctor_name || '')
-      ?.trim();
+  const reschedule = async (row: AdminAppointment) => {
+    const doctorName = (
+      await promptAdminAction({
+        title: 'Choose reschedule doctor',
+        description: `Available doctors: ${doctors.map((doctor) => doctor.name).join(', ')}.`,
+        label: 'Doctor name',
+        defaultValue: row.doctor_name || '',
+        minLength: 2,
+      })
+    )?.trim();
     if (!doctorName) return;
     const doctor = doctors.find(
       (candidate) => candidate.name.toLowerCase() === doctorName.toLowerCase()
@@ -261,9 +332,15 @@ export default function AdminAppointmentsPage() {
       setError('Choose a doctor using the exact displayed name.');
       return;
     }
-    const appointmentDate = window
-      .prompt('New appointment date (YYYY-MM-DD):', String(row.appointment_date).slice(0, 10))
-      ?.trim();
+    const appointmentDate = (
+      await promptAdminAction({
+        title: 'Choose reschedule date',
+        description: 'Enter the clinic date in YYYY-MM-DD format.',
+        label: 'New appointment date',
+        defaultValue: String(row.appointment_date).slice(0, 10),
+        minLength: 10,
+      })
+    )?.trim();
     if (!appointmentDate) return;
     setUpdatingId(row.id);
     setError('');
@@ -274,12 +351,15 @@ export default function AdminAppointmentsPage() {
         setError('No replacement slots are available. The original appointment was kept.');
         return;
       }
-      const startTime = window
-        .prompt(
-          `Available start times: ${available.map((slot) => String(slot.start_time).slice(0, 5)).join(', ')}`,
-          String(available[0].start_time).slice(0, 5)
-        )
-        ?.trim();
+      const startTime = (
+        await promptAdminAction({
+          title: 'Choose reschedule time',
+          description: `Available start times: ${available.map((slot) => String(slot.start_time).slice(0, 5)).join(', ')}.`,
+          label: 'Start time',
+          defaultValue: String(available[0].start_time).slice(0, 5),
+          minLength: 5,
+        })
+      )?.trim();
       if (!startTime) return;
       if (
         !available.some((slot) => String(slot.start_time).slice(0, 5) === startTime.slice(0, 5))
@@ -287,7 +367,15 @@ export default function AdminAppointmentsPage() {
         setError('Choose one of the currently available start times.');
         return;
       }
-      const reason = window.prompt('Reschedule reason:')?.trim();
+      const reason = (
+        await promptAdminAction({
+          title: 'Record reschedule reason',
+          description: 'This becomes permanent audit evidence.',
+          label: 'Reason',
+          multiline: true,
+          minLength: 3,
+        })
+      )?.trim();
       if (!reason || reason.length < 3) return;
       await rescheduleAdminAppointment('', row.id, {
         doctor_id: doctor.id,
@@ -557,25 +645,15 @@ export default function AdminAppointmentsPage() {
                 </div>
               }
             />
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={!cursorHistory.length}
-                onClick={previousPage}
-              >
-                Previous
-              </button>
-              <p className="text-xs text-text-light">Page {pagination.page}</p>
-              <button
-                type="button"
-                className="btn btn-outline"
-                disabled={!pagination.hasMore || !nextCursor}
-                onClick={nextPage}
-              >
-                Next
-              </button>
-            </div>
+            <CursorPagination
+              page={pagination.page}
+              canPrevious={cursorHistory.length > 0}
+              canNext={pagination.hasMore && Boolean(nextCursor)}
+              onPrevious={previousPage}
+              onNext={nextPage}
+              itemLabel="appointments"
+              itemCount={appointments.length}
+            />
           </>
         )}
 
@@ -599,10 +677,10 @@ function RowActions({
   onStatus,
   onReschedule,
 }: {
-  row: any;
+  row: AdminAppointment;
   updatingId: string | null;
-  onStatus: (row: any, status: string) => void;
-  onReschedule: (row: any) => void;
+  onStatus: (row: AdminAppointment, status: string) => void;
+  onReschedule: (row: AdminAppointment) => void;
 }) {
   const actions = row.allowed_actions || [];
   return (
@@ -658,11 +736,11 @@ function AppointmentCard({
   onStatus,
   onReschedule,
 }: {
-  row: any;
+  row: AdminAppointment;
   updatingId: string | null;
   onSelect: () => void;
-  onStatus: (row: any, status: string) => void;
-  onReschedule: (row: any) => void;
+  onStatus: (row: AdminAppointment, status: string) => void;
+  onReschedule: (row: AdminAppointment) => void;
 }) {
   return (
     <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
@@ -714,62 +792,54 @@ function AppointmentDetailDrawer({
   onStatus,
   onReschedule,
 }: {
-  row: any;
+  row: AdminAppointment;
   updatingId: string | null;
   onClose: () => void;
-  onStatus: (row: any, status: string) => void;
-  onReschedule: (row: any) => void;
+  onStatus: (row: AdminAppointment, status: string) => void;
+  onReschedule: (row: AdminAppointment) => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/40"
-        aria-label="Close detail"
-        onClick={onClose}
-      />
-      <aside className="absolute right-0 top-0 h-full w-full max-w-[440px] overflow-y-auto bg-white p-5 shadow-xl">
-        <div className="mb-5 flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-navy">{row.patient_name}</h2>
-            <p className="text-sm text-text-light">{row.appointment_number || row.id}</p>
-          </div>
-          <button className="btn btn-outline btn-sm" type="button" onClick={onClose}>
-            Close
-          </button>
+    <AdminDrawer label="Appointment detail" onClose={onClose} widthClass="max-w-[440px]">
+      <div className="mb-5 flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-navy">{row.patient_name}</h2>
+          <p className="text-sm text-text-light">{row.appointment_number || row.id}</p>
         </div>
-        <div className="grid gap-4 text-sm">
-          <Detail label="Doctor" value={row.doctor_name} />
+        <button className="btn btn-outline btn-sm" type="button" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      <div className="grid gap-4 text-sm">
+        <Detail label="Doctor" value={row.doctor_name} />
+        <Detail
+          label="Date/time"
+          value={`${String(row.appointment_date || '-').slice(0, 10)} ${String(row.start_time || '-').slice(0, 5)}`}
+        />
+        <Detail label="Phone" value={row.phone || row.phone_masked || '-'} />
+        <Detail label="Status" value={String(row.status || '-').replace(/_/g, ' ')} />
+        {Number(row.reschedule_count || 0) > 0 && (
           <Detail
-            label="Date/time"
-            value={`${String(row.appointment_date || '-').slice(0, 10)} ${String(row.start_time || '-').slice(0, 5)}`}
+            label="Rescheduled"
+            value={`${row.reschedule_count} time(s); last ${row.last_rescheduled_at ? new Date(row.last_rescheduled_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-'}`}
           />
-          <Detail label="Phone" value={row.phone || row.phone_masked || '-'} />
-          <Detail label="Status" value={String(row.status || '-').replace(/_/g, ' ')} />
-          {Number(row.reschedule_count || 0) > 0 && (
-            <Detail
-              label="Rescheduled"
-              value={`${row.reschedule_count} time(s); last ${row.last_rescheduled_at ? new Date(row.last_rescheduled_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-'}`}
-            />
-          )}
-          <Detail
-            label="Payment"
-            value={String(row.payment_status || 'not linked').replace(/_/g, ' ')}
+        )}
+        <Detail
+          label="Payment"
+          value={String(row.payment_status || 'not linked').replace(/_/g, ' ')}
+        />
+        <Detail label="Source" value={row.source || '-'} />
+        {row.reason && <Detail label="Reason" value={row.reason} />}
+        <div>
+          <p className="mb-2 text-xs font-bold uppercase text-text-light">Actions</p>
+          <RowActions
+            row={row}
+            updatingId={updatingId}
+            onStatus={onStatus}
+            onReschedule={onReschedule}
           />
-          <Detail label="Source" value={row.source || '-'} />
-          {row.reason && <Detail label="Reason" value={row.reason} />}
-          <div>
-            <p className="mb-2 text-xs font-bold uppercase text-text-light">Actions</p>
-            <RowActions
-              row={row}
-              updatingId={updatingId}
-              onStatus={onStatus}
-              onReschedule={onReschedule}
-            />
-          </div>
         </div>
-      </aside>
-    </div>
+      </div>
+    </AdminDrawer>
   );
 }
 

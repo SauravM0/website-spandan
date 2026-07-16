@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { AlertTriangle, CalendarClock, CreditCard, RefreshCw } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { AdminPageHeader, StatusBadge } from '@/components/admin/AdminPrimitives';
+import { AdminDrawer, AdminPageHeader, StatusBadge } from '@/components/admin/AdminPrimitives';
 import {
   ApiError,
   getAdminDashboard,
@@ -13,6 +13,7 @@ import {
 } from '@/lib/api';
 import type { DashboardData } from '@/lib/types';
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
+import { promptAdminAction } from '@/lib/adminDialogs';
 
 const metricLabels: Array<[keyof DashboardData['metrics'], string]> = [
   ['appointmentsToday', 'Appointments'],
@@ -136,7 +137,16 @@ export default function AdminDashboardPage() {
   }, [dashboard]);
 
   const updateStatus = async (row: any, action: string) => {
-    const reason = window.prompt(`Reason for ${action.replace(/_/g, ' ')}:`)?.trim();
+    const reason = (
+      await promptAdminAction({
+        title: `Record ${action.replace(/_/g, ' ')}`,
+        description: 'The reason becomes appointment audit evidence.',
+        label: 'Reason',
+        multiline: true,
+        minLength: 3,
+        confirmLabel: 'Continue',
+      })
+    )?.trim();
     if (!reason || reason.length < 3) return;
     setUpdatingId(row.id);
     setMessage('');
@@ -455,81 +465,70 @@ function WorkItemPanel({
   onClose: () => void;
 }) {
   return (
-    <div className="fixed inset-0 z-50">
-      <button
-        type="button"
-        aria-label="Close work item"
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-      <aside
-        className="absolute right-0 top-0 h-full w-full max-w-xl overflow-y-auto bg-white p-5 shadow-xl"
-        aria-label="Unified work item detail"
-      >
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <h2 className="text-xl font-bold text-navy">Unified Work Item</h2>
-            <p className="text-xs text-text-light">One authoritative view for the next decision.</p>
-          </div>
-          <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
-            Close
-          </button>
+    <AdminDrawer label="Unified work item detail" onClose={onClose} widthClass="max-w-xl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-xl font-bold text-navy">Unified Work Item</h2>
+          <p className="text-xs text-text-light">One authoritative view for the next decision.</p>
         </div>
-        {loading || !item ? (
-          <p role="status" className="mt-6">
-            Loading work item...
-          </p>
-        ) : (
-          <div className="mt-6 grid gap-3 text-sm">
-            <WorkField label="Patient" value={item.patient?.name || 'Not linked'} />
-            <WorkField label="Requested" value={item.request} />
-            <WorkField label="Source page / form" value={item.source} />
-            <WorkField
-              label="Doctor / package / test"
-              value={
-                Array.isArray(item.doctor_or_service)
-                  ? item.doctor_or_service.join(', ')
-                  : item.doctor_or_service
-              }
-            />
-            <WorkField
-              label="Payment verified"
-              value={`${item.payment?.verified ? 'Yes' : 'No'} - ${String(item.payment?.status || 'not started').replace(/_/g, ' ')}`}
-            />
-            <WorkField label="Current state" value={String(item.state).replace(/_/g, ' ')} />
-            <WorkField label="Owner" value={item.owner} />
-            <WorkField
-              label="Due"
-              value={
-                item.due_at
-                  ? new Date(item.due_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
-                  : 'Not assigned'
-              }
-            />
-            <WorkField
-              label="Next action"
-              value={
-                (item.next_actions || [])
-                  .map((action: string) => action.replace(/_/g, ' '))
-                  .join(', ') || 'Review'
-              }
-            />
-            <div className="mt-2 flex flex-wrap gap-2">
-              {item.links?.patient && (
-                <Link className="btn btn-outline" href={item.links.patient}>
-                  Open patient journey
-                </Link>
-              )}
-              {item.links?.service && (
-                <Link className="btn btn-primary" href={item.links.service}>
-                  Open service workflow
-                </Link>
-              )}
-            </div>
+        <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
+          Close
+        </button>
+      </div>
+      {loading || !item ? (
+        <p role="status" className="mt-6">
+          Loading work item...
+        </p>
+      ) : (
+        <div className="mt-6 grid gap-3 text-sm">
+          <WorkField label="Patient" value={item.patient?.name || 'Not linked'} />
+          <WorkField label="Requested" value={item.request} />
+          <WorkField label="Source page / form" value={item.source} />
+          <WorkField
+            label="Doctor / package / test"
+            value={
+              Array.isArray(item.doctor_or_service)
+                ? item.doctor_or_service.join(', ')
+                : item.doctor_or_service
+            }
+          />
+          <WorkField
+            label="Payment verified"
+            value={`${item.payment?.verified ? 'Yes' : 'No'} - ${String(item.payment?.status || 'not started').replace(/_/g, ' ')}`}
+          />
+          <WorkField label="Current state" value={String(item.state).replace(/_/g, ' ')} />
+          <WorkField label="Owner" value={item.owner} />
+          <WorkField
+            label="Due"
+            value={
+              item.due_at
+                ? new Date(item.due_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })
+                : 'Not assigned'
+            }
+          />
+          <WorkField
+            label="Next action"
+            value={
+              (item.next_actions || [])
+                .map((action: string) => action.replace(/_/g, ' '))
+                .join(', ') || 'Review'
+            }
+          />
+          <div className="mt-2 flex flex-wrap gap-2">
+            {item.links?.patient && (
+              <Link className="btn btn-outline" href={item.links.patient}>
+                Open patient journey
+              </Link>
+            )}
+            {item.links?.service && (
+              <Link className="btn btn-primary" href={item.links.service}>
+                Open service workflow
+              </Link>
+            )}
           </div>
-        )}
-      </aside>
-    </div>
+        </div>
+      )}
+    </AdminDrawer>
   );
 }
 

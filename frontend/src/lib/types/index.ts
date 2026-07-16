@@ -114,6 +114,66 @@ export interface Appointment {
   payment_status: string;
 }
 
+export interface AdminAppointment extends Appointment {
+  version: number;
+  patient_name: string;
+  doctor_name: string;
+  phone?: string;
+  phone_masked?: string;
+  source: string;
+  booking_state?: string;
+  allowed_actions: string[];
+  reschedule_count?: number;
+  last_rescheduled_at?: string | null;
+  fee_amount?: number;
+}
+
+export interface AdminPayment {
+  id: string;
+  order_id?: string | null;
+  appointment_id?: string | null;
+  provider: string;
+  merchant_transaction_id: string;
+  amount: number;
+  status: string;
+  payment_method?: string | null;
+  provider_reference?: string | null;
+  provider_order_id?: string | null;
+  provider_evidence_source?: string | null;
+  provider_observed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  order_number?: string | null;
+  appointment_number?: string | null;
+  receipt_number?: string | null;
+  pdf_url?: string | null;
+  notification_status?: string | null;
+}
+
+export interface AdminWorkflowTask {
+  id: string;
+  entity_type: string;
+  entity_id: string;
+  title: string;
+  patient_name?: string;
+  request: string;
+  service: string;
+  state: string;
+  owner: string;
+  due_at?: string | null;
+  overdue: boolean;
+  next_action: string;
+  href?: string;
+}
+
+export interface AdminSearchResult {
+  type: string;
+  id: string;
+  label: string;
+  context: string;
+  href: string;
+}
+
 export interface PackageOrder {
   id: string;
   order_number: string;
@@ -234,10 +294,10 @@ export interface DashboardData {
   timezone: string;
   metrics: DashboardMetrics;
   actionItems: ActionItem[];
-  todayAppointments: any[];
-  paymentIssues: any[];
-  notificationFailures: any[];
-  needsAction: any[];
+  todayAppointments: AdminAppointment[];
+  paymentIssues: AdminPayment[];
+  notificationFailures: Notification[];
+  needsAction: AdminWorkflowTask[];
   role: 'administrator' | 'doctor';
   warnings: string[];
 }

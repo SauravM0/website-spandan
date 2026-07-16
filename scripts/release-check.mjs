@@ -29,6 +29,7 @@ const steps = [
   ['admin-workflow:check', ['run', 'admin-workflow:check']],
   ['admin-realtime:check', ['run', 'admin-realtime:check']],
   ['admin-performance:check', ['run', 'admin-performance:check']],
+  ['admin-frontend:check', ['run', 'admin-frontend:check']],
   ['package-orders:check', ['run', 'package-orders:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],

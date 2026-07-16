@@ -1,0 +1,41 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP25",
+  "deploymentModel": "sole-administrator",
+  "standardPrimitives": [
+    "page_header",
+    "filter_bar",
+    "responsive_data_view",
+    "cursor_pagination",
+    "drawer",
+    "action_dialog",
+    "feedback"
+  ],
+  "nativeBrowserDialogsAllowed": false,
+  "dialog": {
+    "role": "dialog",
+    "ariaModal": true,
+    "focusTrap": true,
+    "escapeCloses": true,
+    "focusReturns": true
+  },
+  "accessibility": {
+    "standard": "WCAG 2.2 AA",
+    "axeMaximumSerious": 0,
+    "axeMaximumCritical": 0,
+    "manualViewports": [320, 768, 1280],
+    "zoomPercent": 200,
+    "minimumTargetPx": 44,
+    "keyboardRequired": true,
+    "screenReaderRequired": true,
+    "reducedMotionRequired": true
+  },
+  "requests": {
+    "abortPrevious": true,
+    "latestResponseWins": true,
+    "debouncedSearchMs": 250,
+    "urlBackForwardFilters": true
+  },
+  "typing": { "explicitAnyBaseline": 217, "explicitAnyMaximum": 211 },
+  "webVitals": { "lcpP75Ms": 2500, "inpP75Ms": 200 }
+}
