@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP18",
+  "deploymentModel": "sole-administrator",
+  "interface": "POST /api/admin/operations/appointments/:id/transitions",
+  "actions": ["confirm", "check_in", "complete", "cancel", "mark_no_show", "mark_payment_failed"],
+  "concurrency": {
+    "rowLock": true,
+    "expectedVersionRequired": true,
+    "idempotencyKeyRequired": true
+  },
+  "financialEvidence": {
+    "requiredFor": ["confirm", "check_in", "complete"],
+    "kinds": ["online", "cash", "waiver"],
+    "onlineMustBeProviderVerified": true,
+    "cashMustMatchFeeSnapshot": true,
+    "immutable": true
+  },
+  "visitRules": {
+    "completionRequiresCheckIn": true,
+    "checkInRequiresConfirmedBooking": true,
+    "paidCancellationCreatesRefundPending": true
+  },
+  "auditBeforeAfter": true
+}

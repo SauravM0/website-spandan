@@ -23,6 +23,7 @@ const steps = [
   ['clinical-auth:check', ['run', 'clinical-auth:check']],
   ['public-payments:check', ['run', 'public-payments:check']],
   ['authoritative-payments:check', ['run', 'authoritative-payments:check']],
+  ['appointment-transitions:check', ['run', 'appointment-transitions:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],

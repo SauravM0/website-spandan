@@ -1635,8 +1635,21 @@ export async function updatePaymentStatus(
       }
       if (payment.rows[0].appointment_id) {
         await client.query(
+          `INSERT INTO appointment_payment_evidence
+             (appointment_id, kind, payment_id, amount, currency, reference, reason)
+           VALUES ($1, 'online', $2, $3, $4, $5, 'Authoritative provider payment verified')
+           ON CONFLICT (appointment_id) DO NOTHING`,
+          [
+            payment.rows[0].appointment_id,
+            payment.rows[0].id,
+            payment.rows[0].amount,
+            payment.rows[0].currency || 'INR',
+            providerTransactionId || providerOrderId || merchantTransactionId,
+          ]
+        );
+        await client.query(
           `UPDATE appointments
-           SET status = 'confirmed', booking_state = 'confirmed', version = version + 1,
+           SET status = 'confirmed', booking_state = 'confirmed', payment_status = 'paid_online', version = version + 1,
                updated_at = NOW()
            WHERE id = $1 AND booking_state = 'payment_pending'`,
           [payment.rows[0].appointment_id]
@@ -1980,7 +1993,7 @@ export async function getAdminDashboard(options: { doctorId?: string } = {}) {
          SELECT (NOW() AT TIME ZONE 'Asia/Kolkata')::date AS clinic_date
        )
        SELECT a.id, a.appointment_number, a.appointment_date, a.start_time, a.end_time,
-              a.status, a.payment_status, a.amount_snapshot,
+              a.status, a.booking_state, a.payment_status, a.amount_snapshot, a.version,
               p.full_name AS patient_name, p.phone, d.name AS doctor_name
        FROM appointments a
        JOIN patients p ON p.id = a.patient_id
@@ -2072,6 +2085,7 @@ export async function getAdminDashboard(options: { doctorId?: string } = {}) {
     actionItems,
     todayAppointments: todayAppointments.rows.map((row) => ({
       ...row,
+      allowed_actions: appointmentAllowedActions(row.status),
       phone_masked: maskPhone(row.phone),
       phone: undefined,
     })),
@@ -2103,16 +2117,16 @@ type AppointmentFilters = {
   sort?: string;
 };
 
-function appointmentAllowedActions(status: string): string[] {
+export function appointmentAllowedActions(status: string): string[] {
   const transitions: Record<string, string[]> = {
-    awaiting_payment: ['confirmed', 'cancelled'],
-    payment_pending: ['confirmed', 'payment_failed', 'cancelled'],
-    confirmed: ['checked_in', 'completed', 'no_show', 'cancelled'],
-    checked_in: ['completed', 'no_show'],
+    awaiting_payment: ['confirm', 'mark_payment_failed', 'cancel'],
+    payment_pending: ['confirm', 'mark_payment_failed', 'cancel'],
+    confirmed: ['check_in', 'mark_no_show', 'cancel'],
+    checked_in: ['complete', 'cancel'],
     completed: [],
     cancelled: [],
     no_show: [],
-    payment_failed: ['cancelled'],
+    payment_failed: ['confirm', 'cancel'],
   };
   return transitions[status] || [];
 }
@@ -3222,53 +3236,325 @@ export async function deleteCalendarOverride(
   }
 }
 
-export async function updateAppointmentStatus(input: {
-  appointmentId: string;
-  status: 'confirmed' | 'checked_in' | 'completed' | 'cancelled' | 'no_show' | 'payment_failed';
-  actorStaffId?: string;
-}) {
-  const current = await query('SELECT status FROM appointments WHERE id = $1', [
-    input.appointmentId,
-  ]);
-  if (!current.rows[0]) {
-    const error = new Error('Appointment not found') as Error & { status?: number; code?: string };
-    error.status = 404;
-    error.code = 'APPOINTMENT_NOT_FOUND';
-    throw error;
+export type AppointmentTransitionAction =
+  'confirm' | 'check_in' | 'complete' | 'cancel' | 'mark_no_show' | 'mark_payment_failed';
+
+export type AppointmentTransitionEvidence =
+  | { kind: 'online'; payment_id: string }
+  | { kind: 'cash'; amount: number; reference: string }
+  | { kind: 'waiver'; approval_reason: string };
+
+function appointmentTransitionSnapshot(appointment: any) {
+  return {
+    id: appointment.id,
+    status: appointment.status,
+    booking_state: appointment.booking_state,
+    payment_status: appointment.payment_status,
+    version: Number(appointment.version),
+    fee_amount: appointment.fee_amount === null ? null : Number(appointment.fee_amount),
+    fee_currency: appointment.fee_currency || 'INR',
+  };
+}
+
+async function resolveAppointmentFinancialEvidence(
+  client: PoolClient,
+  appointment: any,
+  requested: AppointmentTransitionEvidence | undefined,
+  actorStaffId: string,
+  commandReason: string
+) {
+  const existing = await client.query(
+    'SELECT * FROM appointment_payment_evidence WHERE appointment_id=$1 FOR UPDATE',
+    [appointment.id]
+  );
+  if (existing.rows[0]) return existing.rows[0];
+
+  let evidence = requested;
+  if (!evidence) {
+    const verified = await client.query(
+      `SELECT id FROM payments
+       WHERE appointment_id=$1 AND status='success' AND provider_evidence_hash IS NOT NULL
+       ORDER BY verified_at DESC NULLS LAST, created_at DESC LIMIT 1`,
+      [appointment.id]
+    );
+    if (verified.rows[0]) evidence = { kind: 'online', payment_id: verified.rows[0].id };
   }
-  if (!appointmentAllowedActions(current.rows[0].status).includes(input.status)) {
-    const error = new Error('This appointment status change is not allowed') as Error & {
-      status?: number;
-      code?: string;
-    };
-    error.status = 409;
-    error.code = 'INVALID_STATUS_TRANSITION';
-    throw error;
+  if (!evidence) {
+    throw new AppError(
+      409,
+      'APPOINTMENT_FINANCIAL_EVIDENCE_REQUIRED',
+      'Record verified online payment, exact cash payment, or an approved waiver before continuing.'
+    );
   }
-  const timestampColumn = {
-    checked_in: 'checked_in_at',
-    completed: 'completed_at',
-    cancelled: 'cancelled_at',
-    no_show: 'no_show_at',
-    confirmed: null,
-    payment_failed: null,
-  }[input.status];
-  const result = await query(
-    `UPDATE appointments
-     SET status = $1,
-         updated_at = NOW()
-         ${timestampColumn ? `, ${timestampColumn} = NOW()` : ''}
-     WHERE id = $2
+
+  if (evidence.kind === 'online') {
+    const payment = await client.query(
+      `SELECT id, amount, currency, provider_reference, provider_order_id
+       FROM payments
+       WHERE id=$1 AND appointment_id=$2 AND status='success'
+         AND provider_evidence_hash IS NOT NULL
+       FOR UPDATE`,
+      [evidence.payment_id, appointment.id]
+    );
+    if (!payment.rows[0]) {
+      throw new AppError(
+        409,
+        'ONLINE_PAYMENT_NOT_VERIFIED',
+        'The selected payment does not contain authoritative success evidence.'
+      );
+    }
+    if (Number(payment.rows[0].amount) !== Number(appointment.fee_amount)) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_PAYMENT_AMOUNT_MISMATCH',
+        'Verified payment does not match the appointment fee snapshot.'
+      );
+    }
+    const inserted = await client.query(
+      `INSERT INTO appointment_payment_evidence
+         (appointment_id,kind,payment_id,amount,currency,reference,reason,recorded_by_staff_id)
+       VALUES($1,'online',$2,$3,$4,$5,$6,$7)
+       RETURNING *`,
+      [
+        appointment.id,
+        payment.rows[0].id,
+        payment.rows[0].amount,
+        payment.rows[0].currency || 'INR',
+        payment.rows[0].provider_reference || payment.rows[0].provider_order_id,
+        commandReason,
+        actorStaffId,
+      ]
+    );
+    return inserted.rows[0];
+  }
+
+  if (evidence.kind === 'cash') {
+    if (Number(evidence.amount) !== Number(appointment.fee_amount)) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_CASH_AMOUNT_MISMATCH',
+        'Cash payment must equal the immutable appointment fee snapshot.'
+      );
+    }
+    const inserted = await client.query(
+      `INSERT INTO appointment_payment_evidence
+         (appointment_id,kind,amount,currency,reference,reason,recorded_by_staff_id)
+       VALUES($1,'cash',$2,$3,$4,$5,$6)
+       RETURNING *`,
+      [
+        appointment.id,
+        evidence.amount,
+        appointment.fee_currency || 'INR',
+        evidence.reference,
+        commandReason,
+        actorStaffId,
+      ]
+    );
+    return inserted.rows[0];
+  }
+
+  const inserted = await client.query(
+    `INSERT INTO appointment_payment_evidence
+       (appointment_id,kind,reason,recorded_by_staff_id)
+     VALUES($1,'waiver',$2,$3)
      RETURNING *`,
-    [input.status, input.appointmentId]
+    [appointment.id, evidence.approval_reason, actorStaffId]
   );
-  if (!result.rows[0]) throw new Error('Appointment not found');
-  await query(
-    `INSERT INTO audit_log (actor_staff_id, action, entity_type, entity_id, metadata)
-     VALUES ($1, 'appointment.status_updated', 'appointment', $2, $3)`,
-    [input.actorStaffId || null, input.appointmentId, JSON.stringify({ status: input.status })]
-  );
-  return result.rows[0];
+  return inserted.rows[0];
+}
+
+export async function transitionAppointment(input: {
+  appointmentId: string;
+  action: AppointmentTransitionAction;
+  expectedVersion: number;
+  reason: string;
+  evidence?: AppointmentTransitionEvidence;
+  actorStaffId: string;
+  idempotencyKey: string;
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const replay = await client.query(
+      `SELECT after_snapshot FROM appointment_transition_events
+       WHERE appointment_id=$1 AND idempotency_key=$2`,
+      [input.appointmentId, input.idempotencyKey]
+    );
+    if (replay.rows[0]) {
+      await client.query('COMMIT');
+      const appointment = replay.rows[0].after_snapshot;
+      return { ...appointment, allowed_actions: appointmentAllowedActions(appointment.status) };
+    }
+
+    const current = await client.query('SELECT * FROM appointments WHERE id=$1 FOR UPDATE', [
+      input.appointmentId,
+    ]);
+    if (!current.rows[0]) {
+      throw new AppError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment not found.');
+    }
+    const lockedReplay = await client.query(
+      `SELECT after_snapshot FROM appointment_transition_events
+       WHERE appointment_id=$1 AND idempotency_key=$2`,
+      [input.appointmentId, input.idempotencyKey]
+    );
+    if (lockedReplay.rows[0]) {
+      await client.query('COMMIT');
+      const appointment = lockedReplay.rows[0].after_snapshot;
+      return { ...appointment, allowed_actions: appointmentAllowedActions(appointment.status) };
+    }
+    const appointment = current.rows[0];
+    if (Number(appointment.version) !== input.expectedVersion) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_VERSION_CONFLICT',
+        `Appointment changed to version ${appointment.version}. Refresh before retrying.`,
+        { expected_version: [`Current version is ${appointment.version}.`] }
+      );
+    }
+    if (!appointmentAllowedActions(appointment.status).includes(input.action)) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_ACTION_NOT_ALLOWED',
+        'This action is not allowed from the current appointment state.',
+        { action: appointmentAllowedActions(appointment.status) }
+      );
+    }
+
+    if (
+      ['check_in', 'complete', 'mark_no_show'].includes(input.action) &&
+      appointment.booking_state !== 'confirmed'
+    ) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_BOOKING_STATE_INVALID',
+        'The booking must be confirmed before this visit action.'
+      );
+    }
+    if (
+      input.action === 'confirm' &&
+      !['payment_required', 'payment_pending', 'payment_failed', 'confirmed'].includes(
+        appointment.booking_state
+      )
+    ) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_BOOKING_STATE_INVALID',
+        'The booking state cannot be confirmed.'
+      );
+    }
+
+    let financialEvidence: any = null;
+    if (['confirm', 'check_in', 'complete'].includes(input.action)) {
+      financialEvidence = await resolveAppointmentFinancialEvidence(
+        client,
+        appointment,
+        input.evidence,
+        input.actorStaffId,
+        input.reason
+      );
+    } else {
+      const evidence = await client.query(
+        'SELECT * FROM appointment_payment_evidence WHERE appointment_id=$1',
+        [appointment.id]
+      );
+      financialEvidence = evidence.rows[0] || null;
+    }
+
+    const target = {
+      confirm: 'confirmed',
+      check_in: 'checked_in',
+      complete: 'completed',
+      cancel: 'cancelled',
+      mark_no_show: 'no_show',
+      mark_payment_failed: 'payment_failed',
+    }[input.action];
+    let bookingState = appointment.booking_state;
+    if (input.action === 'confirm') bookingState = 'confirmed';
+    if (input.action === 'mark_payment_failed') bookingState = 'payment_failed';
+    if (input.action === 'cancel') {
+      const successfulPayment = await client.query(
+        "SELECT 1 FROM payments WHERE appointment_id=$1 AND status='success' LIMIT 1",
+        [appointment.id]
+      );
+      bookingState =
+        (financialEvidence && financialEvidence.kind !== 'waiver') || successfulPayment.rows[0]
+          ? 'refund_pending'
+          : 'cancelled';
+    }
+    const paymentStatus = financialEvidence
+      ? financialEvidence.kind === 'online'
+        ? 'paid_online'
+        : financialEvidence.kind === 'cash'
+          ? 'paid_cash'
+          : 'waived'
+      : appointment.payment_status;
+    const beforeSnapshot = appointmentTransitionSnapshot(appointment);
+    const updated = await client.query(
+      `UPDATE appointments
+       SET status=$1, booking_state=$2, payment_status=$3,
+           version=version+1, updated_at=NOW(),
+           checked_in_at=CASE WHEN $4='check_in' THEN COALESCE(checked_in_at,NOW()) ELSE checked_in_at END,
+           completed_at=CASE WHEN $4='complete' THEN COALESCE(completed_at,NOW()) ELSE completed_at END,
+           cancelled_at=CASE WHEN $4='cancel' THEN COALESCE(cancelled_at,NOW()) ELSE cancelled_at END,
+           no_show_at=CASE WHEN $4='mark_no_show' THEN COALESCE(no_show_at,NOW()) ELSE no_show_at END
+       WHERE id=$5 AND version=$6
+       RETURNING *`,
+      [target, bookingState, paymentStatus, input.action, appointment.id, input.expectedVersion]
+    );
+    if (!updated.rows[0]) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_VERSION_CONFLICT',
+        'Appointment changed while the action was being applied.'
+      );
+    }
+    const afterSnapshot = appointmentTransitionSnapshot(updated.rows[0]);
+    await client.query(
+      `INSERT INTO appointment_transition_events
+         (appointment_id,idempotency_key,action,from_status,to_status,from_booking_state,
+          to_booking_state,version_before,version_after,reason,evidence_id,actor_staff_id,
+          before_snapshot,after_snapshot)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)`,
+      [
+        appointment.id,
+        input.idempotencyKey,
+        input.action,
+        appointment.status,
+        target,
+        appointment.booking_state,
+        bookingState,
+        input.expectedVersion,
+        Number(updated.rows[0].version),
+        input.reason,
+        financialEvidence?.id || null,
+        input.actorStaffId,
+        JSON.stringify(beforeSnapshot),
+        JSON.stringify(afterSnapshot),
+      ]
+    );
+    await client.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata)
+       VALUES($1,'appointment.transitioned','appointment',$2,$3)`,
+      [
+        input.actorStaffId,
+        appointment.id,
+        JSON.stringify({
+          action: input.action,
+          reason: input.reason,
+          before: beforeSnapshot,
+          after: afterSnapshot,
+          evidence_kind: financialEvidence?.kind || null,
+        }),
+      ]
+    );
+    await client.query('COMMIT');
+    return { ...updated.rows[0], allowed_actions: appointmentAllowedActions(target) };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
 type PackageOrderFilters = { status?: string; search?: string; cursor?: string; pageSize?: number };

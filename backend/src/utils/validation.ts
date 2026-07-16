@@ -85,7 +85,11 @@ export const slotHoldSchema = z.object({
 });
 
 const billableServiceFields = z.object({
-  code: z.string().min(2).max(60).regex(/^[a-z0-9_]+$/),
+  code: z
+    .string()
+    .min(2)
+    .max(60)
+    .regex(/^[a-z0-9_]+$/),
   name: z.string().min(2).max(120).transform(stripHtml),
   description: z.string().max(500).transform(stripHtml).nullable().optional(),
   category: z.enum(['consultation', 'counselling', 'diagnostic', 'other']),
@@ -102,7 +106,9 @@ export const billableServiceCreateSchema = billableServiceFields;
 export const billableServiceUpdateSchema = billableServiceFields.extend({
   expected_version: z.number().int().positive(),
 });
-export const billableServiceParamsSchema = z.object({ id: z.string().regex(uuidRegex, 'Must be a valid UUID') });
+export const billableServiceParamsSchema = z.object({
+  id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
+});
 
 const patientSchema = z.object({
   full_name: z.string().min(2).max(100).transform(stripHtml),
@@ -254,6 +260,36 @@ export const adminAppointmentFiltersSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).optional(),
 });
 
+const appointmentTransitionEvidenceSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('online'),
+    payment_id: z.string().regex(uuidRegex, 'Must be a valid payment UUID'),
+  }),
+  z.object({
+    kind: z.literal('cash'),
+    amount: z.number().positive().max(1_000_000),
+    reference: z.string().trim().min(2).max(120).transform(stripHtml),
+  }),
+  z.object({
+    kind: z.literal('waiver'),
+    approval_reason: z.string().trim().min(10).max(500).transform(stripHtml),
+  }),
+]);
+
+export const appointmentTransitionSchema = z.object({
+  action: z.enum([
+    'confirm',
+    'check_in',
+    'complete',
+    'cancel',
+    'mark_no_show',
+    'mark_payment_failed',
+  ]),
+  expected_version: z.number().int().positive(),
+  reason: z.string().trim().min(3).max(500).transform(stripHtml),
+  evidence: appointmentTransitionEvidenceSchema.optional(),
+});
+
 export const adminPackageOrderFiltersSchema = z.object({
   status: z
     .enum(['draft', 'awaiting_payment', 'paid', 'payment_failed', 'cancelled', 'fulfilled'])
@@ -281,7 +317,9 @@ export const adminPaymentFiltersSchema = z.object({
   search: z.string().max(120).transform(stripHtml).optional(),
   provider: z.string().max(40).transform(stripHtml).optional(),
   entity: z.enum(['appointment', 'package_order']).optional(),
-  sort: z.enum(['date_desc', 'date_asc', 'updated_desc', 'updated_asc', 'amount_desc', 'amount_asc']).optional(),
+  sort: z
+    .enum(['date_desc', 'date_asc', 'updated_desc', 'updated_asc', 'amount_desc', 'amount_asc'])
+    .optional(),
   page: z.coerce.number().int().min(1).optional(),
   pageSize: z.coerce.number().int().min(1).max(50).optional(),
 });
@@ -350,31 +388,41 @@ export const scheduleConflictParamsSchema = z.object({
 });
 
 export const scheduleConflictResolutionSchema = z.object({
-  resolutions: z.array(z.object({
-    appointment_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
-    resolution: z.enum(['keep', 'reschedule', 'approved_transfer', 'cancel_contact']),
-    notes: z.string().min(3).max(500).transform(stripHtml),
-  })).min(1).max(50),
+  resolutions: z
+    .array(
+      z.object({
+        appointment_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
+        resolution: z.enum(['keep', 'reschedule', 'approved_transfer', 'cancel_contact']),
+        notes: z.string().min(3).max(500).transform(stripHtml),
+      })
+    )
+    .min(1)
+    .max(50),
 });
 
 export const scheduleConflictApplySchema = z.object({
   expected_version: z.number().int().positive(),
 });
 
-export const availabilityRuleWriteSchema = z.object({
-  doctor_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
-  weekday: z.number().int().min(0).max(6),
-  closed: z.boolean(),
-  start_time: timeSchema.optional(),
-  end_time: timeSchema.optional(),
-  slot_count: z.number().int().min(1).max(100).optional(),
-  effective_from: dateSchema,
-  effective_until: dateSchema.optional(),
-  expected_version: z.number().int().positive(),
-}).refine(
-  (value) => value.closed || Boolean(value.start_time && value.end_time && value.slot_count),
-  { message: 'start_time, end_time, and slot_count are required for an open weekday', path: ['start_time'] }
-);
+export const availabilityRuleWriteSchema = z
+  .object({
+    doctor_id: z.string().regex(uuidRegex, 'Must be a valid UUID'),
+    weekday: z.number().int().min(0).max(6),
+    closed: z.boolean(),
+    start_time: timeSchema.optional(),
+    end_time: timeSchema.optional(),
+    slot_count: z.number().int().min(1).max(100).optional(),
+    effective_from: dateSchema,
+    effective_until: dateSchema.optional(),
+    expected_version: z.number().int().positive(),
+  })
+  .refine(
+    (value) => value.closed || Boolean(value.start_time && value.end_time && value.slot_count),
+    {
+      message: 'start_time, end_time, and slot_count are required for an open weekday',
+      path: ['start_time'],
+    }
+  );
 
 export const calendarOverrideBatchSchema = z
   .object({

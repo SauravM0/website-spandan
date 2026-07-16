@@ -894,20 +894,30 @@ export async function applyAdminScheduleConflict(
   });
 }
 
-export async function updateAdminAppointmentStatus(
+export type AppointmentTransitionEvidence =
+  | { kind: 'online'; payment_id: string }
+  | { kind: 'cash'; amount: number; reference: string }
+  | { kind: 'waiver'; approval_reason: string };
+
+export async function transitionAdminAppointment(
   token: string | undefined,
   id: string,
-  status: string
+  input: {
+    action: string;
+    expected_version: number;
+    reason: string;
+    evidence?: AppointmentTransitionEvidence;
+  }
 ) {
   clearApiCache('/admin/operations');
   clearApiCache('/appointments/slots');
   clearApiCache('/public/doctors');
   return fetchAPI<{ appointment: any }>(
-    `/admin/operations/appointments/${encodeURIComponent(id)}/status`,
+    `/admin/operations/appointments/${encodeURIComponent(id)}/transitions`,
     {
-      method: 'PATCH',
+      method: 'POST',
       headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey() },
-      body: JSON.stringify({ status }),
+      body: JSON.stringify(input),
     }
   );
 }

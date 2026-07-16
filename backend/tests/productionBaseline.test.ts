@@ -70,16 +70,17 @@ test('admin login remains cookie-based, MFA-gated, and backed by revocable sessi
   assert.match(middleware, /idle_expires_at>NOW\(\) AND absolute_expires_at>NOW\(\)/);
 });
 
-test('admin appointment status writes remain authenticated and transition-guarded', () => {
+test('admin appointment commands remain authenticated, versioned, and transition-guarded', () => {
   const routes = read('src/routes/adminOperations.ts');
   const service = read('src/services/operations.ts');
   assert.match(routes, /router\.use\(authenticate\)/);
   assert.match(
     routes,
-    /appointments\/:id\/status',\s+requirePermission\(PERMISSIONS\.APPOINTMENTS_WRITE\)/
+    /appointments\/:id\/transitions',\s+requirePermission\(PERMISSIONS\.APPOINTMENTS_WRITE\)/
   );
-  assert.match(service, /appointmentAllowedActions\(current\.rows\[0\]\.status\)/);
-  assert.match(service, /INVALID_STATUS_TRANSITION/);
+  assert.match(service, /appointmentAllowedActions\(appointment\.status\)/);
+  assert.match(service, /APPOINTMENT_ACTION_NOT_ALLOWED/);
+  assert.match(service, /APPOINTMENT_VERSION_CONFLICT/);
 });
 
 test('provider and clinical write capabilities remain disabled by default', () => {

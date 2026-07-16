@@ -39,7 +39,7 @@
     "adminOperations": [
       "GET /api/admin/operations/dashboard",
       "GET /api/admin/operations/appointments",
-      "PATCH /api/admin/operations/appointments/:id/status",
+      "POST /api/admin/operations/appointments/:id/transitions",
       "GET /api/admin/operations/package-orders",
       "GET /api/admin/operations/payments"
     ],
@@ -73,8 +73,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 36,
-    "migrationHead": "036_authoritative_payment_evidence.sql"
+    "migrationCount": 37,
+    "migrationHead": "037_transactional_appointment_transitions.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

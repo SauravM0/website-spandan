@@ -32,7 +32,7 @@ import {
   listSlots,
   quotePackageOrder,
   recheckAdminPayment,
-  updateAppointmentStatus,
+  transitionAppointment,
   updateAppointmentConfig,
   updatePaymentStatus,
   appointmentConfigWarnings,
@@ -669,12 +669,26 @@ export async function adminApplyScheduleConflict(req: AuthenticatedRequest, res:
   }
 }
 
-export async function adminUpdateAppointmentStatus(req: AuthenticatedRequest, res: Response) {
+export async function adminTransitionAppointment(req: AuthenticatedRequest, res: Response) {
   try {
-    const appointment = await updateAppointmentStatus({
+    const actorStaffId = req.user?.id;
+    const idempotencyKey = req.header('idempotency-key');
+    if (!actorStaffId) {
+      sendApiError(res, 401, 'UNAUTHORIZED', 'Administrator authentication is required.');
+      return;
+    }
+    if (!idempotencyKey) {
+      sendApiError(res, 400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required.');
+      return;
+    }
+    const appointment = await transitionAppointment({
       appointmentId: req.params.id,
-      status: req.body.status,
-      actorStaffId: req.user?.id,
+      action: req.body.action,
+      expectedVersion: req.body.expected_version,
+      reason: req.body.reason,
+      evidence: req.body.evidence,
+      actorStaffId,
+      idempotencyKey,
     });
     res.json({ appointment });
   } catch (err) {

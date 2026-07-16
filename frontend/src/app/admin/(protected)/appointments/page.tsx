@@ -14,7 +14,8 @@ import {
   downloadAdminExport,
   getAdminAppointments,
   getDoctors,
-  updateAdminAppointmentStatus,
+  transitionAdminAppointment,
+  type AppointmentTransitionEvidence,
 } from '@/lib/api';
 
 const statuses = [
@@ -174,12 +175,48 @@ export default function AdminAppointmentsPage() {
     setPagination((current) => ({ ...current, page: 1 }));
   };
 
-  const updateStatus = async (row: any, nextStatus: string) => {
-    if (nextStatus === 'cancelled' && !window.confirm('Cancel this confirmed appointment?')) return;
+  const updateStatus = async (row: any, action: string) => {
+    const reason = window.prompt(`Reason for ${action.replace(/_/g, ' ')}:`)?.trim();
+    if (!reason || reason.length < 3) return;
+    let evidence: AppointmentTransitionEvidence | undefined;
+    const requiresEvidence = ['confirm', 'check_in', 'complete'].includes(action);
+    const hasEvidence = ['paid_online', 'paid_cash', 'waived'].includes(row.payment_status);
+    if (requiresEvidence && !hasEvidence) {
+      const kind = window
+        .prompt('Payment evidence: automatic, cash, or waiver?', 'automatic')
+        ?.trim()
+        .toLowerCase();
+      if (!kind) return;
+      if (kind === 'cash') {
+        const amount = Number(
+          window.prompt(
+            'Exact cash amount received:',
+            String(row.fee_amount || row.amount_snapshot || '')
+          )
+        );
+        const reference = window.prompt('Cash receipt/reference:')?.trim();
+        if (!Number.isFinite(amount) || amount <= 0 || !reference) return;
+        evidence = { kind: 'cash', amount, reference };
+      } else if (kind === 'waiver') {
+        const approvalReason = window
+          .prompt('Approved waiver reason (at least 10 characters):')
+          ?.trim();
+        if (!approvalReason || approvalReason.length < 10) return;
+        evidence = { kind: 'waiver', approval_reason: approvalReason };
+      } else if (kind !== 'automatic') {
+        setError('Choose automatic, cash, or waiver evidence.');
+        return;
+      }
+    }
     setUpdatingId(row.id);
     setError('');
     try {
-      await updateAdminAppointmentStatus('', row.id, nextStatus);
+      await transitionAdminAppointment('', row.id, {
+        action,
+        expected_version: Number(row.version),
+        reason,
+        evidence,
+      });
       await load('refresh');
       if (selected?.id === row.id) setSelected(null);
     } catch (err) {

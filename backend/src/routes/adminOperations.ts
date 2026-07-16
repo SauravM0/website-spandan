@@ -9,6 +9,7 @@ import { PERMISSIONS } from '../security/permissions';
 import { auditAccess } from '../middleware/auditAccess';
 import {
   adminAppointmentFiltersSchema,
+  appointmentTransitionSchema,
   adminCalendarViewQuerySchema,
   adminNotificationBulkRetrySchema,
   adminNotificationDeadLetterSchema,
@@ -90,10 +91,11 @@ router.post(
   requirePermission(PERMISSIONS.APPOINTMENTS_WRITE),
   asyncHandler(controller.bookAppointment)
 );
-router.patch(
-  '/appointments/:id/status',
+router.post(
+  '/appointments/:id/transitions',
   requirePermission(PERMISSIONS.APPOINTMENTS_WRITE),
-  asyncHandler(controller.adminUpdateAppointmentStatus)
+  validateZod({ params: adminPaymentParamsSchema, body: appointmentTransitionSchema }),
+  asyncHandler(controller.adminTransitionAppointment)
 );
 router.get(
   '/availability-rules',
