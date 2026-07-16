@@ -95,7 +95,11 @@ export async function updateDiagnosticTest(input: {
   );
   if (!result.rows[0]) {
     const exists = await query('SELECT 1 FROM diagnostic_tests WHERE id = $1', [input.id]);
-    const error = new Error(exists.rows[0] ? 'This test was changed by another user. Refresh and try again.' : 'Diagnostic test not found') as Error & { status?: number; code?: string };
+    const error = new Error(
+      exists.rows[0]
+        ? 'This test was changed by another user. Refresh and try again.'
+        : 'Diagnostic test not found'
+    ) as Error & { status?: number; code?: string };
     error.status = exists.rows[0] ? 409 : 404;
     error.code = exists.rows[0] ? 'VERSION_CONFLICT' : 'NOT_FOUND';
     throw error;
@@ -134,7 +138,8 @@ export async function createCustomTestOrder(input: CustomTestOrderInput) {
         await client.query('COMMIT');
         return {
           ...replay.rows[0],
-          payment_required: replay.rows[0].price_status === 'confirmed' && Number(replay.rows[0].total_amount) > 0,
+          payment_required:
+            replay.rows[0].price_status === 'confirmed' && Number(replay.rows[0].total_amount) > 0,
           replayed: true,
         };
       }
@@ -164,7 +169,7 @@ export async function createCustomTestOrder(input: CustomTestOrderInput) {
     const subtotal = allPricesConfirmed
       ? Number(selectedResult.rows.reduce((sum, test) => sum + Number(test.price), 0).toFixed(2))
       : 0;
-    const status = allPricesConfirmed ? 'awaiting_payment' : 'amount_pending';
+    const status = allPricesConfirmed ? 'submitted' : 'price_review';
     const priceStatus = allPricesConfirmed ? 'confirmed' : 'pending';
     const patientId = await createPatient(client, input.patient);
 
@@ -225,6 +230,21 @@ export async function createCustomTestOrder(input: CustomTestOrderInput) {
           test_count: selectedResult.rows.length,
           price_status: priceStatus,
           consent: input.consent,
+        }),
+      ]
+    );
+    await client.query(
+      `INSERT INTO package_order_events
+         (order_id,idempotency_key,event_type,to_status,version_before,version_after,reason,metadata)
+       VALUES($1,$2,'order.submitted',$3,0,1,'Custom test order submitted',$4)`,
+      [
+        order.rows[0].id,
+        `created:${order.rows[0].id}`,
+        status,
+        JSON.stringify({
+          test_count: selectedResult.rows.length,
+          price_status: priceStatus,
+          source: 'public_custom_test_form',
         }),
       ]
     );

@@ -29,6 +29,8 @@ databaseTest('migrations create the critical production tables and constraints',
           'appointment_transition_events',
           'payments',
           'package_orders',
+          'package_order_events',
+          'package_order_price_confirmations',
         ],
       ]
     );
@@ -36,6 +38,8 @@ databaseTest('migrations create the critical production tables and constraints',
       'appointments',
       'appointment_payment_evidence',
       'appointment_transition_events',
+      'package_order_events',
+      'package_order_price_confirmations',
       'package_orders',
       'patient_confidentiality_grants',
       'patients',
@@ -55,12 +59,16 @@ databaseTest('migrations create the critical production tables and constraints',
           'appointments_booking_state_valid',
           'appointments_fee_snapshot_valid',
           'payment_provider_evidence_consistent',
+          'package_order_lifecycle_status_valid',
+          'package_order_preparation_status_valid',
         ],
       ]
     );
     assert.deepEqual(constraints.rows.map((row) => row.conname).sort(), [
       'appointments_booking_state_valid',
       'appointments_fee_snapshot_valid',
+      'package_order_lifecycle_status_valid',
+      'package_order_preparation_status_valid',
       'payment_provider_evidence_consistent',
     ]);
 
@@ -84,6 +92,15 @@ databaseTest('migrations create the critical production tables and constraints',
       'appointment_financial_evidence_required',
       'appointment_payment_evidence_immutable',
       'appointment_transition_event_immutable',
+    ]);
+    const packageOrderTriggers = await client.query(
+      `SELECT tgname FROM pg_trigger
+       WHERE tgname = ANY($1::text[]) AND NOT tgisinternal`,
+      [['package_order_events_immutable', 'package_order_price_confirmation_immutable']]
+    );
+    assert.deepEqual(packageOrderTriggers.rows.map((row) => row.tgname).sort(), [
+      'package_order_events_immutable',
+      'package_order_price_confirmation_immutable',
     ]);
   } finally {
     await client.end();
@@ -206,6 +223,59 @@ databaseTest('fifty concurrent appointment transitions produce one version winne
     const events = await client.query(
       'SELECT COUNT(*)::int AS count FROM appointment_transition_events WHERE appointment_id=$1',
       [appointment.rows[0].id]
+    );
+    assert.equal(events.rows[0].count, 1);
+  } finally {
+    await client.end();
+  }
+});
+
+databaseTest('fifty concurrent package-order transitions produce one version winner', async () => {
+  const client = new Client({ connectionString });
+  await client.connect();
+  const suffix = randomUUID();
+  try {
+    const staff = await client.query(
+      `INSERT INTO staff_users(email,password_hash,full_name,role)
+       VALUES($1,'not-a-real-password-hash','Package Operator','staff') RETURNING id`,
+      [`package-concurrency-${suffix}@example.test`]
+    );
+    const order = await client.query(
+      `INSERT INTO package_orders
+         (order_number,purchaser_name,phone,status,price_status,total_amount,version)
+       VALUES($1,'Package Patient','9999999998','submitted','confirmed',500,1)
+       RETURNING id`,
+      [`TEST-${suffix}`]
+    );
+    const { transitionPackageOrder } = await import('../src/services/operations');
+    const results = await Promise.allSettled(
+      Array.from({ length: 50 }, (_, index) =>
+        transitionPackageOrder({
+          orderId: order.rows[0].id,
+          action: 'cancel',
+          expectedVersion: 1,
+          reason: `Concurrent package cancellation ${index}`,
+          actorStaffId: staff.rows[0].id,
+          idempotencyKey: randomUUID(),
+        })
+      )
+    );
+    assert.equal(results.filter((result) => result.status === 'fulfilled').length, 1);
+    assert.equal(
+      results.filter(
+        (result) =>
+          result.status === 'rejected' &&
+          (result.reason as any)?.code === 'PACKAGE_ORDER_VERSION_CONFLICT'
+      ).length,
+      49
+    );
+    const final = await client.query('SELECT status,version FROM package_orders WHERE id=$1', [
+      order.rows[0].id,
+    ]);
+    assert.deepEqual(final.rows[0], { status: 'cancelled', version: 2 });
+    const events = await client.query(
+      'SELECT COUNT(*)::int AS count FROM package_order_events WHERE order_id=$1',
+      [order.rows[0].id]
     );
     assert.equal(events.rows[0].count, 1);
   } finally {

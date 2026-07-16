@@ -28,6 +28,10 @@ import {
   listAppointmentsPage,
   listCalendarOverrides,
   listPackageOrders,
+  getPackageOrderDetail,
+  transitionPackageOrder,
+  assignPackageOrder,
+  confirmPackageOrderPrice,
   listPayments,
   listSlots,
   quotePackageOrder,
@@ -57,7 +61,7 @@ import {
   normalizePhonePeState,
   validatePhonePeWebhook,
 } from '../services/phonePe';
-import { sendApiError } from '../utils/errors';
+import { AppError, sendApiError } from '../utils/errors';
 import { config } from '../config';
 import {
   createBillableService,
@@ -707,6 +711,79 @@ export async function adminOrders(_req: AuthenticatedRequest, res: Response) {
         pageSize: req.query.pageSize ? Number(req.query.pageSize) : undefined,
       })
     );
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+function packageOrderCommandContext(req: AuthenticatedRequest) {
+  const actorStaffId = req.user?.id;
+  const idempotencyKey = req.header('idempotency-key');
+  if (!actorStaffId)
+    throw new AppError(401, 'UNAUTHORIZED', 'Administrator authentication is required.');
+  if (!idempotencyKey)
+    throw new AppError(400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required.');
+  return { actorStaffId, idempotencyKey };
+}
+
+export async function adminOrderDetail(req: AuthenticatedRequest, res: Response) {
+  try {
+    const result = await getPackageOrderDetail(req.params.id);
+    if (!result) {
+      sendApiError(res, 404, 'PACKAGE_ORDER_NOT_FOUND', 'Order not found.');
+      return;
+    }
+    res.json(result);
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminTransitionOrder(req: AuthenticatedRequest, res: Response) {
+  try {
+    const context = packageOrderCommandContext(req);
+    const order = await transitionPackageOrder({
+      orderId: req.params.id,
+      action: req.body.action,
+      expectedVersion: req.body.expected_version,
+      reason: req.body.reason,
+      scheduledFor: req.body.scheduled_for,
+      fulfilmentNotes: req.body.fulfilment_notes,
+      ...context,
+    });
+    res.json({ order });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminAssignOrder(req: AuthenticatedRequest, res: Response) {
+  try {
+    const context = packageOrderCommandContext(req);
+    const order = await assignPackageOrder({
+      orderId: req.params.id,
+      expectedVersion: req.body.expected_version,
+      dueAt: req.body.due_at,
+      reason: req.body.reason,
+      ...context,
+    });
+    res.json({ order });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminConfirmOrderPrice(req: AuthenticatedRequest, res: Response) {
+  try {
+    const context = packageOrderCommandContext(req);
+    const order = await confirmPackageOrderPrice({
+      orderId: req.params.id,
+      expectedVersion: req.body.expected_version,
+      reason: req.body.reason,
+      items: req.body.items,
+      ...context,
+    });
+    res.json({ order });
   } catch (err) {
     handleError(res, err);
   }

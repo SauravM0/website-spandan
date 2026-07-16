@@ -1045,8 +1045,8 @@ export async function createPackageOrder(input: {
     const orderNo = orderNumber('SPO');
 
     const order = await client.query(
-      `INSERT INTO package_orders (order_number, purchaser_name, phone, email, preferred_date, source_language)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO package_orders (order_number, purchaser_name, phone, email, preferred_date, source_language, status, price_status)
+       VALUES ($1, $2, $3, $4, $5, $6, 'submitted', 'confirmed')
        RETURNING *`,
       [
         orderNo,
@@ -1164,6 +1164,16 @@ export async function createPackageOrder(input: {
       `INSERT INTO audit_log (action, entity_type, entity_id, metadata)
        VALUES ('package_order.created', 'package_order', $1, $2)`,
       [order.rows[0].id, JSON.stringify({ item_count: input.items.length })]
+    );
+    await client.query(
+      `INSERT INTO package_order_events
+         (order_id,idempotency_key,event_type,to_status,version_before,version_after,reason,metadata)
+       VALUES($1,$2,'order.submitted','submitted',0,1,'Package order submitted',$3)`,
+      [
+        order.rows[0].id,
+        `created:${order.rows[0].id}`,
+        JSON.stringify({ item_count: input.items.length, source: 'public_package_form' }),
+      ]
     );
 
     await client.query('COMMIT');
@@ -1338,6 +1348,41 @@ export async function createPayment(input: {
         [input.appointment_id]
       )
     : { rows: [] };
+  if (order.rows[0]) {
+    if (order.rows[0].status === 'price_review' || order.rows[0].price_status === 'pending') {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_PRICE_REVIEW_REQUIRED',
+        'The clinic must confirm every custom-test price before payment.'
+      );
+    }
+    if (order.rows[0].status === 'submitted') {
+      const advanced = await query(
+        `WITH advanced AS (
+           UPDATE package_orders
+           SET status='awaiting_payment',version=version+1,updated_at=NOW()
+           WHERE id=$1 AND status='submitted' AND version=$2
+           RETURNING id,version
+         )
+         INSERT INTO package_order_events
+           (order_id,idempotency_key,event_type,from_status,to_status,version_before,version_after,reason,metadata)
+         SELECT id,$3,'payment.requested','submitted','awaiting_payment',version-1,version,
+                'Public checkout requested',$4
+         FROM advanced
+         RETURNING version_after AS version`,
+        [
+          order.rows[0].id,
+          order.rows[0].version,
+          `payment:${input.idempotency_key || crypto.randomUUID()}`,
+          JSON.stringify({ source: 'public_checkout' }),
+        ]
+      );
+      if (advanced.rows[0]) {
+        order.rows[0].status = 'awaiting_payment';
+        order.rows[0].version = advanced.rows[0].version;
+      }
+    }
+  }
   const amount = Number(order.rows[0]?.total_amount || appointment.rows[0]?.fee_amount || 0);
   if (!order.rows[0] && !appointment.rows[0]) throw new Error('Payment target not found');
   if (amount <= 0 && order.rows[0]) throw new Error('Order amount must be greater than zero');
@@ -1628,10 +1673,30 @@ export async function updatePaymentStatus(
 
     if (paymentRow.status !== 'success' && appliedStatus === 'success') {
       if (payment.rows[0].order_id) {
-        await client.query(
-          `UPDATE package_orders SET status = 'paid', updated_at = NOW() WHERE id = $1`,
+        const orderBefore = await client.query(
+          'SELECT status,version FROM package_orders WHERE id=$1 FOR UPDATE',
           [payment.rows[0].order_id]
         );
+        await client.query(
+          `UPDATE package_orders SET status='paid',version=version+1,updated_at=NOW() WHERE id=$1 AND status<>'paid'`,
+          [payment.rows[0].order_id]
+        );
+        if (orderBefore.rows[0]?.status !== 'paid') {
+          await client.query(
+            `INSERT INTO package_order_events
+               (order_id,idempotency_key,event_type,from_status,to_status,version_before,version_after,reason,metadata)
+             VALUES($1,$2,'payment.verified',$3,'paid',$4,$5,'Authoritative provider payment verified',$6)
+             ON CONFLICT(order_id,idempotency_key) DO NOTHING`,
+            [
+              payment.rows[0].order_id,
+              `payment-success:${payment.rows[0].id}`,
+              orderBefore.rows[0]?.status || 'awaiting_payment',
+              Number(orderBefore.rows[0]?.version || 1),
+              Number(orderBefore.rows[0]?.version || 1) + 1,
+              JSON.stringify({ payment_id: payment.rows[0].id }),
+            ]
+          );
+        }
       }
       if (payment.rows[0].appointment_id) {
         await client.query(
@@ -1687,7 +1752,7 @@ export async function updatePaymentStatus(
     if (paymentRow.status !== 'success' && appliedStatus === 'failed') {
       if (payment.rows[0].order_id) {
         await client.query(
-          `UPDATE package_orders SET status = 'payment_failed', updated_at = NOW() WHERE id = $1`,
+          `UPDATE package_orders SET status='awaiting_payment',updated_at=NOW() WHERE id=$1`,
           [payment.rows[0].order_id]
         );
       }
@@ -3557,6 +3622,489 @@ export async function transitionAppointment(input: {
   }
 }
 
+export type PackageOrderAction =
+  | 'start_price_review'
+  | 'request_payment'
+  | 'schedule'
+  | 'mark_collection_pending'
+  | 'start_processing'
+  | 'mark_ready'
+  | 'fulfill'
+  | 'cancel'
+  | 'request_refund'
+  | 'mark_refunded';
+
+export function packageOrderAllowedActions(status: string): PackageOrderAction[] {
+  const actions: Record<string, PackageOrderAction[]> = {
+    submitted: ['start_price_review', 'request_payment', 'cancel'],
+    price_review: ['cancel'],
+    awaiting_payment: ['cancel'],
+    paid: ['schedule', 'request_refund', 'cancel'],
+    scheduled: ['mark_collection_pending', 'request_refund', 'cancel'],
+    collection_pending: ['start_processing', 'request_refund', 'cancel'],
+    processing: ['mark_ready', 'request_refund', 'cancel'],
+    ready: ['fulfill', 'request_refund', 'cancel'],
+    fulfilled: ['request_refund'],
+    cancelled: [],
+    refund_pending: ['mark_refunded'],
+    refunded: [],
+  };
+  return actions[status] || [];
+}
+
+function packageOrderAllowedActionsFor(order: {
+  status: string;
+  order_type?: string;
+  price_status?: string;
+}) {
+  return packageOrderAllowedActions(order.status).filter(
+    (action) =>
+      action !== 'start_price_review' ||
+      (order.order_type === 'custom_tests' && order.price_status === 'pending')
+  );
+}
+
+async function findPackageOrderReplay(client: PoolClient, orderId: string, idempotencyKey: string) {
+  const replay = await client.query(
+    `SELECT metadata->'after' AS after FROM package_order_events
+     WHERE order_id=$1 AND idempotency_key=$2`,
+    [orderId, idempotencyKey]
+  );
+  return replay.rows[0]?.after || null;
+}
+
+export async function transitionPackageOrder(input: {
+  orderId: string;
+  action: PackageOrderAction;
+  expectedVersion: number;
+  reason: string;
+  scheduledFor?: string;
+  fulfilmentNotes?: string;
+  actorStaffId: string;
+  idempotencyKey: string;
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const earlyReplay = await findPackageOrderReplay(client, input.orderId, input.idempotencyKey);
+    if (earlyReplay) {
+      await client.query('COMMIT');
+      return { ...earlyReplay, allowed_actions: packageOrderAllowedActions(earlyReplay.status) };
+    }
+    const current = await client.query('SELECT * FROM package_orders WHERE id=$1 FOR UPDATE', [
+      input.orderId,
+    ]);
+    if (!current.rows[0]) throw new AppError(404, 'PACKAGE_ORDER_NOT_FOUND', 'Order not found.');
+    const order = current.rows[0];
+    const replay = await findPackageOrderReplay(client, input.orderId, input.idempotencyKey);
+    if (replay) {
+      await client.query('COMMIT');
+      return { ...replay, allowed_actions: packageOrderAllowedActions(replay.status) };
+    }
+    if (Number(order.version) !== input.expectedVersion) {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_VERSION_CONFLICT',
+        `Order changed to version ${order.version}. Refresh before retrying.`
+      );
+    }
+    if (!packageOrderAllowedActionsFor(order).includes(input.action)) {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_ACTION_NOT_ALLOWED',
+        'This action is not allowed from the current order state.'
+      );
+    }
+    if (input.action === 'request_payment' && order.price_status !== 'confirmed') {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_PRICE_REVIEW_REQUIRED',
+        'Confirm all custom-test prices before requesting payment.'
+      );
+    }
+    if (
+      input.action === 'start_price_review' &&
+      (order.order_type !== 'custom_tests' || order.price_status !== 'pending')
+    ) {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_PRICE_REVIEW_NOT_REQUIRED',
+        'Only a custom-test order with pending prices can enter price review.'
+      );
+    }
+    if (input.action === 'schedule' && !input.scheduledFor) {
+      throw new AppError(
+        400,
+        'PACKAGE_ORDER_SCHEDULE_REQUIRED',
+        'A scheduled date and time is required.'
+      );
+    }
+    if (
+      input.action === 'schedule' &&
+      new Date(input.scheduledFor as string).getTime() <= Date.now()
+    ) {
+      throw new AppError(
+        400,
+        'PACKAGE_ORDER_SCHEDULE_IN_PAST',
+        'Schedule the order for a future time.'
+      );
+    }
+    if (input.action === 'mark_refunded') {
+      const refund = await client.query(
+        `SELECT 1 FROM payment_refunds refund
+         JOIN payments payment ON payment.id=refund.payment_id
+         WHERE payment.order_id=$1 AND refund.status='completed' LIMIT 1`,
+        [order.id]
+      );
+      if (!refund.rows[0]) {
+        throw new AppError(
+          409,
+          'PACKAGE_ORDER_REFUND_EVIDENCE_REQUIRED',
+          'A completed provider refund is required before marking the order refunded.'
+        );
+      }
+    }
+    let target = {
+      start_price_review: 'price_review',
+      request_payment: 'awaiting_payment',
+      schedule: 'scheduled',
+      mark_collection_pending: 'collection_pending',
+      start_processing: 'processing',
+      mark_ready: 'ready',
+      fulfill: 'fulfilled',
+      cancel: 'cancelled',
+      request_refund: 'refund_pending',
+      mark_refunded: 'refunded',
+    }[input.action];
+    if (
+      input.action === 'cancel' &&
+      ['paid', 'scheduled', 'collection_pending', 'processing', 'ready'].includes(order.status)
+    ) {
+      target = 'refund_pending';
+    }
+    const updated = await client.query(
+      `UPDATE package_orders
+       SET status=$1,version=version+1,updated_at=NOW(),
+           scheduled_for=CASE WHEN $2='schedule' THEN $3::timestamptz ELSE scheduled_for END,
+           fulfilment_notes=CASE WHEN $2='fulfill' THEN COALESCE($4,fulfilment_notes) ELSE fulfilment_notes END,
+           cancelled_reason=CASE WHEN $2='cancel' THEN $5 ELSE cancelled_reason END,
+           fulfilled_at=CASE WHEN $2='fulfill' THEN NOW() ELSE fulfilled_at END
+       WHERE id=$6 AND version=$7
+       RETURNING *`,
+      [
+        target,
+        input.action,
+        input.scheduledFor || null,
+        input.fulfilmentNotes || null,
+        input.reason,
+        order.id,
+        input.expectedVersion,
+      ]
+    );
+    if (!updated.rows[0]) {
+      throw new AppError(409, 'PACKAGE_ORDER_VERSION_CONFLICT', 'Order changed during update.');
+    }
+    const after = updated.rows[0];
+    await client.query(
+      `INSERT INTO package_order_events
+         (order_id,idempotency_key,event_type,from_status,to_status,version_before,version_after,
+          reason,actor_staff_id,metadata)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
+      [
+        order.id,
+        input.idempotencyKey,
+        `order.${input.action}`,
+        order.status,
+        target,
+        input.expectedVersion,
+        Number(after.version),
+        input.reason,
+        input.actorStaffId,
+        JSON.stringify({
+          before: { status: order.status, version: Number(order.version) },
+          after: {
+            status: after.status,
+            version: Number(after.version),
+            scheduled_for: after.scheduled_for,
+          },
+        }),
+      ]
+    );
+    await client.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata)
+       VALUES($1,'package_order.transitioned','package_order',$2,$3)`,
+      [
+        input.actorStaffId,
+        order.id,
+        JSON.stringify({
+          action: input.action,
+          from: order.status,
+          to: target,
+          reason: input.reason,
+        }),
+      ]
+    );
+    await client.query('COMMIT');
+    return { ...after, allowed_actions: packageOrderAllowedActions(after.status) };
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function assignPackageOrder(input: {
+  orderId: string;
+  expectedVersion: number;
+  dueAt: string;
+  reason: string;
+  actorStaffId: string;
+  idempotencyKey: string;
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const earlyReplay = await findPackageOrderReplay(client, input.orderId, input.idempotencyKey);
+    if (earlyReplay) {
+      await client.query('COMMIT');
+      return earlyReplay;
+    }
+    const order = await client.query('SELECT * FROM package_orders WHERE id=$1 FOR UPDATE', [
+      input.orderId,
+    ]);
+    if (!order.rows[0]) throw new AppError(404, 'PACKAGE_ORDER_NOT_FOUND', 'Order not found.');
+    const replay = await findPackageOrderReplay(client, input.orderId, input.idempotencyKey);
+    if (replay) {
+      await client.query('COMMIT');
+      return replay;
+    }
+    if (Number(order.rows[0].version) !== input.expectedVersion) {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_VERSION_CONFLICT',
+        'Order changed. Refresh before assigning.'
+      );
+    }
+    if (['fulfilled', 'cancelled', 'refunded'].includes(order.rows[0].status)) {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_ASSIGNMENT_CLOSED',
+        'A closed order cannot be reassigned.'
+      );
+    }
+    if (new Date(input.dueAt).getTime() <= Date.now()) {
+      throw new AppError(400, 'PACKAGE_ORDER_DUE_IN_PAST', 'Set a future due time.');
+    }
+    const updated = await client.query(
+      `UPDATE package_orders SET owner_staff_id=$1,due_at=$2,version=version+1,updated_at=NOW()
+       WHERE id=$3 AND version=$4 RETURNING *`,
+      [input.actorStaffId, input.dueAt, input.orderId, input.expectedVersion]
+    );
+    await client.query(
+      `INSERT INTO package_order_events
+         (order_id,idempotency_key,event_type,from_status,to_status,version_before,version_after,reason,actor_staff_id,metadata)
+       VALUES($1,$2,'order.assigned',$3,$3,$4,$5,$6,$7,$8)`,
+      [
+        input.orderId,
+        input.idempotencyKey,
+        order.rows[0].status,
+        input.expectedVersion,
+        Number(updated.rows[0].version),
+        input.reason,
+        input.actorStaffId,
+        JSON.stringify({
+          after: {
+            id: updated.rows[0].id,
+            status: updated.rows[0].status,
+            version: Number(updated.rows[0].version),
+            owner_staff_id: updated.rows[0].owner_staff_id,
+            due_at: updated.rows[0].due_at,
+          },
+        }),
+      ]
+    );
+    await client.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata)
+       VALUES($1,'package_order.assigned','package_order',$2,$3)`,
+      [
+        input.actorStaffId,
+        input.orderId,
+        JSON.stringify({ due_at: input.dueAt, reason: input.reason }),
+      ]
+    );
+    await client.query('COMMIT');
+    return updated.rows[0];
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function confirmPackageOrderPrice(input: {
+  orderId: string;
+  expectedVersion: number;
+  reason: string;
+  items: Array<{ item_id: string; unit_price: number }>;
+  actorStaffId: string;
+  idempotencyKey: string;
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const earlyReplay = await findPackageOrderReplay(client, input.orderId, input.idempotencyKey);
+    if (earlyReplay) {
+      await client.query('COMMIT');
+      return earlyReplay;
+    }
+    const order = await client.query('SELECT * FROM package_orders WHERE id=$1 FOR UPDATE', [
+      input.orderId,
+    ]);
+    if (!order.rows[0]) throw new AppError(404, 'PACKAGE_ORDER_NOT_FOUND', 'Order not found.');
+    const replay = await findPackageOrderReplay(client, input.orderId, input.idempotencyKey);
+    if (replay) {
+      await client.query('COMMIT');
+      return replay;
+    }
+    if (Number(order.rows[0].version) !== input.expectedVersion) {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_VERSION_CONFLICT',
+        'Order changed. Refresh before pricing.'
+      );
+    }
+    if (order.rows[0].order_type !== 'custom_tests' || order.rows[0].price_status === 'confirmed') {
+      throw new AppError(
+        409,
+        'PACKAGE_ORDER_PRICE_NOT_EDITABLE',
+        'This order does not require price confirmation.'
+      );
+    }
+    const items = await client.query(
+      'SELECT id FROM custom_test_order_items WHERE order_id=$1 FOR UPDATE',
+      [input.orderId]
+    );
+    const expectedIds = new Set(items.rows.map((item) => item.id));
+    if (
+      input.items.length !== expectedIds.size ||
+      input.items.some((item) => !expectedIds.has(item.item_id))
+    ) {
+      throw new AppError(
+        400,
+        'PACKAGE_ORDER_PRICE_ITEMS_INVALID',
+        'Submit one price for every order item.'
+      );
+    }
+    let subtotal = 0;
+    for (const item of input.items) {
+      subtotal += Number(item.unit_price);
+      await client.query(
+        `UPDATE custom_test_order_items SET unit_price=$1,price_confirmed_snapshot=true WHERE id=$2 AND order_id=$3`,
+        [item.unit_price, item.item_id, input.orderId]
+      );
+    }
+    subtotal = Number(subtotal.toFixed(2));
+    const tax = Number(order.rows[0].tax_amount || 0);
+    const fee = Number(order.rows[0].fee_amount || 0);
+    const total = Number((subtotal + tax + fee).toFixed(2));
+    const updated = await client.query(
+      `UPDATE package_orders
+       SET subtotal=$1,total_amount=$2,grand_total=$2,price_status='confirmed',
+           price_confirmed_at=NOW(),price_confirmed_by=$3,status='submitted',
+           version=version+1,updated_at=NOW()
+       WHERE id=$4 AND version=$5 RETURNING *`,
+      [subtotal, total, input.actorStaffId, input.orderId, input.expectedVersion]
+    );
+    await client.query(
+      `INSERT INTO package_order_price_confirmations
+         (order_id,subtotal,tax_total,fee_total,total,item_prices,reason,confirmed_by_staff_id)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8)`,
+      [
+        input.orderId,
+        subtotal,
+        tax,
+        fee,
+        total,
+        JSON.stringify(input.items),
+        input.reason,
+        input.actorStaffId,
+      ]
+    );
+    await client.query(
+      `INSERT INTO package_order_events
+         (order_id,idempotency_key,event_type,from_status,to_status,version_before,version_after,reason,actor_staff_id,metadata)
+       VALUES($1,$2,'order.price_confirmed',$3,'submitted',$4,$5,$6,$7,$8)`,
+      [
+        input.orderId,
+        input.idempotencyKey,
+        order.rows[0].status,
+        input.expectedVersion,
+        Number(updated.rows[0].version),
+        input.reason,
+        input.actorStaffId,
+        JSON.stringify({
+          total,
+          after: {
+            id: updated.rows[0].id,
+            status: updated.rows[0].status,
+            version: Number(updated.rows[0].version),
+            price_status: updated.rows[0].price_status,
+            subtotal: updated.rows[0].subtotal,
+            total_amount: updated.rows[0].total_amount,
+          },
+        }),
+      ]
+    );
+    await client.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata)
+       VALUES($1,'package_order.price_confirmed','package_order',$2,$3)`,
+      [input.actorStaffId, input.orderId, JSON.stringify({ total, reason: input.reason })]
+    );
+    await client.query('COMMIT');
+    return updated.rows[0];
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+export async function getPackageOrderDetail(orderId: string) {
+  const order = await query(
+    `SELECT po.*,owner.full_name AS owner_name,
+            payment.id AS payment_id,payment.status AS payment_status,payment.verified_at,
+            receipt.receipt_number,
+            notification.status AS notification_status,notification.error AS notification_error
+     FROM package_orders po
+     LEFT JOIN staff_users owner ON owner.id=po.owner_staff_id
+     LEFT JOIN LATERAL (SELECT * FROM payments p WHERE p.order_id=po.id ORDER BY p.created_at DESC LIMIT 1) payment ON true
+     LEFT JOIN receipts receipt ON receipt.payment_id=payment.id
+     LEFT JOIN LATERAL (SELECT status,error FROM notification_outbox n WHERE n.order_id=po.id ORDER BY n.created_at DESC LIMIT 1) notification ON true
+     WHERE po.id=$1`,
+    [orderId]
+  );
+  if (!order.rows[0]) return null;
+  const [packageItems, customItems, timeline] = await Promise.all([
+    query('SELECT * FROM package_order_items WHERE order_id=$1 ORDER BY created_at,id', [orderId]),
+    query('SELECT * FROM custom_test_order_items WHERE order_id=$1 ORDER BY sort_order,id', [
+      orderId,
+    ]),
+    query(
+      `SELECT id,event_type,from_status,to_status,version_before,version_after,reason,metadata,created_at
+       FROM package_order_events WHERE order_id=$1 ORDER BY created_at,id`,
+      [orderId]
+    ),
+  ]);
+  return {
+    order: { ...order.rows[0], allowed_actions: packageOrderAllowedActionsFor(order.rows[0]) },
+    items: order.rows[0].order_type === 'custom_tests' ? customItems.rows : packageItems.rows,
+    timeline: timeline.rows,
+  };
+}
+
 type PackageOrderFilters = { status?: string; search?: string; cursor?: string; pageSize?: number };
 
 function encodeOrderCursor(row: { created_at: unknown; id: string }): string {
@@ -3616,7 +4164,8 @@ export async function listPackageOrders(filters: PackageOrderFilters = {}) {
   values.push(pageSize + 1);
   const result = await query(
     `SELECT po.id, po.order_number, po.purchaser_name, po.phone, po.preferred_date,
-            po.total_amount, po.status, po.fulfilment_status, po.created_at,
+            po.total_amount, po.status, po.fulfilment_status, po.created_at,po.updated_at,
+            po.version,po.owner_staff_id,po.due_at,po.scheduled_for,owner.full_name AS owner_name,
             po.order_type, po.price_status,
             CASE WHEN po.order_type = 'custom_tests'
               THEN (SELECT COUNT(*)::int FROM custom_test_order_items ctoi WHERE ctoi.order_id = po.id)
@@ -3627,6 +4176,7 @@ export async function listPackageOrders(filters: PackageOrderFilters = {}) {
               ELSE ARRAY[]::TEXT[]
             END AS test_names
      FROM package_orders po
+     LEFT JOIN staff_users owner ON owner.id=po.owner_staff_id
      ${conditions.length ? `WHERE ${conditions.join(' AND ')}` : ''}
      ORDER BY po.created_at DESC, po.id DESC
      LIMIT $${values.length}`,
@@ -3635,6 +4185,7 @@ export async function listPackageOrders(filters: PackageOrderFilters = {}) {
   const hasMore = result.rows.length > pageSize;
   const rows = result.rows.slice(0, pageSize).map((row) => ({
     ...row,
+    allowed_actions: packageOrderAllowedActionsFor(row),
     phone: undefined,
     phone_masked: maskPhone(row.phone),
   }));

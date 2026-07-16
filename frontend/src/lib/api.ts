@@ -936,6 +936,71 @@ export async function getAdminPackageOrders(
   );
 }
 
+export async function getAdminPackageOrderDetail(token: string | undefined, id: string) {
+  return fetchAPI<{ order: any; items: any[]; timeline: any[] }>(
+    `/admin/operations/package-orders/${encodeURIComponent(id)}`,
+    { headers: authHeaders(token) }
+  );
+}
+
+export async function transitionAdminPackageOrder(
+  token: string | undefined,
+  id: string,
+  input: {
+    action: string;
+    expected_version: number;
+    reason: string;
+    scheduled_for?: string;
+    fulfilment_notes?: string;
+  }
+) {
+  clearApiCache('/admin/operations/package-orders');
+  return fetchAPI<{ order: any }>(
+    `/admin/operations/package-orders/${encodeURIComponent(id)}/transitions`,
+    {
+      method: 'POST',
+      headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify(input),
+    }
+  );
+}
+
+export async function assignAdminPackageOrder(
+  token: string | undefined,
+  id: string,
+  input: { expected_version: number; due_at: string; reason: string }
+) {
+  clearApiCache('/admin/operations/package-orders');
+  return fetchAPI<{ order: any }>(
+    `/admin/operations/package-orders/${encodeURIComponent(id)}/assign`,
+    {
+      method: 'POST',
+      headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify(input),
+    }
+  );
+}
+
+export async function confirmAdminPackageOrderPrice(
+  token: string | undefined,
+  id: string,
+  input: {
+    expected_version: number;
+    reason: string;
+    items: Array<{ item_id: string; unit_price: number }>;
+  }
+) {
+  clearApiCache('/admin/operations/package-orders');
+  return fetchAPI<{ order: any }>(
+    `/admin/operations/package-orders/${encodeURIComponent(id)}/price-confirmation`,
+    {
+      method: 'POST',
+      headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify(input),
+    }
+  );
+}
+
 export async function getAdminPayments(
   token: string | undefined,
   filters: {

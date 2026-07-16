@@ -20,6 +20,9 @@ import {
   adminPaymentRefundSchema,
   adminPaymentExceptionFiltersSchema,
   adminPackageOrderFiltersSchema,
+  packageOrderTransitionSchema,
+  packageOrderAssignmentSchema,
+  packageOrderPriceConfirmationSchema,
   appointmentConfigSchema,
   calendarOverrideBatchSchema,
   calendarOverrideDeleteQuerySchema,
@@ -148,6 +151,32 @@ router.get(
   requirePermission(PERMISSIONS.PACKAGE_ORDERS_READ),
   validateZod({ query: adminPackageOrderFiltersSchema }),
   asyncHandler(controller.adminOrders)
+);
+router.get(
+  '/package-orders/:id',
+  requirePermission(PERMISSIONS.PACKAGE_ORDERS_READ),
+  validateZod({ params: adminPaymentParamsSchema }),
+  asyncHandler(controller.adminOrderDetail)
+);
+router.post(
+  '/package-orders/:id/transitions',
+  requirePermission(PERMISSIONS.PACKAGE_ORDERS_WRITE),
+  requireRecentStepUp,
+  validateZod({ params: adminPaymentParamsSchema, body: packageOrderTransitionSchema }),
+  asyncHandler(controller.adminTransitionOrder)
+);
+router.post(
+  '/package-orders/:id/assign',
+  requirePermission(PERMISSIONS.PACKAGE_ORDERS_WRITE),
+  validateZod({ params: adminPaymentParamsSchema, body: packageOrderAssignmentSchema }),
+  asyncHandler(controller.adminAssignOrder)
+);
+router.post(
+  '/package-orders/:id/price-confirmation',
+  requirePermission(PERMISSIONS.PACKAGE_ORDERS_WRITE),
+  requireRecentStepUp,
+  validateZod({ params: adminPaymentParamsSchema, body: packageOrderPriceConfirmationSchema }),
+  asyncHandler(controller.adminConfirmOrderPrice)
 );
 router.get(
   '/payments',

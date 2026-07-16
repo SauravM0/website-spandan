@@ -5,6 +5,7 @@ export const PERMISSIONS = {
   APPOINTMENTS_READ: 'admin.appointments.read',
   APPOINTMENTS_WRITE: 'admin.appointments.write',
   PACKAGE_ORDERS_READ: 'admin.package_orders.read',
+  PACKAGE_ORDERS_WRITE: 'admin.package_orders.write',
   PAYMENTS_READ: 'admin.payments.read',
   PAYMENTS_RECHECK: 'admin.payments.recheck',
   PAYMENTS_REFUND: 'admin.payments.refund',

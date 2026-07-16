@@ -1,0 +1,38 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP20",
+  "deploymentModel": "sole-administrator",
+  "sourceOfTruth": "PostgreSQL",
+  "states": [
+    "submitted",
+    "price_review",
+    "awaiting_payment",
+    "paid",
+    "scheduled",
+    "collection_pending",
+    "processing",
+    "ready",
+    "fulfilled",
+    "cancelled",
+    "refund_pending",
+    "refunded"
+  ],
+  "commands": {
+    "expectedVersionRequired": true,
+    "idempotencyKeyRequired": true,
+    "reasonRequired": true,
+    "rowLockRequired": true
+  },
+  "audit": {
+    "immutableTimeline": true,
+    "priceConfirmationsImmutable": true
+  },
+  "payment": {
+    "confirmedPriceRequired": true,
+    "providerRefundEvidenceRequired": true
+  },
+  "actionQueue": {
+    "paidOrdersIncluded": true,
+    "ownerAndDueTimeVisible": true
+  }
+}

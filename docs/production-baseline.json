@@ -41,6 +41,10 @@
       "GET /api/admin/operations/appointments",
       "POST /api/admin/operations/appointments/:id/transitions",
       "GET /api/admin/operations/package-orders",
+      "GET /api/admin/operations/package-orders/:id",
+      "POST /api/admin/operations/package-orders/:id/transitions",
+      "POST /api/admin/operations/package-orders/:id/assign",
+      "POST /api/admin/operations/package-orders/:id/price-confirmation",
       "GET /api/admin/operations/payments"
     ],
     "adminPatient": [
@@ -73,8 +77,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 37,
-    "migrationHead": "037_transactional_appointment_transitions.sql"
+    "migrationCount": 38,
+    "migrationHead": "038_package_order_lifecycle.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

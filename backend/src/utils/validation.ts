@@ -292,11 +292,63 @@ export const appointmentTransitionSchema = z.object({
 
 export const adminPackageOrderFiltersSchema = z.object({
   status: z
-    .enum(['draft', 'awaiting_payment', 'paid', 'payment_failed', 'cancelled', 'fulfilled'])
+    .enum([
+      'submitted',
+      'price_review',
+      'awaiting_payment',
+      'paid',
+      'scheduled',
+      'collection_pending',
+      'processing',
+      'ready',
+      'fulfilled',
+      'cancelled',
+      'refund_pending',
+      'refunded',
+    ])
     .optional(),
   search: z.string().trim().max(120).transform(stripHtml).optional(),
   cursor: z.string().max(500).optional(),
   pageSize: z.coerce.number().int().min(1).max(50).optional(),
+});
+
+export const packageOrderTransitionSchema = z.object({
+  action: z.enum([
+    'start_price_review',
+    'request_payment',
+    'schedule',
+    'mark_collection_pending',
+    'start_processing',
+    'mark_ready',
+    'fulfill',
+    'cancel',
+    'request_refund',
+    'mark_refunded',
+  ]),
+  expected_version: z.number().int().positive(),
+  reason: z.string().trim().min(3).max(500).transform(stripHtml),
+  scheduled_for: z.string().datetime({ offset: true }).optional(),
+  fulfilment_notes: z.string().trim().max(1000).transform(stripHtml).optional(),
+});
+
+export const packageOrderAssignmentSchema = z.object({
+  expected_version: z.number().int().positive(),
+  due_at: z.string().datetime({ offset: true }),
+  reason: z.string().trim().min(3).max(500).transform(stripHtml),
+});
+
+export const packageOrderPriceConfirmationSchema = z.object({
+  expected_version: z.number().int().positive(),
+  reason: z.string().trim().min(3).max(500).transform(stripHtml),
+  items: z
+    .array(
+      z.object({
+        item_id: z.string().regex(uuidRegex, 'Must be a valid item UUID'),
+        unit_price: z.number().positive().max(1_000_000),
+      })
+    )
+    .min(1)
+    .max(100),
 });
 
 export const adminPaymentFiltersSchema = z.object({
