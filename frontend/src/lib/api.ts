@@ -708,6 +708,19 @@ export async function getAdminDashboard(token = '') {
   });
 }
 
+export async function searchAdminWorkflow(query: string, signal?: AbortSignal) {
+  return fetchAPI<{ data: any[] }>(`/admin/operations/workflow/search${toQuery({ q: query })}`, {
+    signal,
+  });
+}
+
+export async function getAdminWorkItem(type: string, id: string, signal?: AbortSignal) {
+  return fetchAPI<{ workItem: any }>(
+    `/admin/operations/workflow/items/${encodeURIComponent(type)}/${encodeURIComponent(id)}`,
+    { signal }
+  );
+}
+
 export type AppointmentSettings = {
   default_slot_minutes: number;
   minimum_booking_notice_minutes: number;

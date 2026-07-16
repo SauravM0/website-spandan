@@ -71,6 +71,11 @@ import {
   updateBillableService,
 } from '../services/servicePricing';
 import { PostgresWorkerLeaseStore } from '../worker/leaseStore';
+import {
+  getNeedsActionQueue,
+  getWorkItemDetail,
+  searchAdminWorkflow,
+} from '../services/adminWorkflow';
 import { operationalSnapshot } from '../observability/operationalSnapshot';
 import { observeBookingConfirmation, observeBookingHold } from '../observability/metrics';
 import {
@@ -385,8 +390,73 @@ export async function emailReceipt(req: AuthenticatedRequest, res: Response) {
 
 export async function adminDashboard(req: AuthenticatedRequest, res: Response) {
   try {
+    const workflowActor = {
+      role: req.user?.role || '',
+      doctorId: req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined,
+    };
+    const [dashboard, needsAction] = await Promise.all([
+      getAdminDashboard({ doctorId: workflowActor.doctorId }),
+      getNeedsActionQueue(workflowActor),
+    ]);
+    const identityCount = Number(needsAction.counts.identity_reviews || 0);
     res.json({
-      dashboard: await getAdminDashboard({
+      dashboard: {
+        ...dashboard,
+        role: req.user?.role === 'doctor' ? 'doctor' : 'administrator',
+        needsAction: needsAction.data,
+        metrics: { ...dashboard.metrics, identityReviews: identityCount },
+        actionItems: [
+          ...dashboard.actionItems,
+          ...(identityCount
+            ? [
+                {
+                  id: 'identity-reviews',
+                  label: 'Duplicate patient reviews',
+                  count: identityCount,
+                  href: '/admin/patients/identity-reviews',
+                  priority: 'high',
+                },
+              ]
+            : []),
+        ],
+      },
+    });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminWorkflowSearch(req: AuthenticatedRequest, res: Response) {
+  try {
+    res.json(
+      await searchAdminWorkflow(String(req.query.q), {
+        role: req.user?.role || '',
+        doctorId: req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined,
+      })
+    );
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminNeedsAction(req: AuthenticatedRequest, res: Response) {
+  try {
+    res.json(
+      await getNeedsActionQueue({
+        role: req.user?.role || '',
+        doctorId: req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined,
+      })
+    );
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminWorkItemDetail(req: AuthenticatedRequest, res: Response) {
+  try {
+    res.json({
+      workItem: await getWorkItemDetail(req.params.type, req.params.id, {
+        role: req.user?.role || '',
         doctorId: req.user?.role === 'doctor' ? req.user.doctor_id || undefined : undefined,
       }),
     });

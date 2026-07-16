@@ -26,6 +26,7 @@ const steps = [
   ['appointment-transitions:check', ['run', 'appointment-transitions:check']],
   ['appointment-rescheduling:check', ['run', 'appointment-rescheduling:check']],
   ['patient-identity:check', ['run', 'patient-identity:check']],
+  ['admin-workflow:check', ['run', 'admin-workflow:check']],
   ['package-orders:check', ['run', 'package-orders:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],

@@ -28,6 +28,7 @@ import { getAdminSession, logout } from '../../lib/api';
 import { AdminSessionProvider, AdminUser } from '../admin/AdminSessionContext';
 import FocusTrap from '../ui/FocusTrap';
 import StepUpDialog from '../admin/StepUpDialog';
+import AdminGlobalSearch from '../admin/AdminGlobalSearch';
 
 const navGroups = [
   {
@@ -317,7 +318,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       <div className="min-w-0">
         <header className="sticky top-0 z-40 border-b border-border bg-white shadow-sm">
-          <div className="flex min-h-[64px] items-center justify-between gap-3 px-4 sm:px-6">
+          <div className="flex min-h-[64px] items-center justify-between gap-4 px-4 sm:px-6">
             <div className="flex min-w-0 items-center gap-3">
               <button
                 type="button"
@@ -334,6 +335,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </p>
               </div>
             </div>
+            <AdminGlobalSearch />
             <button
               onClick={handleLogout}
               className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-border px-3 text-sm font-semibold text-navy hover:bg-bg-alt"

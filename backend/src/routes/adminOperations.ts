@@ -9,6 +9,8 @@ import { PERMISSIONS } from '../security/permissions';
 import { auditAccess } from '../middleware/auditAccess';
 import {
   adminAppointmentFiltersSchema,
+  adminWorkflowSearchSchema,
+  adminWorkItemParamsSchema,
   appointmentTransitionSchema,
   appointmentRescheduleSchema,
   adminCalendarViewQuerySchema,
@@ -48,6 +50,23 @@ router.get(
   '/dashboard/today',
   requirePermission(PERMISSIONS.DASHBOARD_READ),
   asyncHandler(controller.adminDashboard)
+);
+router.get(
+  '/workflow/search',
+  requirePermission(PERMISSIONS.DASHBOARD_READ),
+  validateZod({ query: adminWorkflowSearchSchema }),
+  asyncHandler(controller.adminWorkflowSearch)
+);
+router.get(
+  '/workflow/needs-action',
+  requirePermission(PERMISSIONS.DASHBOARD_READ),
+  asyncHandler(controller.adminNeedsAction)
+);
+router.get(
+  '/workflow/items/:type/:id',
+  requirePermission(PERMISSIONS.DASHBOARD_READ),
+  validateZod({ params: adminWorkItemParamsSchema }),
+  asyncHandler(controller.adminWorkItemDetail)
 );
 router.get(
   '/worker-health',

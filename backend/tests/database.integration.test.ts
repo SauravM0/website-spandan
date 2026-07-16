@@ -533,3 +533,51 @@ databaseTest('fifty concurrent package-order transitions produce one version win
     await client.end();
   }
 });
+
+databaseTest('admin needs-action, scoped search, and unified detail agree end to end', async () => {
+  const client = new Client({ connectionString });
+  await client.connect();
+  const suffix = randomUUID();
+  try {
+    const doctor = await client.query(
+      `INSERT INTO doctors(name,slug,speciality)
+       VALUES('Workflow Doctor',$1,'Testing') RETURNING id`,
+      [`workflow-doctor-${suffix}`]
+    );
+    const patient = await client.query(
+      `INSERT INTO patients(full_name,phone,date_of_birth)
+       VALUES($1,'9888877776','1988-03-04') RETURNING id`,
+      [`Workflow Patient ${suffix.slice(0, 8)}`]
+    );
+    const appointment = await client.query(
+      `INSERT INTO appointments
+         (patient_id,doctor_id,appointment_date,start_time,end_time,status,booking_state,
+          fee_amount,fee_currency,payment_status,version,source)
+       VALUES($1,$2,CURRENT_DATE + 1,'09:00','09:30','awaiting_payment','payment_required',
+              500,'INR','not_paid',1,'public') RETURNING id`,
+      [patient.rows[0].id, doctor.rows[0].id]
+    );
+    const workflow = await import('../src/services/adminWorkflow');
+    const actor = { role: 'admin' };
+    const queue = await workflow.getNeedsActionQueue(actor);
+    assert.ok(
+      queue.data.some(
+        (item) => item.entity_type === 'appointment' && item.entity_id === appointment.rows[0].id
+      )
+    );
+    const search = await workflow.searchAdminWorkflow(
+      `Workflow Patient ${suffix.slice(0, 8)}`,
+      actor
+    );
+    assert.ok(search.data.some((item) => item.id === appointment.rows[0].id));
+    const detail = await workflow.getWorkItemDetail('appointment', appointment.rows[0].id, actor);
+    assert.equal(detail.patient.id, patient.rows[0].id);
+    assert.equal(detail.source, 'book-appointment form');
+    assert.equal(detail.payment.verified, false);
+    assert.equal(detail.state, 'awaiting_payment');
+    assert.ok(detail.owner);
+    assert.ok(detail.next_actions.length > 0);
+  } finally {
+    await client.end();
+  }
+});

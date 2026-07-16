@@ -260,6 +260,15 @@ export const adminAppointmentFiltersSchema = z.object({
   pageSize: z.coerce.number().int().min(1).max(50).optional(),
 });
 
+export const adminWorkflowSearchSchema = z.object({
+  q: z.string().trim().min(2).max(100).transform(stripHtml),
+});
+
+export const adminWorkItemParamsSchema = z.object({
+  type: z.enum(['appointment', 'package_order', 'payment']),
+  id: z.string().regex(uuidRegex, 'Must be a valid work item UUID'),
+});
+
 const appointmentTransitionEvidenceSchema = z.discriminatedUnion('kind', [
   z.object({
     kind: z.literal('online'),

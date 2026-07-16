@@ -38,6 +38,9 @@
     ],
     "adminOperations": [
       "GET /api/admin/operations/dashboard",
+      "GET /api/admin/operations/workflow/search",
+      "GET /api/admin/operations/workflow/needs-action",
+      "GET /api/admin/operations/workflow/items/:type/:id",
       "GET /api/admin/operations/appointments",
       "POST /api/admin/operations/appointments/:id/transitions",
       "POST /api/admin/operations/appointments/:id/reschedule",

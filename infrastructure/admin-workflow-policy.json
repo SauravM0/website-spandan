@@ -1,0 +1,39 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP22",
+  "deploymentModel": "sole-administrator",
+  "taskSources": [
+    "appointments",
+    "package_orders",
+    "payment_exceptions",
+    "notification_exceptions",
+    "identity_reviews",
+    "leads"
+  ],
+  "search": {
+    "permissionScoped": true,
+    "boundedResults": 20,
+    "rawContactReturned": false
+  },
+  "needsAction": {
+    "boundedResults": 50,
+    "ownerRequired": true,
+    "dueIndicatorRequired": true,
+    "nextActionRequired": true
+  },
+  "unifiedDetail": {
+    "patient": true,
+    "request": true,
+    "sourceForm": true,
+    "doctorPackageTest": true,
+    "paymentVerification": true,
+    "state": true,
+    "owner": true,
+    "overdue": true
+  },
+  "recentlyViewed": {
+    "storage": "sessionStorage",
+    "idsOnly": true,
+    "phiStored": false
+  }
+}

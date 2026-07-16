@@ -217,6 +217,7 @@ export interface DashboardMetrics {
   notificationFailures: number;
   expiredHolds: number;
   collectionsToday: number;
+  identityReviews: number;
 }
 
 export type ActionItem = {
@@ -236,6 +237,8 @@ export interface DashboardData {
   todayAppointments: any[];
   paymentIssues: any[];
   notificationFailures: any[];
+  needsAction: any[];
+  role: 'administrator' | 'doctor';
   warnings: string[];
 }
 
