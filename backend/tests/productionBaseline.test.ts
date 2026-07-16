@@ -17,7 +17,7 @@ test('public booking remains validated and cannot skip authoritative payment sta
   const routes = read('src/routes/operations.ts');
   assert.match(
     routes,
-    /router\.post\(\s*'\/appointments',\s*optionalAuth,\s*validateZod\(\{ body: appointmentSchema \}\)/
+    /router\.post\(\s*'\/appointments',\s*requirePublicCommerceAccess,\s*optionalAuth,\s*validateZod\(\{ body: appointmentSchema \}\)/
   );
   assert.equal(appointmentSchema.safeParse({}).success, false);
   assert.throws(() => assertBookingTransition('slot_held', 'confirmed'));
@@ -34,7 +34,7 @@ test('package ordering remains validated and snapshots server-side prices', () =
   );
   assert.match(
     routes,
-    /router\.post\(\s*'\/package-orders',\s*validateZod\(\{ body: packageOrderSchema \}\)/
+    /router\.post\(\s*'\/package-orders',\s*requirePublicCommerceAccess,\s*validateZod\(\{ body: packageOrderSchema \}\)/
   );
   assert.equal(packageOrderSchema.safeParse({}).success, false);
   assert.match(service, /base_price_snapshot/);
@@ -47,7 +47,7 @@ test('payment creation remains validated and success cannot regress to failure',
   const provider = read('src/services/phonePe.ts');
   assert.match(
     routes,
-    /router\.post\(\s*'\/payments\/create',\s*validateZod\(\{ body: paymentCreateSchema \}\)/
+    /router\.post\(\s*'\/payments\/create',\s*requirePublicCommerceAccess,\s*validateZod\(\{ body: paymentCreateSchema \}\)/
   );
   assert.equal(paymentCreateSchema.safeParse({}).success, false);
   assert.throws(() => assertPaymentTransition('success', 'failed'));

@@ -130,6 +130,8 @@ jobs:
       - run: npm run public-payments:check
       - run: npm run authoritative-payments:check
       - run: npm run appointment-transitions:check
+      - run: npm run resilience:check
+      - run: npm run resilience:test
       - run: npm audit --audit-level=high --workspaces=false
       - run: npm --prefix backend audit --audit-level=high
       - run: npm --prefix frontend audit --audit-level=high

@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP26",
+  "ownership": "sole-clinic-admin",
+  "recovery": {
+    "provider": "supabase",
+    "pitrRequired": true,
+    "databaseBackupRequired": true,
+    "approvedObjectStorageBackupRequired": true,
+    "restoreTarget": "isolated-nonproduction-project",
+    "rtoSeconds": 7200,
+    "rpoSeconds": 900,
+    "reconciliation": ["row-totals", "payments", "appointments", "audit-chain", "queues"]
+  },
+  "resilience": {
+    "soakDurationSeconds": 3600,
+    "peakMultiplier": 2,
+    "maximumErrorRate": 0.005,
+    "stableMemoryRequired": true,
+    "stablePoolRequired": true,
+    "failureScenarios": [
+      "database-latency",
+      "worker-death",
+      "provider-outage",
+      "deployment-termination"
+    ]
+  },
+  "rollout": {
+    "stages": ["disabled", "staff_pilot", "limited_public", "public"],
+    "publicCommerceFlag": "PUBLIC_COMMERCE_MODE",
+    "safeDisableValue": "disabled",
+    "staffPilotValue": "staff_pilot",
+    "publicValue": "public",
+    "unresolvedP0Maximum": 0,
+    "unresolvedP1Maximum": 0,
+    "previousImageDigestsRequired": true,
+    "acceptedWritesMustSurviveRollback": true
+  },
+  "phonePe": {
+    "defaultEnabled": false,
+    "approvalFlag": "PHONEPE_PILOT_APPROVED",
+    "separateFinanceProviderPilotRequired": true
+  },
+  "evidence": {
+    "schema": "docs/evidence/WP26-evidence-template.json",
+    "validator": "scripts/resilience-evidence.mjs",
+    "retentionDays": 365,
+    "phiAllowed": false
+  }
+}

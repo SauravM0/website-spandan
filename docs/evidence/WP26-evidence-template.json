@@ -1,0 +1,45 @@
+{
+  "schemaVersion": 1,
+  "releaseSha": "REPLACE_WITH_40_CHARACTER_COMMIT_SHA",
+  "completedAt": null,
+  "restore": {
+    "targetEnvironment": "isolated-nonproduction-project",
+    "productionTargetUsed": false,
+    "pitrEnabled": null,
+    "databaseBackupVerified": null,
+    "objectStorage": "not-applicable-or-verified",
+    "rtoSeconds": null,
+    "rpoSeconds": null,
+    "reconciliation": {
+      "rowTotals": null,
+      "payments": null,
+      "appointments": null,
+      "auditChain": null,
+      "queues": null
+    }
+  },
+  "resilience": {
+    "soakDurationSeconds": null,
+    "peakMultiplier": null,
+    "errorRate": null,
+    "stableMemory": null,
+    "stablePool": null,
+    "failureScenarios": {
+      "databaseLatency": null,
+      "workerDeath": null,
+      "providerOutage": null,
+      "deploymentTermination": null
+    }
+  },
+  "pilot": {
+    "staffPilotCompleted": null,
+    "unresolvedP0": null,
+    "unresolvedP1": null,
+    "publicRolloutStoppedAndRestoredTested": null
+  },
+  "phonePe": {
+    "enabled": false,
+    "separatePilotCompleted": false
+  },
+  "evidenceReferences": []
+}

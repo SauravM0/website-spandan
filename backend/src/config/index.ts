@@ -86,6 +86,13 @@ export const config = {
   payments: {
     mockEnabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
   },
+  publicRelease: {
+    commerceMode: (process.env.PUBLIC_COMMERCE_MODE ||
+      (['development', 'test'].includes(deploymentEnvironment) ? 'public' : 'disabled')) as
+      'disabled' | 'staff_pilot' | 'public',
+    staffPilotToken: process.env.STAFF_PILOT_TOKEN || '',
+    phonePePilotApproved: process.env.PHONEPE_PILOT_APPROVED === 'true',
+  },
   smtp: {
     enabled: process.env.EMAIL_NOTIFICATIONS_ENABLED === 'true',
     host: process.env.SMTP_HOST || '',

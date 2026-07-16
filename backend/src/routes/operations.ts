@@ -15,6 +15,7 @@ import {
 } from '../utils/validation';
 import { z } from 'zod';
 import rateLimit from 'express-rate-limit';
+import { requirePublicCommerceAccess } from '../middleware/publicRelease';
 
 const router = Router();
 
@@ -53,11 +54,13 @@ router.get(
 );
 router.post(
   '/appointments/holds',
+  requirePublicCommerceAccess,
   validateZod({ body: slotHoldSchema }),
   asyncHandler(controller.holdSlot)
 );
 router.post(
   '/appointments',
+  requirePublicCommerceAccess,
   optionalAuth,
   validateZod({ body: appointmentSchema }),
   asyncHandler(controller.bookAppointment)
@@ -70,11 +73,13 @@ router.post(
 );
 router.post(
   '/package-orders',
+  requirePublicCommerceAccess,
   validateZod({ body: packageOrderSchema }),
   asyncHandler(controller.createOrder)
 );
 router.post(
   '/payments/create',
+  requirePublicCommerceAccess,
   validateZod({ body: paymentCreateSchema }),
   asyncHandler(controller.startPayment)
 );
@@ -87,6 +92,7 @@ router.get(
 router.get('/public/appointments/config', asyncHandler(controller.publicAppointmentConfig));
 router.post(
   '/public/appointment-holds',
+  requirePublicCommerceAccess,
   validateZod({ body: slotHoldSchema }),
   asyncHandler(controller.holdSlot)
 );
@@ -103,11 +109,13 @@ router.post(
 );
 router.post(
   '/public/appointments/:holdId/payment',
+  requirePublicCommerceAccess,
   validateZod({ params: holdPaymentParams }),
   asyncHandler(controller.startAppointmentPayment)
 );
 router.post(
   '/public/orders',
+  requirePublicCommerceAccess,
   validateZod({ body: packageOrderSchema }),
   asyncHandler(controller.createOrder)
 );
@@ -118,6 +126,7 @@ router.post(
 );
 router.post(
   '/public/orders/:id/payment',
+  requirePublicCommerceAccess,
   validateZod({ params: idParams }),
   asyncHandler(controller.startOrderPayment)
 );

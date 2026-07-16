@@ -22,6 +22,7 @@ const hosted = () => ({
   ADMIN_SESSION_COOKIE_MAX_AGE_MS: '28800000',
   ADMIN_SESSION_IDLE_TIMEOUT_MS: '1800000',
   ADMIN_STEP_UP_MAX_AGE_MS: '600000',
+  PUBLIC_COMMERCE_MODE: 'disabled',
 });
 
 test('accepts safe local defaults and an isolated hosted configuration', () => {
@@ -116,6 +117,7 @@ test('production cannot use the PhonePe sandbox and staging cannot use live cred
     PHONEPE_WEBHOOK_PASSWORD: secret('w'),
     PHONEPE_AUTH_BASE_URL: 'https://api.phonepe.com/apis/identity-manager',
     PHONEPE_PG_BASE_URL: 'https://api.phonepe.com/apis/pg',
+    PHONEPE_PILOT_APPROVED: 'true',
   };
   assert.doesNotThrow(() => validateSecurityConfiguration({ ...hosted(), ...provider }));
   assert.throws(
@@ -169,6 +171,33 @@ test('invalid boolean flags fail instead of silently disabling a service', () =>
   assert.throws(
     () => validateSecurityConfiguration({ PHONEPE_ENABLED: 'yes' }),
     /must be true or false/
+  );
+});
+
+test('hosted rollout modes and provider pilot approval fail closed', () => {
+  const missingMode = hosted();
+  delete (missingMode as Partial<typeof missingMode>).PUBLIC_COMMERCE_MODE;
+  assert.throws(() => validateSecurityConfiguration(missingMode), /PUBLIC_COMMERCE_MODE/);
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), PUBLIC_COMMERCE_MODE: 'staff_pilot' }),
+    /STAFF_PILOT_TOKEN/
+  );
+  assert.throws(
+    () =>
+      validateSecurityConfiguration({
+        ...hosted(),
+        PHONEPE_ENABLED: 'true',
+        PHONEPE_MERCHANT_ID: 'merchant',
+        PHONEPE_ENVIRONMENT: 'production',
+        PHONEPE_CLIENT_ID: 'client',
+        PHONEPE_CLIENT_VERSION: '1',
+        PHONEPE_CLIENT_SECRET: secret('p'),
+        PHONEPE_WEBHOOK_USERNAME: 'webhook-user',
+        PHONEPE_WEBHOOK_PASSWORD: secret('w'),
+        PHONEPE_AUTH_BASE_URL: 'https://api.phonepe.com/apis/identity-manager',
+        PHONEPE_PG_BASE_URL: 'https://api.phonepe.com/apis/pg',
+      }),
+    /PHONEPE_PILOT_APPROVED/
   );
 });
 

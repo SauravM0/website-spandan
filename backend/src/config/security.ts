@@ -9,6 +9,7 @@ const BOOLEAN_FLAGS = [
   'CLINICAL_RECORD_WRITES_ENABLED',
   'CLINICAL_OBSERVATIONS_ENABLED',
   'DEVICE_IMPORTS_ENABLED',
+  'PHONEPE_PILOT_APPROVED',
 ] as const;
 
 const enabled = (environment: Environment, name: string) => environment[name] === 'true';
@@ -76,6 +77,17 @@ export function validateSecurityConfiguration(environment: Environment = process
   const deployment =
     environment.DEPLOYMENT_ENV || (environment.NODE_ENV === 'test' ? 'test' : 'development');
   const hosted = deployment === 'staging' || deployment === 'production';
+
+  const commerceMode = environment.PUBLIC_COMMERCE_MODE || 'disabled';
+  if (!['disabled', 'staff_pilot', 'public'].includes(commerceMode)) {
+    errors.push('PUBLIC_COMMERCE_MODE must be disabled, staff_pilot, or public');
+  }
+  if (hosted && !present(environment, 'PUBLIC_COMMERCE_MODE')) {
+    errors.push('Hosted environments must explicitly set PUBLIC_COMMERCE_MODE');
+  }
+  if (commerceMode === 'staff_pilot') {
+    requireStrongSecret(environment, 'STAFF_PILOT_TOKEN', errors);
+  }
 
   if (hosted) {
     requireVariables(
@@ -168,6 +180,9 @@ export function validateSecurityConfiguration(environment: Environment = process
     }
     if (deployment === 'production' && environment.PHONEPE_ENVIRONMENT !== 'production') {
       errors.push('Production deployment cannot use the PhonePe sandbox');
+    }
+    if (hosted && !enabled(environment, 'PHONEPE_PILOT_APPROVED')) {
+      errors.push('Hosted PhonePe requires PHONEPE_PILOT_APPROVED=true after its finance pilot');
     }
     if (deployment === 'staging' && environment.PHONEPE_ENVIRONMENT === 'production') {
       errors.push('Staging deployment cannot use live PhonePe credentials');

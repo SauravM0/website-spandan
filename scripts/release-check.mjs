@@ -31,6 +31,8 @@ const steps = [
   ['admin-performance:check', ['run', 'admin-performance:check']],
   ['admin-frontend:check', ['run', 'admin-frontend:check']],
   ['package-orders:check', ['run', 'package-orders:check']],
+  ['resilience:check', ['run', 'resilience:check']],
+  ['resilience:test', ['run', 'resilience:test']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],
   ['backend:test', ['run', 'backend:test']],
