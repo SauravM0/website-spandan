@@ -26,7 +26,14 @@
       "POST /api/webhooks/phonepe",
       "GET /api/public/checkout/:transactionId/status"
     ],
-    "adminSession": ["POST /api/admin/login", "GET /api/admin/me", "POST /api/admin/logout"],
+    "adminSession": [
+      "POST /api/auth/login",
+      "POST /api/auth/mfa/verify",
+      "POST /api/auth/step-up",
+      "GET /api/auth/me",
+      "GET /api/auth/sessions",
+      "POST /api/auth/logout"
+    ],
     "adminOperations": [
       "GET /api/admin/operations/dashboard",
       "GET /api/admin/operations/appointments",
@@ -57,8 +64,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 32,
-    "migrationHead": "032_dedicated_worker_runtime.sql"
+    "migrationCount": 33,
+    "migrationHead": "033_admin_auth_hardening.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",
@@ -72,6 +79,11 @@
     "INTAKE_ENCRYPTION_KEY",
     "INTAKE_ENCRYPTION_KEY_VERSION",
     "METRICS_BEARER_TOKEN",
+    "MFA_ENCRYPTION_KEY",
+    "MFA_ENCRYPTION_KEY_VERSION",
+    "ADMIN_SESSION_COOKIE_MAX_AGE_MS",
+    "ADMIN_SESSION_IDLE_TIMEOUT_MS",
+    "ADMIN_STEP_UP_MAX_AGE_MS",
     "CORS_ORIGIN",
     "FRONTEND_URL",
     "DEPLOYMENT_ENV",

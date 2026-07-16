@@ -16,13 +16,27 @@ databaseTest('migrations create the critical production tables and constraints',
        FROM information_schema.tables
        WHERE table_schema = 'public'
          AND table_name = ANY($1::text[])`,
-      [['staff_users', 'patients', 'appointments', 'payments', 'package_orders']]
+      [
+        [
+          'staff_users',
+          'staff_auth_challenges',
+          'staff_login_throttles',
+          'staff_mfa_recovery_codes',
+          'patients',
+          'appointments',
+          'payments',
+          'package_orders',
+        ],
+      ]
     );
     assert.deepEqual(tables.rows.map((row) => row.table_name).sort(), [
       'appointments',
       'package_orders',
       'patients',
       'payments',
+      'staff_auth_challenges',
+      'staff_login_throttles',
+      'staff_mfa_recovery_codes',
       'staff_users',
     ]);
 
@@ -50,14 +64,14 @@ databaseTest('staff email uniqueness is enforced and a failed write rolls back',
     await client.query('BEGIN');
     await client.query(
       `INSERT INTO staff_users (email, password_hash, full_name, role)
-       VALUES ($1, 'not-a-real-password-hash', 'CI Admin', 'admin')`,
+       VALUES ($1, 'not-a-real-password-hash', 'CI Staff', 'staff')`,
       [email]
     );
 
     await assert.rejects(
       client.query(
         `INSERT INTO staff_users (email, password_hash, full_name, role)
-         VALUES ($1, 'not-a-real-password-hash', 'Duplicate CI Admin', 'admin')`,
+         VALUES ($1, 'not-a-real-password-hash', 'Duplicate CI Staff', 'staff')`,
         [email]
       ),
       (error: unknown) =>
@@ -67,6 +81,31 @@ databaseTest('staff email uniqueness is enforced and a failed write rolls back',
     await client.query('ROLLBACK');
     const persisted = await client.query('SELECT id FROM staff_users WHERE email = $1', [email]);
     assert.equal(persisted.rowCount, 0);
+    await client.end();
+  }
+});
+
+databaseTest('only one active administrator can exist', async () => {
+  const client = new Client({ connectionString });
+  await client.connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(
+      `INSERT INTO staff_users (email, password_hash, full_name, role)
+       VALUES ($1, 'not-a-real-password-hash', 'First Admin', 'admin')`,
+      [`first-${randomUUID()}@example.test`]
+    );
+    await assert.rejects(
+      client.query(
+        `INSERT INTO staff_users (email, password_hash, full_name, role)
+         VALUES ($1, 'not-a-real-password-hash', 'Second Admin', 'admin')`,
+        [`second-${randomUUID()}@example.test`]
+      ),
+      (error: unknown) =>
+        typeof error === 'object' && error !== null && 'code' in error && error.code === '23505'
+    );
+  } finally {
+    await client.query('ROLLBACK');
     await client.end();
   }
 });

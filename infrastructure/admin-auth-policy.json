@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP14",
+  "administratorModel": "single-active-administrator",
+  "mfa": {
+    "required": true,
+    "algorithm": "TOTP-SHA1-6",
+    "challengeTtlSeconds": 300,
+    "maximumChallengeAttempts": 5,
+    "recoveryCodeCount": 8,
+    "recoveryCodesOneTime": true
+  },
+  "throttling": {
+    "sharedDatabaseState": true,
+    "scopes": ["account", "ip"],
+    "progressiveBlocksMinutes": [1, 15, 60]
+  },
+  "sessions": {
+    "idleTimeoutMinutes": 30,
+    "absoluteLifetimeHours": 8,
+    "revocationObjectiveSeconds": 5,
+    "listAndRevokeEnabled": true
+  },
+  "stepUp": {
+    "maximumAgeMinutes": 10,
+    "actions": ["refund", "export", "pricing", "security", "password-change"]
+  },
+  "auditEvents": [
+    "login-failed",
+    "login-success",
+    "mfa-failed",
+    "step-up-success",
+    "logout",
+    "session-revoked",
+    "password-changed"
+  ]
+}

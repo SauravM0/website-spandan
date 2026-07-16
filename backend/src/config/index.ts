@@ -40,15 +40,22 @@ export const config = {
   port: parseInt(process.env.PORT || '4000', 10),
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS || '25000', 10),
   metricsBearerToken: process.env.METRICS_BEARER_TOKEN || '',
+  mfaEncryptionKey: process.env.MFA_ENCRYPTION_KEY || '',
+  mfaEncryptionKeyVersion: process.env.MFA_ENCRYPTION_KEY_VERSION || 'v1',
   databaseUrl,
   jwtSecret,
   jwtSecretVersion: process.env.JWT_SECRET_VERSION || 'v1',
   jwtExpiresIn: process.env.JWT_EXPIRES_IN || '24h',
   adminSessionCookieName: process.env.ADMIN_SESSION_COOKIE_NAME || 'admin_session',
   adminSessionCookieMaxAgeMs: parseInt(
-    process.env.ADMIN_SESSION_COOKIE_MAX_AGE_MS || String(24 * 60 * 60 * 1000),
+    process.env.ADMIN_SESSION_COOKIE_MAX_AGE_MS || String(8 * 60 * 60 * 1000),
     10
   ),
+  adminSessionIdleTimeoutMs: parseInt(
+    process.env.ADMIN_SESSION_IDLE_TIMEOUT_MS || String(30 * 60 * 1000),
+    10
+  ),
+  adminStepUpMaxAgeMs: parseInt(process.env.ADMIN_STEP_UP_MAX_AGE_MS || String(10 * 60 * 1000), 10),
   adminSessionCookieSameSite: (process.env.ADMIN_SESSION_COOKIE_SAMESITE || 'lax') as
     'lax' | 'strict' | 'none',
   corsOrigin: corsOrigins[0],

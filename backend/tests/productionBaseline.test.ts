@@ -58,13 +58,16 @@ test('payment creation remains validated and success cannot regress to failure',
   );
 });
 
-test('admin login remains cookie-based and backed by revocable sessions', () => {
+test('admin login remains cookie-based, MFA-gated, and backed by revocable sessions', () => {
   const auth = read('src/controllers/adminAuthController.ts');
+  const service = read('src/services/adminAuth.ts');
   const middleware = read('src/middleware/auth.ts');
-  assert.match(auth, /INSERT INTO staff_sessions/);
+  assert.match(service, /INSERT INTO staff_sessions/);
+  assert.match(service, /staff_auth_challenges/);
   assert.match(auth, /httpOnly: true/);
   assert.match(auth, /secure: config\.env === 'production'/);
-  assert.match(middleware, /revoked_at IS NULL AND expires_at>NOW\(\)/);
+  assert.match(middleware, /revoked_at IS NULL/);
+  assert.match(middleware, /idle_expires_at>NOW\(\) AND absolute_expires_at>NOW\(\)/);
 });
 
 test('admin appointment status writes remain authenticated and transition-guarded', () => {

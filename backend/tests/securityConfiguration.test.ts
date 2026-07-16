@@ -17,6 +17,11 @@ const hosted = () => ({
   INTAKE_ENCRYPTION_KEY: secret('i'),
   INTAKE_ENCRYPTION_KEY_VERSION: 'v1',
   METRICS_BEARER_TOKEN: secret('m'),
+  MFA_ENCRYPTION_KEY: secret('f'),
+  MFA_ENCRYPTION_KEY_VERSION: 'v1',
+  ADMIN_SESSION_COOKIE_MAX_AGE_MS: '28800000',
+  ADMIN_SESSION_IDLE_TIMEOUT_MS: '1800000',
+  ADMIN_STEP_UP_MAX_AGE_MS: '600000',
 });
 
 test('accepts safe local defaults and an isolated hosted configuration', () => {
@@ -44,6 +49,23 @@ test('hosted startup rejects missing, weak, shared, or unversioned application s
   assert.throws(
     () => validateSecurityConfiguration({ ...hosted(), METRICS_BEARER_TOKEN: 'replace-me' }),
     /METRICS_BEARER_TOKEN/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), MFA_ENCRYPTION_KEY: 'replace-me' }),
+    /MFA_ENCRYPTION_KEY/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), MFA_ENCRYPTION_KEY_VERSION: 'current' }),
+    /MFA_ENCRYPTION_KEY_VERSION/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), MFA_ENCRYPTION_KEY: secret('j') }),
+    /unique|different/
+  );
+  assert.throws(
+    () =>
+      validateSecurityConfiguration({ ...hosted(), ADMIN_SESSION_IDLE_TIMEOUT_MS: '999999999' }),
+    /ADMIN_SESSION_IDLE_TIMEOUT_MS/
   );
 });
 

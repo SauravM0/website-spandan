@@ -27,6 +27,7 @@
     "lifecycle:check": "node scripts/application-lifecycle-check.mjs",
     "worker:check": "node scripts/worker-policy-check.mjs",
     "observability:check": "node scripts/observability-policy-check.mjs",
+    "auth:check": "node scripts/admin-auth-policy-check.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
     "baseline:check": "node scripts/production-baseline-check.mjs",

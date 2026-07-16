@@ -32,6 +32,19 @@ function requireKeyVersion(environment: Environment, name: string, errors: strin
   }
 }
 
+function requireIntegerRange(
+  environment: Environment,
+  name: string,
+  minimum: number,
+  maximum: number,
+  errors: string[]
+) {
+  const value = Number(environment[name]);
+  if (!Number.isInteger(value) || value < minimum || value > maximum) {
+    errors.push(`${name} must be an integer between ${minimum} and ${maximum}`);
+  }
+}
+
 function requireHttpUrl(
   environment: Environment,
   name: string,
@@ -80,14 +93,42 @@ export function validateSecurityConfiguration(environment: Environment = process
         'SUPABASE_PROJECT_REF',
         'DATA_POLICY',
         'METRICS_BEARER_TOKEN',
+        'MFA_ENCRYPTION_KEY',
+        'MFA_ENCRYPTION_KEY_VERSION',
+        'ADMIN_SESSION_COOKIE_MAX_AGE_MS',
+        'ADMIN_SESSION_IDLE_TIMEOUT_MS',
+        'ADMIN_STEP_UP_MAX_AGE_MS',
       ],
       errors
     );
     requireStrongSecret(environment, 'JWT_SECRET', errors);
     requireStrongSecret(environment, 'INTAKE_ENCRYPTION_KEY', errors);
     requireStrongSecret(environment, 'METRICS_BEARER_TOKEN', errors);
+    requireStrongSecret(environment, 'MFA_ENCRYPTION_KEY', errors);
     requireKeyVersion(environment, 'JWT_SECRET_VERSION', errors);
     requireKeyVersion(environment, 'INTAKE_ENCRYPTION_KEY_VERSION', errors);
+    requireKeyVersion(environment, 'MFA_ENCRYPTION_KEY_VERSION', errors);
+    requireIntegerRange(
+      environment,
+      'ADMIN_SESSION_COOKIE_MAX_AGE_MS',
+      30 * 60 * 1000,
+      24 * 60 * 60 * 1000,
+      errors
+    );
+    requireIntegerRange(
+      environment,
+      'ADMIN_SESSION_IDLE_TIMEOUT_MS',
+      5 * 60 * 1000,
+      2 * 60 * 60 * 1000,
+      errors
+    );
+    requireIntegerRange(environment, 'ADMIN_STEP_UP_MAX_AGE_MS', 60 * 1000, 30 * 60 * 1000, errors);
+    if (
+      Number(environment.ADMIN_SESSION_IDLE_TIMEOUT_MS) >
+      Number(environment.ADMIN_SESSION_COOKIE_MAX_AGE_MS)
+    ) {
+      errors.push('ADMIN_SESSION_IDLE_TIMEOUT_MS cannot exceed the absolute session lifetime');
+    }
     requireHttpUrl(environment, 'FRONTEND_URL', errors, true);
     for (const origin of (environment.CORS_ORIGIN || '').split(',').filter(Boolean)) {
       requireHttpUrl({ CORS_ORIGIN: origin.trim() }, 'CORS_ORIGIN', errors, true);
@@ -187,6 +228,7 @@ export function validateSecurityConfiguration(environment: Environment = process
       'JWT_SECRET',
       'INTAKE_ENCRYPTION_KEY',
       'METRICS_BEARER_TOKEN',
+      'MFA_ENCRYPTION_KEY',
       ...(enabled(environment, 'MEDICAL_DOCUMENTS_ENABLED') ? ['DOCUMENT_ENCRYPTION_KEY'] : []),
       ...(enabled(environment, 'PHONEPE_ENABLED')
         ? ['PHONEPE_CLIENT_SECRET', 'PHONEPE_WEBHOOK_PASSWORD']

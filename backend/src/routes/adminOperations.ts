@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { authenticate } from '../middleware/auth';
+import { requireRecentStepUp } from '../middleware/auth';
 import { asyncHandler } from '../middleware/asyncHandler';
 import { validateZod } from '../middleware/validate';
 import * as controller from '../controllers/operationsController';
@@ -79,6 +80,7 @@ router.get(
 router.get(
   '/appointments/export',
   requirePermission(PERMISSIONS.EXPORT_SENSITIVE),
+  requireRecentStepUp,
   auditAccess('appointments.export', 'appointment'),
   validateZod({ query: adminAppointmentFiltersSchema }),
   asyncHandler(controller.adminAppointmentsExport)
@@ -159,12 +161,14 @@ router.get(
 router.post(
   '/service-pricing',
   requirePermission(PERMISSIONS.PRICING_WRITE),
+  requireRecentStepUp,
   validateZod({ body: billableServiceCreateSchema }),
   asyncHandler(controller.adminCreateBillableService)
 );
 router.patch(
   '/service-pricing/:id',
   requirePermission(PERMISSIONS.PRICING_WRITE),
+  requireRecentStepUp,
   validateZod({ params: billableServiceParamsSchema, body: billableServiceUpdateSchema }),
   asyncHandler(controller.adminUpdateBillableService)
 );
@@ -177,6 +181,7 @@ router.get(
 router.get(
   '/payments/export',
   requirePermission(PERMISSIONS.EXPORT_SENSITIVE),
+  requireRecentStepUp,
   auditAccess('payments.export', 'payment'),
   validateZod({ query: adminPaymentFiltersSchema }),
   asyncHandler(controller.adminPaymentsExport)
@@ -197,6 +202,7 @@ router.post(
 router.post(
   '/payments/:id/refunds',
   requirePermission(PERMISSIONS.PAYMENTS_REFUND),
+  requireRecentStepUp,
   validateZod({ params: adminPaymentParamsSchema, body: adminPaymentRefundSchema }),
   asyncHandler(controller.adminPaymentRefundRequest)
 );

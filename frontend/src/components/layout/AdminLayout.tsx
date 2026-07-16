@@ -27,39 +27,111 @@ import '../../lib/i18n';
 import { getAdminSession, logout } from '../../lib/api';
 import { AdminSessionProvider, AdminUser } from '../admin/AdminSessionContext';
 import FocusTrap from '../ui/FocusTrap';
+import StepUpDialog from '../admin/StepUpDialog';
 
 const navGroups = [
   {
     label: 'Operations',
     items: [
-      { href: '/admin', label: 'Dashboard', icon: LayoutDashboard, capability: 'admin.dashboard.read' },
-      { href: '/admin/calendar', label: 'Calendar', icon: CalendarDays, capability: 'admin.calendar.read' },
-      { href: '/admin/appointments', label: 'Appointments', icon: ClipboardList, capability: 'admin.appointments.read' },
-      { href: '/admin/package-orders', label: 'Package Orders', icon: Package, capability: 'admin.package_orders.read' },
+      {
+        href: '/admin',
+        label: 'Dashboard',
+        icon: LayoutDashboard,
+        capability: 'admin.dashboard.read',
+      },
+      {
+        href: '/admin/calendar',
+        label: 'Calendar',
+        icon: CalendarDays,
+        capability: 'admin.calendar.read',
+      },
+      {
+        href: '/admin/appointments',
+        label: 'Appointments',
+        icon: ClipboardList,
+        capability: 'admin.appointments.read',
+      },
+      {
+        href: '/admin/package-orders',
+        label: 'Package Orders',
+        icon: Package,
+        capability: 'admin.package_orders.read',
+      },
     ],
   },
   {
     label: 'Enquiries',
     items: [
-      { href: '/admin/leads', label: 'Enquiries / Leads', icon: Users, capability: 'admin.leads.read' },
-      { href: '/admin/notifications', label: 'Notifications', icon: Bell, capability: 'admin.notifications.read' },
-      { href: '/admin/intake', label: 'Remote Intake', icon: FileCheck, capability: 'admin.intake.read' },
-      { href: '/admin/patients', label: 'Patient Records', icon: Users, capability: 'admin.patients.read' },
-      { href: '/admin/documents', label: 'Medical Documents', icon: Files, capability: 'admin.documents.read' },
+      {
+        href: '/admin/leads',
+        label: 'Enquiries / Leads',
+        icon: Users,
+        capability: 'admin.leads.read',
+      },
+      {
+        href: '/admin/notifications',
+        label: 'Notifications',
+        icon: Bell,
+        capability: 'admin.notifications.read',
+      },
+      {
+        href: '/admin/intake',
+        label: 'Remote Intake',
+        icon: FileCheck,
+        capability: 'admin.intake.read',
+      },
+      {
+        href: '/admin/patients',
+        label: 'Patient Records',
+        icon: Users,
+        capability: 'admin.patients.read',
+      },
+      {
+        href: '/admin/documents',
+        label: 'Medical Documents',
+        icon: Files,
+        capability: 'admin.documents.read',
+      },
     ],
   },
   {
     label: 'Finance',
     items: [
-      { href: '/admin/payments', label: 'Payments', icon: CreditCard, capability: 'admin.payments.read' },
+      {
+        href: '/admin/payments',
+        label: 'Payments',
+        icon: CreditCard,
+        capability: 'admin.payments.read',
+      },
     ],
   },
   {
     label: 'Content & Settings',
     items: [
-      { href: '/admin/packages', label: 'Packages', icon: Settings, capability: 'admin.packages.read' },
-      { href: '/admin/diagnostic-tests', label: 'Diagnostic Tests', icon: FlaskConical, capability: 'admin.pricing.read' },
-      { href: '/admin/privacy-security', label: 'Privacy & Security', icon: ShieldCheck, capability: 'admin.privacy_requests.read' },
+      {
+        href: '/admin/packages',
+        label: 'Packages',
+        icon: Settings,
+        capability: 'admin.packages.read',
+      },
+      {
+        href: '/admin/diagnostic-tests',
+        label: 'Diagnostic Tests',
+        icon: FlaskConical,
+        capability: 'admin.pricing.read',
+      },
+      {
+        href: '/admin/privacy-security',
+        label: 'Privacy & Security',
+        icon: ShieldCheck,
+        capability: 'admin.privacy_requests.read',
+      },
+      {
+        href: '/admin/sessions',
+        label: 'Sessions',
+        icon: ShieldCheck,
+        capability: 'admin.security.manage',
+      },
     ],
   },
 ];
@@ -81,7 +153,10 @@ function pageTitle(pathname: string | null) {
   const current = allItems
     .slice()
     .sort((a, b) => b.href.length - a.href.length)
-    .find((item) => pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(`${item.href}/`)));
+    .find(
+      (item) =>
+        pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(`${item.href}/`))
+    );
   return current?.label || 'Admin';
 }
 
@@ -150,7 +225,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const title = pageTitle(pathname);
   const shell = (
     <div className="min-h-screen bg-bg-alt md:grid md:grid-cols-[auto_1fr]">
-      <a href="#admin-main" className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-md focus:bg-accent focus:px-4 focus:py-3 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg focus:outline-none">
+      <a
+        href="#admin-main"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-[9999] focus:rounded-md focus:bg-accent focus:px-4 focus:py-3 focus:text-sm focus:font-bold focus:text-white focus:shadow-lg focus:outline-none"
+      >
         Skip to main content
       </a>
       <aside
@@ -198,42 +276,42 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {drawerOpen && (
         <FocusTrap active={drawerOpen}>
-        <div className="fixed inset-0 z-50 md:hidden">
-          <button
-            type="button"
-            aria-label="Close navigation"
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setDrawerOpen(false)}
-          />
-          <aside className="relative flex h-full w-[min(88vw,320px)] flex-col bg-navy text-white shadow-xl">
-            <div className="flex min-h-[64px] items-center justify-between gap-3 border-b border-white/10 px-4">
-              <Link href="/admin" className="min-w-0 truncate text-base font-bold">
-                {t('admin_title')}
-              </Link>
-              <button
-                type="button"
-                ref={drawerCloseRef}
-                onClick={() => setDrawerOpen(false)}
-                className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-md bg-white/10 hover:bg-white/20"
-                aria-label="Close navigation"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            <AdminNav groups={visibleNav} pathname={pathname} collapsed={false} />
-            <div className="mt-auto border-t border-white/10 p-4">
-              <p className="truncate text-sm font-semibold">{user.full_name}</p>
-              <p className="mb-3 truncate text-xs capitalize text-white/65">{user.role}</p>
-              <button
-                onClick={handleLogout}
-                className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-white/10 px-3 text-sm font-semibold hover:bg-white/20"
-              >
-                <LogOut size={16} />
-                Logout
-              </button>
-            </div>
-          </aside>
-        </div>
+          <div className="fixed inset-0 z-50 md:hidden">
+            <button
+              type="button"
+              aria-label="Close navigation"
+              className="absolute inset-0 bg-black/40"
+              onClick={() => setDrawerOpen(false)}
+            />
+            <aside className="relative flex h-full w-[min(88vw,320px)] flex-col bg-navy text-white shadow-xl">
+              <div className="flex min-h-[64px] items-center justify-between gap-3 border-b border-white/10 px-4">
+                <Link href="/admin" className="min-w-0 truncate text-base font-bold">
+                  {t('admin_title')}
+                </Link>
+                <button
+                  type="button"
+                  ref={drawerCloseRef}
+                  onClick={() => setDrawerOpen(false)}
+                  className="inline-flex min-h-[40px] min-w-[40px] items-center justify-center rounded-md bg-white/10 hover:bg-white/20"
+                  aria-label="Close navigation"
+                >
+                  <X size={18} />
+                </button>
+              </div>
+              <AdminNav groups={visibleNav} pathname={pathname} collapsed={false} />
+              <div className="mt-auto border-t border-white/10 p-4">
+                <p className="truncate text-sm font-semibold">{user.full_name}</p>
+                <p className="mb-3 truncate text-xs capitalize text-white/65">{user.role}</p>
+                <button
+                  onClick={handleLogout}
+                  className="inline-flex min-h-[44px] w-full items-center justify-center gap-2 rounded-md bg-white/10 px-3 text-sm font-semibold hover:bg-white/20"
+                >
+                  <LogOut size={16} />
+                  Logout
+                </button>
+              </div>
+            </aside>
+          </div>
         </FocusTrap>
       )}
 
@@ -266,12 +344,19 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             </button>
           </div>
         </header>
-        <main id="admin-main" className="min-w-0" tabIndex={-1}>{children}</main>
+        <main id="admin-main" className="min-w-0" tabIndex={-1}>
+          {children}
+        </main>
       </div>
     </div>
   );
 
-  return <AdminSessionProvider user={user}>{shell}</AdminSessionProvider>;
+  return (
+    <AdminSessionProvider user={user}>
+      {shell}
+      <StepUpDialog />
+    </AdminSessionProvider>
+  );
 }
 
 function AdminNav({
@@ -295,7 +380,9 @@ function AdminNav({
           <div className="grid gap-1">
             {group.items.map((item) => {
               const Icon = item.icon;
-              const active = pathname === item.href || (item.href !== '/admin' && pathname?.startsWith(`${item.href}/`));
+              const active =
+                pathname === item.href ||
+                (item.href !== '/admin' && pathname?.startsWith(`${item.href}/`));
               return (
                 <Link
                   key={item.href}
