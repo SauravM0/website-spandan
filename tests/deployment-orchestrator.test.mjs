@@ -6,6 +6,7 @@ import {
   deployState,
   jobState,
   runSmoke,
+  runMetricsSmoke,
   validateRenderService,
 } from '../scripts/render-deploy.mjs';
 
@@ -158,4 +159,47 @@ test('release smoke validates version, routes, error rate, and latency', async (
       /error rate/
     );
   });
+});
+
+test('metrics smoke authenticates and rejects missing or sensitive telemetry', async () => {
+  const token = 'metrics-test-token';
+  const version = 'release-sha';
+  const server = http.createServer((request, response) => {
+    if (request.headers.authorization !== `Bearer ${token}`) {
+      response.writeHead(401).end();
+      return;
+    }
+    response.end(
+      [
+        `spandan_build_info{version="${version}",role="api"} 1`,
+        'spandan_http_latency_p95_ms 10',
+        'spandan_database_pool_total 2',
+        'spandan_worker_active 1',
+        'spandan_payment_oldest_pending_seconds 0',
+        'spandan_notification_oldest_queued_seconds 0',
+      ].join('\n')
+    );
+  });
+  await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const address = server.address();
+    const result = await runMetricsSmoke({
+      apiUrl: `http://127.0.0.1:${address.port}`,
+      token,
+      expectedVersion: version,
+    });
+    assert.equal(result.status, 'ok');
+    await assert.rejects(
+      runMetricsSmoke({
+        apiUrl: `http://127.0.0.1:${address.port}`,
+        token: 'wrong-token',
+        expectedVersion: version,
+      }),
+      /status 401/
+    );
+  } finally {
+    await new Promise((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve()))
+    );
+  }
 });

@@ -48,6 +48,10 @@
     "maximumP95Ms": 2500,
     "maximumErrorRate": 0
   },
+  "observability": {
+    "protectedMetricsSmokeRequired": true,
+    "alertDeliveryTestRequiredBeforePublicPromotion": true
+  },
   "rollback": {
     "order": ["frontend", "worker", "api"],
     "databaseReversalAllowed": false,

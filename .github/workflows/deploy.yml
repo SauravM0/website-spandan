@@ -101,6 +101,7 @@ jobs:
       API_IMAGE: ${{ needs.prepare.outputs.api_image }}
       WORKER_IMAGE: ${{ needs.prepare.outputs.worker_image }}
       FRONTEND_IMAGE: ${{ needs.prepare.outputs.frontend_image }}
+      METRICS_BEARER_TOKEN: ${{ secrets.METRICS_BEARER_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -119,6 +120,8 @@ jobs:
         run: node scripts/render-deploy.mjs deploy --service-id "$FRONTEND_SERVICE_ID" --image "$FRONTEND_IMAGE" > staging-frontend.json
       - name: Run staging smoke gate
         run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 1 --interval-ms 1000 --max-p95-ms 2500 --max-error-rate 0 > staging-smoke.json
+      - name: Verify staging privacy-safe operational metrics
+        run: node scripts/render-deploy.mjs metrics-smoke --api-url "$API_URL" --expected-version "$RELEASE_SHA" > staging-metrics.json
       - name: Observe staging canary
         run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 6 --interval-ms 10000 --max-p95-ms 2500 --max-error-rate 0 > staging-observation.json
       - name: Restore previous staging images after failure
@@ -163,6 +166,7 @@ jobs:
       API_IMAGE: ${{ needs.prepare.outputs.api_image }}
       WORKER_IMAGE: ${{ needs.prepare.outputs.worker_image }}
       FRONTEND_IMAGE: ${{ needs.prepare.outputs.frontend_image }}
+      METRICS_BEARER_TOKEN: ${{ secrets.METRICS_BEARER_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -181,6 +185,8 @@ jobs:
         run: node scripts/render-deploy.mjs deploy --service-id "$FRONTEND_SERVICE_ID" --image "$FRONTEND_IMAGE" > production-frontend.json
       - name: Run production smoke gate
         run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 1 --interval-ms 1000 --max-p95-ms 2500 --max-error-rate 0 > production-smoke.json
+      - name: Verify production privacy-safe operational metrics
+        run: node scripts/render-deploy.mjs metrics-smoke --api-url "$API_URL" --expected-version "$RELEASE_SHA" > production-metrics.json
       - name: Observe production rollout
         run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "$RELEASE_SHA" --samples 12 --interval-ms 10000 --max-p95-ms 2500 --max-error-rate 0 > production-observation.json
       - name: Restore previous production images after failure

@@ -49,6 +49,11 @@ router.get(
   asyncHandler(controller.adminWorkerHealth)
 );
 router.get(
+  '/observability',
+  requirePermission(PERMISSIONS.DASHBOARD_READ),
+  asyncHandler(controller.adminObservability)
+);
+router.get(
   '/calendar-view',
   requirePermission(PERMISSIONS.CALENDAR_READ),
   validateZod({ query: adminCalendarViewQuerySchema }),

@@ -49,7 +49,7 @@ function instrumentClient(client: PoolClient): PoolClient {
       );
       recordDatabaseTiming({
         kind: 'query',
-        service: 'api',
+        service: databaseService,
         durationMs: performance.now() - started,
         outcome: 'success',
         ...identity,
@@ -59,7 +59,7 @@ function instrumentClient(client: PoolClient): PoolClient {
     } catch (error) {
       recordDatabaseTiming({
         kind: 'query',
-        service: 'api',
+        service: databaseService,
         durationMs: performance.now() - started,
         outcome: 'error',
         ...identity,
@@ -84,7 +84,7 @@ async function acquireClient(): Promise<PoolClient> {
     const client = instrumentClient(await pool.connect());
     recordDatabaseTiming({
       kind: 'acquire',
-      service: 'api',
+      service: databaseService,
       durationMs: performance.now() - started,
       outcome: 'success',
       ...poolCounts(),
@@ -93,7 +93,7 @@ async function acquireClient(): Promise<PoolClient> {
   } catch (error) {
     recordDatabaseTiming({
       kind: 'acquire',
-      service: 'api',
+      service: databaseService,
       durationMs: performance.now() - started,
       outcome: 'error',
       ...poolCounts(),

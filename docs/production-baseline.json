@@ -33,6 +33,11 @@
       "PATCH /api/admin/operations/appointments/:id/status",
       "GET /api/admin/operations/package-orders",
       "GET /api/admin/operations/payments"
+    ],
+    "observability": [
+      "GET /api/internal/metrics",
+      "POST /api/telemetry/web-vitals",
+      "GET /api/admin/operations/observability"
     ]
   },
   "stateContracts": {
@@ -66,6 +71,7 @@
     "JWT_SECRET_VERSION",
     "INTAKE_ENCRYPTION_KEY",
     "INTAKE_ENCRYPTION_KEY_VERSION",
+    "METRICS_BEARER_TOKEN",
     "CORS_ORIGIN",
     "FRONTEND_URL",
     "DEPLOYMENT_ENV",
@@ -88,6 +94,8 @@
     "backend/src/domain/appointmentBooking.ts",
     "backend/src/domain/paymentLifecycle.ts",
     "backend/src/config/index.ts",
+    "backend/src/observability/metrics.ts",
+    "infrastructure/observability-policy.json",
     "backend/.env.example"
   ]
 }

@@ -39,6 +39,7 @@ export const config = {
   dataPolicy,
   port: parseInt(process.env.PORT || '4000', 10),
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS || '25000', 10),
+  metricsBearerToken: process.env.METRICS_BEARER_TOKEN || '',
   databaseUrl,
   jwtSecret,
   jwtSecretVersion: process.env.JWT_SECRET_VERSION || 'v1',

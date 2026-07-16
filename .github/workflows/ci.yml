@@ -124,6 +124,7 @@ jobs:
       - run: npm run database:check
       - run: npm run lifecycle:check
       - run: npm run worker:check
+      - run: npm run observability:check
       - run: npm audit --audit-level=high --workspaces=false
       - run: npm --prefix backend audit --audit-level=high
       - run: npm --prefix frontend audit --audit-level=high

@@ -48,6 +48,7 @@ jobs:
       FRONTEND_SERVICE_ID: ${{ vars.RENDER_FRONTEND_SERVICE_ID }}
       API_URL: ${{ vars.API_URL }}
       FRONTEND_URL: ${{ vars.FRONTEND_URL }}
+      METRICS_BEARER_TOKEN: ${{ secrets.METRICS_BEARER_TOKEN }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
         with:
@@ -70,6 +71,8 @@ jobs:
         run: node scripts/render-deploy.mjs rollback --service-id "$API_SERVICE_ID" --deploy-id "${{ inputs.api_deploy_id }}" > rollback-api.json
       - name: Verify restored application and accepted-write-compatible schema
         run: node scripts/render-deploy.mjs smoke --api-url "$API_URL" --frontend-url "$FRONTEND_URL" --expected-version "${{ inputs.expected_version }}" --samples 6 --interval-ms 10000 --max-p95-ms 2500 --max-error-rate 0 > rollback-smoke.json
+      - name: Verify restored operational metrics
+        run: node scripts/render-deploy.mjs metrics-smoke --api-url "$API_URL" --expected-version "${{ inputs.expected_version }}" > rollback-metrics.json
       - name: Record rollback authorization without sensitive data
         env:
           REASON: ${{ inputs.reason }}

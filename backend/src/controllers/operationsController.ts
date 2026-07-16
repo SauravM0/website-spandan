@@ -62,6 +62,8 @@ import {
   updateBillableService,
 } from '../services/servicePricing';
 import { PostgresWorkerLeaseStore } from '../worker/leaseStore';
+import { operationalSnapshot } from '../observability/operationalSnapshot';
+import { observeBookingConfirmation, observeBookingHold } from '../observability/metrics';
 
 function handleError(res: Response, err: unknown) {
   const error = err as Error & { status?: number; code?: string };
@@ -105,6 +107,7 @@ export async function holdSlot(req: AuthenticatedRequest, res: Response) {
       idempotency_key: req.header('idempotency-key') || undefined,
       correlation_id: res.locals.requestId,
     });
+    observeBookingHold();
     res.status(201).json({ hold });
   } catch (err) {
     handleError(res, err);
@@ -147,6 +150,7 @@ export async function bookAppointment(req: AuthenticatedRequest, res: Response) 
       idempotency_key: req.header('idempotency-key') || undefined,
       correlation_id: res.locals.requestId,
     });
+    observeBookingConfirmation();
     res.status(201).json({ appointment });
   } catch (err) {
     handleError(res, err);
@@ -380,6 +384,15 @@ export async function adminDashboard(req: AuthenticatedRequest, res: Response) {
 export async function adminWorkerHealth(_req: AuthenticatedRequest, res: Response) {
   try {
     res.json({ worker: await new PostgresWorkerLeaseStore().health() });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminObservability(_req: AuthenticatedRequest, res: Response) {
+  try {
+    res.setHeader('cache-control', 'no-store');
+    res.json({ observability: await operationalSnapshot() });
   } catch (err) {
     handleError(res, err);
   }

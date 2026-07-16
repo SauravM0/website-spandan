@@ -294,6 +294,32 @@ export async function runSmoke({
   };
 }
 
+export async function runMetricsSmoke({ apiUrl, token, expectedVersion }) {
+  if (!token) throw new Error('METRICS_BEARER_TOKEN is required.');
+  const response = await fetch(new URL('/api/internal/metrics', apiUrl), {
+    headers: { authorization: `Bearer ${token}`, 'user-agent': 'spandan-release-probe/1.0' },
+    signal: AbortSignal.timeout(15_000),
+  });
+  if (!response.ok) throw new Error(`Metrics smoke failed with status ${response.status}.`);
+  const body = await response.text();
+  for (const requiredMetric of [
+    'spandan_build_info',
+    'spandan_http_latency_p95_ms',
+    'spandan_database_pool_total',
+    'spandan_worker_active',
+    'spandan_payment_oldest_pending_seconds',
+    'spandan_notification_oldest_queued_seconds',
+  ]) {
+    if (!body.includes(requiredMetric))
+      throw new Error(`Metrics smoke is missing ${requiredMetric}.`);
+  }
+  if (!body.includes(`version="${expectedVersion}"`))
+    throw new Error('Metrics scrape does not expose the expected immutable version.');
+  if (/patient_name|phone|email|clinical_text|provider_payload|payment_id/i.test(body))
+    throw new Error('Metrics scrape contains a forbidden sensitive field.');
+  return { status: 'ok', version: expectedVersion, metricLines: body.trim().split(/\r?\n/).length };
+}
+
 async function smoke(values) {
   return runSmoke({
     apiUrl: required(values, 'api-url'),
@@ -306,6 +332,14 @@ async function smoke(values) {
   });
 }
 
+async function metricsSmoke(values) {
+  return runMetricsSmoke({
+    apiUrl: required(values, 'api-url'),
+    token: process.env.METRICS_BEARER_TOKEN || '',
+    expectedVersion: required(values, 'expected-version'),
+  });
+}
+
 export async function main(argv = process.argv.slice(2)) {
   const { command, values } = parseArgs(argv);
   let result;
@@ -313,7 +347,9 @@ export async function main(argv = process.argv.slice(2)) {
   else if (command === 'deploy') result = await deploy(values);
   else if (command === 'rollback') result = await rollback(values);
   else if (command === 'smoke') result = await smoke(values);
-  else throw new Error('Command must be verify-service, deploy, rollback, or smoke.');
+  else if (command === 'metrics-smoke') result = await metricsSmoke(values);
+  else
+    throw new Error('Command must be verify-service, deploy, rollback, smoke, or metrics-smoke.');
   process.stdout.write(`${JSON.stringify(result)}\n`);
 }
 

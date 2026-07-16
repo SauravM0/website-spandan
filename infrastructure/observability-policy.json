@@ -1,0 +1,108 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP13",
+  "scrape": {
+    "path": "/api/internal/metrics",
+    "authentication": "bearer-token",
+    "intervalSeconds": 30,
+    "replicaAggregationRequired": true
+  },
+  "adminEndpoint": "/api/admin/operations/observability",
+  "privacy": {
+    "allowedLabels": [
+      "method",
+      "route-template",
+      "route-group",
+      "status-class",
+      "metric-name",
+      "service",
+      "version"
+    ],
+    "forbidden": [
+      "name",
+      "phone",
+      "email",
+      "free-text",
+      "patient-id",
+      "payment-id",
+      "provider-payload",
+      "clinical-text",
+      "document-id"
+    ]
+  },
+  "dashboards": [
+    "api-latency-errors-auth",
+    "database-pool-and-queries",
+    "worker-queues-and-heartbeat",
+    "payments-and-notifications",
+    "booking-conversion-and-conflicts",
+    "frontend-web-vitals",
+    "deployment-version-and-process"
+  ],
+  "alerts": [
+    {
+      "id": "api-sustained-5xx",
+      "owner": "sole-clinic-admin",
+      "severity": "critical",
+      "expression": "sum(rate(spandan_http_responses_5xx_total[5m])) / clamp_min(sum(rate(spandan_http_requests_total[5m])), 1) > 0.005",
+      "forSeconds": 300,
+      "condition": "5xx rate > 0.5% for 5 minutes"
+    },
+    {
+      "id": "database-pool-pressure",
+      "owner": "sole-clinic-admin",
+      "severity": "critical",
+      "expression": "max(spandan_database_acquisition_p95_ms) > 100 or max(spandan_database_pool_waiting) > 0",
+      "forSeconds": 300,
+      "condition": "pool usage > 80% or acquisition p95 > 100ms for 5 minutes"
+    },
+    {
+      "id": "worker-unavailable",
+      "owner": "sole-clinic-admin",
+      "severity": "critical",
+      "expression": "sum(spandan_worker_active) < 1 or sum(spandan_worker_stale) > 0",
+      "forSeconds": 60,
+      "condition": "active workers < 1 or stale workers > 0 for 60 seconds"
+    },
+    {
+      "id": "payment-drift",
+      "owner": "sole-clinic-admin",
+      "severity": "critical",
+      "expression": "max(spandan_payment_oldest_pending_seconds) > 300",
+      "forSeconds": 60,
+      "condition": "oldest pending payment > 300 seconds"
+    },
+    {
+      "id": "notification-backlog",
+      "owner": "sole-clinic-admin",
+      "severity": "warning",
+      "expression": "max(spandan_notification_oldest_queued_seconds) > 300 or sum(spandan_notifications_dead_letters) > 0",
+      "forSeconds": 300,
+      "condition": "oldest queued notification > 300 seconds or dead letters > 0"
+    },
+    {
+      "id": "admin-auth-anomaly",
+      "owner": "sole-clinic-admin",
+      "severity": "warning",
+      "expression": "sum(rate(spandan_http_401_total[5m]) + rate(spandan_http_403_total[5m]) + rate(spandan_http_429_total[5m])) > 0.1",
+      "forSeconds": 300,
+      "condition": "401, 403, or legitimate 429 rate exceeds baseline for 5 minutes"
+    },
+    {
+      "id": "frontend-vitals-regression",
+      "owner": "sole-clinic-admin",
+      "severity": "warning",
+      "expression": "max(spandan_web_vital_p75{name=\"LCP\"}) > 2500 or max(spandan_web_vital_p75{name=\"INP\"}) > 200",
+      "forSeconds": 900,
+      "condition": "LCP p75 > 2500ms or INP p75 > 200ms for 15 minutes"
+    },
+    {
+      "id": "event-loop-stall",
+      "owner": "sole-clinic-admin",
+      "severity": "warning",
+      "expression": "max(spandan_process_event_loop_lag_p95_ms) > 200",
+      "forSeconds": 300,
+      "condition": "event-loop lag p95 > 200ms for 5 minutes"
+    }
+  ]
+}

@@ -26,11 +26,13 @@ import adminObservationRoutes from './routes/adminObservations';
 import adminDeviceIntegrationRoutes from './routes/adminDeviceIntegrations';
 import { validateCsrfToken, getCsrfToken } from './middleware/csrf';
 import { requestId } from './middleware/requestId';
+import { requestTelemetry } from './middleware/requestTelemetry';
 import { pool, query } from './config/database';
 import { logger } from './utils/logger';
 import { publicPrivacyRouter, adminPrivacyRouter } from './routes/privacySecurity';
 import diagnosticTestsRoutes from './routes/diagnosticTests';
 import adminDiagnosticTestsRoutes from './routes/adminDiagnosticTests';
+import telemetryRoutes from './routes/telemetry';
 import {
   createApplicationLifecycle,
   CachedHealthProbe,
@@ -46,6 +48,7 @@ const databaseReadiness = new CachedHealthProbe(async () => {
 
 app.set('trust proxy', 1);
 app.use(requestId);
+app.use(requestTelemetry);
 app.use(helmet());
 app.use(
   cors({
@@ -123,6 +126,7 @@ app.get('/api/ready', async (_req, res) => {
 
 // Liveness and readiness are deliberately mounted before ordinary API rate limiting.
 app.use('/api', globalLimiter);
+app.use('/api', telemetryRoutes);
 
 // CSRF token endpoint
 app.get('/api/csrf-token', getCsrfToken);

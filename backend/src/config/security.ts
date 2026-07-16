@@ -32,15 +32,23 @@ function requireKeyVersion(environment: Environment, name: string, errors: strin
   }
 }
 
-function requireHttpUrl(environment: Environment, name: string, errors: string[], httpsOnly = false) {
+function requireHttpUrl(
+  environment: Environment,
+  name: string,
+  errors: string[],
+  httpsOnly = false
+) {
   try {
     const parsed = new URL(environment[name] || '');
     if (httpsOnly ? parsed.protocol !== 'https:' : !['http:', 'https:'].includes(parsed.protocol)) {
       throw new Error('invalid protocol');
     }
-    if (parsed.username || parsed.password) throw new Error('credentials are not allowed in this URL');
+    if (parsed.username || parsed.password)
+      throw new Error('credentials are not allowed in this URL');
   } catch {
-    errors.push(`${name} must be a valid ${httpsOnly ? 'https' : 'http(s)'} URL without embedded credentials`);
+    errors.push(
+      `${name} must be a valid ${httpsOnly ? 'https' : 'http(s)'} URL without embedded credentials`
+    );
   }
 }
 
@@ -52,17 +60,32 @@ export function validateSecurityConfiguration(environment: Environment = process
     }
   }
 
-  const deployment = environment.DEPLOYMENT_ENV || (environment.NODE_ENV === 'test' ? 'test' : 'development');
+  const deployment =
+    environment.DEPLOYMENT_ENV || (environment.NODE_ENV === 'test' ? 'test' : 'development');
   const hosted = deployment === 'staging' || deployment === 'production';
 
   if (hosted) {
-    requireVariables(environment, [
-      'DATABASE_URL', 'JWT_SECRET', 'JWT_SECRET_VERSION', 'INTAKE_ENCRYPTION_KEY',
-      'INTAKE_ENCRYPTION_KEY_VERSION', 'CORS_ORIGIN', 'FRONTEND_URL', 'DEPLOYMENT_ENV',
-      'ENVIRONMENT_NAME', 'SUPABASE_PROJECT_REF', 'DATA_POLICY',
-    ], errors);
+    requireVariables(
+      environment,
+      [
+        'DATABASE_URL',
+        'JWT_SECRET',
+        'JWT_SECRET_VERSION',
+        'INTAKE_ENCRYPTION_KEY',
+        'INTAKE_ENCRYPTION_KEY_VERSION',
+        'CORS_ORIGIN',
+        'FRONTEND_URL',
+        'DEPLOYMENT_ENV',
+        'ENVIRONMENT_NAME',
+        'SUPABASE_PROJECT_REF',
+        'DATA_POLICY',
+        'METRICS_BEARER_TOKEN',
+      ],
+      errors
+    );
     requireStrongSecret(environment, 'JWT_SECRET', errors);
     requireStrongSecret(environment, 'INTAKE_ENCRYPTION_KEY', errors);
+    requireStrongSecret(environment, 'METRICS_BEARER_TOKEN', errors);
     requireKeyVersion(environment, 'JWT_SECRET_VERSION', errors);
     requireKeyVersion(environment, 'INTAKE_ENCRYPTION_KEY_VERSION', errors);
     requireHttpUrl(environment, 'FRONTEND_URL', errors, true);
@@ -75,21 +98,37 @@ export function validateSecurityConfiguration(environment: Environment = process
   }
 
   if (enabled(environment, 'PAYMENT_MOCK_ENABLED')) {
-    if (!['development', 'test'].includes(deployment)) errors.push('PAYMENT_MOCK_ENABLED is forbidden outside development/test');
-    if (enabled(environment, 'PHONEPE_ENABLED')) errors.push('PAYMENT_MOCK_ENABLED and PHONEPE_ENABLED cannot both be true');
+    if (!['development', 'test'].includes(deployment))
+      errors.push('PAYMENT_MOCK_ENABLED is forbidden outside development/test');
+    if (enabled(environment, 'PHONEPE_ENABLED'))
+      errors.push('PAYMENT_MOCK_ENABLED and PHONEPE_ENABLED cannot both be true');
   }
 
   if (enabled(environment, 'PHONEPE_ENABLED')) {
-    requireVariables(environment, [
-      'PHONEPE_MERCHANT_ID', 'PHONEPE_CLIENT_ID', 'PHONEPE_CLIENT_VERSION', 'PHONEPE_CLIENT_SECRET',
-      'PHONEPE_WEBHOOK_USERNAME', 'PHONEPE_WEBHOOK_PASSWORD', 'PHONEPE_AUTH_BASE_URL', 'PHONEPE_PG_BASE_URL',
-    ], errors);
+    requireVariables(
+      environment,
+      [
+        'PHONEPE_MERCHANT_ID',
+        'PHONEPE_CLIENT_ID',
+        'PHONEPE_CLIENT_VERSION',
+        'PHONEPE_CLIENT_SECRET',
+        'PHONEPE_WEBHOOK_USERNAME',
+        'PHONEPE_WEBHOOK_PASSWORD',
+        'PHONEPE_AUTH_BASE_URL',
+        'PHONEPE_PG_BASE_URL',
+      ],
+      errors
+    );
     requireHttpUrl(environment, 'PHONEPE_AUTH_BASE_URL', errors, hosted);
     requireHttpUrl(environment, 'PHONEPE_PG_BASE_URL', errors, hosted);
   }
 
   if (enabled(environment, 'EMAIL_NOTIFICATIONS_ENABLED')) {
-    requireVariables(environment, ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'NOTIFICATION_EMAIL'], errors);
+    requireVariables(
+      environment,
+      ['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'NOTIFICATION_EMAIL'],
+      errors
+    );
   }
 
   if (enabled(environment, 'WHATSAPP_NOTIFICATIONS_ENABLED')) {
@@ -98,12 +137,24 @@ export function validateSecurityConfiguration(environment: Environment = process
       requireVariables(environment, ['WHATSAPP_WEBHOOK_TOKEN'], errors);
       requireHttpUrl(environment, 'WHATSAPP_WEBHOOK_URL', errors, hosted);
     } else if (provider === 'meta') {
-      requireVariables(environment, ['WHATSAPP_API_URL', 'WHATSAPP_API_TOKEN', 'WHATSAPP_TO'], errors);
+      requireVariables(
+        environment,
+        ['WHATSAPP_API_URL', 'WHATSAPP_API_TOKEN', 'WHATSAPP_TO'],
+        errors
+      );
       requireHttpUrl(environment, 'WHATSAPP_API_URL', errors, hosted);
     } else if (provider === 'twilio') {
-      requireVariables(environment, [
-        'WHATSAPP_API_URL', 'WHATSAPP_ACCOUNT_SID', 'WHATSAPP_AUTH_TOKEN', 'WHATSAPP_FROM', 'WHATSAPP_TO',
-      ], errors);
+      requireVariables(
+        environment,
+        [
+          'WHATSAPP_API_URL',
+          'WHATSAPP_ACCOUNT_SID',
+          'WHATSAPP_AUTH_TOKEN',
+          'WHATSAPP_FROM',
+          'WHATSAPP_TO',
+        ],
+        errors
+      );
       requireHttpUrl(environment, 'WHATSAPP_API_URL', errors, hosted);
     } else {
       errors.push('WHATSAPP_PROVIDER must be meta or twilio');
@@ -111,13 +162,21 @@ export function validateSecurityConfiguration(environment: Environment = process
   }
 
   if (enabled(environment, 'MEDICAL_DOCUMENTS_ENABLED')) {
-    requireVariables(environment, ['DOCUMENT_ENCRYPTION_KEY', 'DOCUMENT_ENCRYPTION_KEY_VERSION', 'DOCUMENT_STORAGE_DIR'], errors);
+    requireVariables(
+      environment,
+      ['DOCUMENT_ENCRYPTION_KEY', 'DOCUMENT_ENCRYPTION_KEY_VERSION', 'DOCUMENT_STORAGE_DIR'],
+      errors
+    );
     requireStrongSecret(environment, 'DOCUMENT_ENCRYPTION_KEY', errors);
     requireKeyVersion(environment, 'DOCUMENT_ENCRYPTION_KEY_VERSION', errors);
     if (hosted && environment.DOCUMENT_SCANNER_MODE !== 'clamav') {
       errors.push('Hosted medical document handling requires DOCUMENT_SCANNER_MODE=clamav');
     }
-    const applicationKeys = [environment.JWT_SECRET, environment.INTAKE_ENCRYPTION_KEY, environment.DOCUMENT_ENCRYPTION_KEY].filter(Boolean);
+    const applicationKeys = [
+      environment.JWT_SECRET,
+      environment.INTAKE_ENCRYPTION_KEY,
+      environment.DOCUMENT_ENCRYPTION_KEY,
+    ].filter(Boolean);
     if (new Set(applicationKeys).size !== applicationKeys.length) {
       errors.push('JWT, intake, and document encryption keys must all be different');
     }
@@ -127,8 +186,11 @@ export function validateSecurityConfiguration(environment: Environment = process
     const secretNames = [
       'JWT_SECRET',
       'INTAKE_ENCRYPTION_KEY',
+      'METRICS_BEARER_TOKEN',
       ...(enabled(environment, 'MEDICAL_DOCUMENTS_ENABLED') ? ['DOCUMENT_ENCRYPTION_KEY'] : []),
-      ...(enabled(environment, 'PHONEPE_ENABLED') ? ['PHONEPE_CLIENT_SECRET', 'PHONEPE_WEBHOOK_PASSWORD'] : []),
+      ...(enabled(environment, 'PHONEPE_ENABLED')
+        ? ['PHONEPE_CLIENT_SECRET', 'PHONEPE_WEBHOOK_PASSWORD']
+        : []),
       ...(enabled(environment, 'EMAIL_NOTIFICATIONS_ENABLED') ? ['SMTP_PASS'] : []),
       ...(enabled(environment, 'WHATSAPP_NOTIFICATIONS_ENABLED')
         ? ['WHATSAPP_WEBHOOK_TOKEN', 'WHATSAPP_API_TOKEN', 'WHATSAPP_AUTH_TOKEN']
@@ -137,10 +199,14 @@ export function validateSecurityConfiguration(environment: Environment = process
     const configuredSecrets = secretNames
       .map((name) => [name, environment[name]?.trim()] as const)
       .filter((entry): entry is readonly [string, string] => Boolean(entry[1]));
-    const duplicatedValues = configuredSecrets.filter(([, value], index) =>
-      configuredSecrets.findIndex(([, candidate]) => candidate === value) !== index);
+    const duplicatedValues = configuredSecrets.filter(
+      ([, value], index) =>
+        configuredSecrets.findIndex(([, candidate]) => candidate === value) !== index
+    );
     if (duplicatedValues.length) {
-      errors.push(`Hosted application/provider secrets must be unique; duplicates include ${duplicatedValues.map(([name]) => name).join(', ')}`);
+      errors.push(
+        `Hosted application/provider secrets must be unique; duplicates include ${duplicatedValues.map(([name]) => name).join(', ')}`
+      );
     }
   }
 

@@ -1,5 +1,7 @@
 import { randomUUID } from 'node:crypto';
 import type { ClaimedWorkerJob, WorkerLeaseStore } from './leaseStore';
+import { getDatabasePoolSnapshot } from '../config/database';
+import { telemetrySnapshot } from '../observability/metrics';
 
 export type WorkerJobHandler = (job: ClaimedWorkerJob, instanceId: string) => Promise<void>;
 
@@ -52,7 +54,12 @@ export class WorkerRuntime {
       this.heartbeatCount += 1;
       if (this.heartbeatCount % 6 === 0) {
         const health = await this.options.store.health();
-        this.options.log?.info('Worker health', health);
+        this.options.log?.info('Worker health', {
+          ...health,
+          process: telemetrySnapshot().process,
+          database: getDatabasePoolSnapshot(),
+          version: this.options.version,
+        });
       }
     } catch {
       this.options.log?.warn('Worker heartbeat failed', {
@@ -86,6 +93,7 @@ export class WorkerRuntime {
   }
 
   private async execute(job: ClaimedWorkerJob): Promise<void> {
+    const startedAt = process.hrtime.bigint();
     const handler = this.options.handlers[job.name];
     const leaseHeartbeatMs = Math.max(1_000, Math.floor((job.leaseSeconds * 1_000) / 3));
     const leaseHeartbeat = setInterval(() => {
@@ -109,10 +117,21 @@ export class WorkerRuntime {
       await handler(job, this.instanceId);
       if (!(await this.options.store.succeed(this.instanceId, job))) {
         this.options.log?.warn('Stale worker completion rejected', { job: job.name });
+      } else {
+        this.options.log?.info('Worker job completed', {
+          job: job.name,
+          duration_ms: Math.round(Number(process.hrtime.bigint() - startedAt) / 1_000_000),
+          outcome: 'success',
+        });
       }
     } catch (error) {
       await this.options.store.fail(this.instanceId, job, errorCode(error));
-      this.options.log?.error('Worker job failed', { job: job.name, error_code: errorCode(error) });
+      this.options.log?.error('Worker job failed', {
+        job: job.name,
+        duration_ms: Math.round(Number(process.hrtime.bigint() - startedAt) / 1_000_000),
+        outcome: 'error',
+        error_code: errorCode(error),
+      });
     } finally {
       clearInterval(leaseHeartbeat);
     }

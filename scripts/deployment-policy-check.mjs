@@ -63,6 +63,7 @@ for (const required of [
   'node scripts/render-deploy.mjs verify-service',
   'node scripts/render-deploy.mjs deploy',
   'node scripts/render-deploy.mjs smoke',
+  'node scripts/render-deploy.mjs metrics-smoke',
   'if: failure()',
   'concurrency:',
 ]) {

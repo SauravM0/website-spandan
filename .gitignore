@@ -58,6 +58,7 @@ docs/work-packages/**
 !docs/work-packages/WP10-supabase-connectivity.md
 !docs/work-packages/WP11-graceful-lifecycle.md
 !docs/work-packages/WP12-dedicated-worker.md
+!docs/work-packages/WP13-production-observability.md
 !docs/production-baseline.json
 machine/
 

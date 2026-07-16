@@ -16,6 +16,7 @@ const hosted = () => ({
   JWT_SECRET_VERSION: 'v1',
   INTAKE_ENCRYPTION_KEY: secret('i'),
   INTAKE_ENCRYPTION_KEY_VERSION: 'v1',
+  METRICS_BEARER_TOKEN: secret('m'),
 });
 
 test('accepts safe local defaults and an isolated hosted configuration', () => {
@@ -28,48 +29,91 @@ test('hosted startup rejects missing, weak, shared, or unversioned application s
   delete (missing as Partial<typeof missing>).INTAKE_ENCRYPTION_KEY;
   assert.throws(() => validateSecurityConfiguration(missing), /INTAKE_ENCRYPTION_KEY/);
 
-  assert.throws(() => validateSecurityConfiguration({ ...hosted(), JWT_SECRET: 'replace-me' }), /JWT_SECRET/);
-  assert.throws(() => validateSecurityConfiguration({ ...hosted(), JWT_SECRET_VERSION: 'current' }), /JWT_SECRET_VERSION/);
-  assert.throws(() => validateSecurityConfiguration({ ...hosted(), INTAKE_ENCRYPTION_KEY: secret('j') }), /must be different/);
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), JWT_SECRET: 'replace-me' }),
+    /JWT_SECRET/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), JWT_SECRET_VERSION: 'current' }),
+    /JWT_SECRET_VERSION/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), INTAKE_ENCRYPTION_KEY: secret('j') }),
+    /must be different/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), METRICS_BEARER_TOKEN: 'replace-me' }),
+    /METRICS_BEARER_TOKEN/
+  );
 });
 
 test('enabled providers require complete credentials at startup', () => {
-  assert.throws(() => validateSecurityConfiguration({ PHONEPE_ENABLED: 'true' }), /PHONEPE_CLIENT_SECRET/);
-  assert.throws(() => validateSecurityConfiguration({ EMAIL_NOTIFICATIONS_ENABLED: 'true' }), /SMTP_PASS/);
-  assert.throws(() => validateSecurityConfiguration({ WHATSAPP_NOTIFICATIONS_ENABLED: 'true' }), /WHATSAPP_API_TOKEN/);
-  assert.doesNotThrow(() => validateSecurityConfiguration({
-    MEDICAL_DOCUMENTS_ENABLED: 'true',
-    DOCUMENT_ENCRYPTION_KEY: secret('d'),
-    DOCUMENT_ENCRYPTION_KEY_VERSION: 'v1',
-    DOCUMENT_STORAGE_DIR: '.private-documents',
-  }));
-  assert.throws(() => validateSecurityConfiguration({
-    ...hosted(),
-    MEDICAL_DOCUMENTS_ENABLED: 'true',
-    DOCUMENT_ENCRYPTION_KEY: secret('j'),
-    DOCUMENT_ENCRYPTION_KEY_VERSION: 'v1',
-    DOCUMENT_STORAGE_DIR: '/private/documents',
-    DOCUMENT_SCANNER_MODE: 'clamav',
-  }), /must all be different/);
+  assert.throws(
+    () => validateSecurityConfiguration({ PHONEPE_ENABLED: 'true' }),
+    /PHONEPE_CLIENT_SECRET/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ EMAIL_NOTIFICATIONS_ENABLED: 'true' }),
+    /SMTP_PASS/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ WHATSAPP_NOTIFICATIONS_ENABLED: 'true' }),
+    /WHATSAPP_API_TOKEN/
+  );
+  assert.doesNotThrow(() =>
+    validateSecurityConfiguration({
+      MEDICAL_DOCUMENTS_ENABLED: 'true',
+      DOCUMENT_ENCRYPTION_KEY: secret('d'),
+      DOCUMENT_ENCRYPTION_KEY_VERSION: 'v1',
+      DOCUMENT_STORAGE_DIR: '.private-documents',
+    })
+  );
+  assert.throws(
+    () =>
+      validateSecurityConfiguration({
+        ...hosted(),
+        MEDICAL_DOCUMENTS_ENABLED: 'true',
+        DOCUMENT_ENCRYPTION_KEY: secret('j'),
+        DOCUMENT_ENCRYPTION_KEY_VERSION: 'v1',
+        DOCUMENT_STORAGE_DIR: '/private/documents',
+        DOCUMENT_SCANNER_MODE: 'clamav',
+      }),
+    /must all be different/
+  );
 });
 
 test('mock payments are explicit and forbidden in hosted environments', () => {
-  assert.doesNotThrow(() => validateSecurityConfiguration({ DEPLOYMENT_ENV: 'test', PAYMENT_MOCK_ENABLED: 'true' }));
-  assert.throws(() => validateSecurityConfiguration({ ...hosted(), PAYMENT_MOCK_ENABLED: 'true' }), /forbidden/);
-  assert.throws(() => validateSecurityConfiguration({ PHONEPE_ENABLED: 'true', PAYMENT_MOCK_ENABLED: 'true' }), /cannot both be true/);
+  assert.doesNotThrow(() =>
+    validateSecurityConfiguration({ DEPLOYMENT_ENV: 'test', PAYMENT_MOCK_ENABLED: 'true' })
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ ...hosted(), PAYMENT_MOCK_ENABLED: 'true' }),
+    /forbidden/
+  );
+  assert.throws(
+    () => validateSecurityConfiguration({ PHONEPE_ENABLED: 'true', PAYMENT_MOCK_ENABLED: 'true' }),
+    /cannot both be true/
+  );
 });
 
 test('invalid boolean flags fail instead of silently disabling a service', () => {
-  assert.throws(() => validateSecurityConfiguration({ PHONEPE_ENABLED: 'yes' }), /must be true or false/);
+  assert.throws(
+    () => validateSecurityConfiguration({ PHONEPE_ENABLED: 'yes' }),
+    /must be true or false/
+  );
 });
 
 test('hosted provider credentials cannot reuse application secrets', () => {
-  assert.throws(() => validateSecurityConfiguration({
-    ...hosted(),
-    EMAIL_NOTIFICATIONS_ENABLED: 'true',
-    SMTP_HOST: 'smtp.example',
-    SMTP_USER: 'clinic@example.test',
-    SMTP_PASS: secret('j'),
-    NOTIFICATION_EMAIL: 'clinic@example.test',
-  }), /secrets must be unique/);
+  assert.throws(
+    () =>
+      validateSecurityConfiguration({
+        ...hosted(),
+        EMAIL_NOTIFICATIONS_ENABLED: 'true',
+        SMTP_HOST: 'smtp.example',
+        SMTP_USER: 'clinic@example.test',
+        SMTP_PASS: secret('j'),
+        NOTIFICATION_EMAIL: 'clinic@example.test',
+      }),
+    /secrets must be unique/
+  );
 });

@@ -3,7 +3,7 @@ import { logger } from '../utils/logger';
 
 export type DatabaseTimingEvent = {
   kind: 'acquire' | 'query';
-  service: 'api';
+  service: 'api' | 'worker';
   durationMs: number;
   outcome: 'success' | 'error';
   operation?: string;
