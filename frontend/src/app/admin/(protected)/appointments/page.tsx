@@ -19,6 +19,7 @@ import {
   transitionAdminAppointment,
   type AppointmentTransitionEvidence,
 } from '@/lib/api';
+import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 
 const statuses = [
   '',
@@ -153,6 +154,8 @@ export default function AdminAppointmentsPage() {
       setRefreshing(false);
     }
   };
+
+  useAdminRealtimeRefresh(['appointment.changed', 'payment.changed'], () => load('refresh'));
 
   useEffect(() => {
     load(loading ? 'initial' : 'refresh');

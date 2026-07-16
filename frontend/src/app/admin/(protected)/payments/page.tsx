@@ -19,6 +19,7 @@ import {
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
 import { browserApiUrl } from '@/lib/apiUrl';
+import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 
 const statuses = [
   '',
@@ -247,6 +248,8 @@ function PaymentsInner() {
     },
     [filters]
   );
+
+  useAdminRealtimeRefresh(['payment.changed'], () => void load(filters, true));
 
   useEffect(() => {
     load(filters, hasLoadedRef.current);

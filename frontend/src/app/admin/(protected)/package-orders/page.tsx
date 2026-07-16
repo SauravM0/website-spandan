@@ -9,6 +9,7 @@ import {
   getAdminPackageOrders,
   transitionAdminPackageOrder,
 } from '@/lib/api';
+import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 
 const statuses = [
   '',
@@ -71,6 +72,8 @@ export default function AdminPackageOrdersPage() {
       if (current === request.current) setLoading(false);
     }
   };
+
+  useAdminRealtimeRefresh(['package_order.changed', 'payment.changed'], () => void load());
 
   useEffect(() => {
     const timer = window.setTimeout(() => {

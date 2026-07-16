@@ -12,6 +12,7 @@ import {
   transitionAdminAppointment,
 } from '@/lib/api';
 import type { DashboardData } from '@/lib/types';
+import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 
 const metricLabels: Array<[keyof DashboardData['metrics'], string]> = [
   ['appointmentsToday', 'Appointments'],
@@ -76,6 +77,17 @@ export default function AdminDashboardPage() {
       setRefreshing(false);
     }
   };
+
+  useAdminRealtimeRefresh(
+    [
+      'appointment.changed',
+      'package_order.changed',
+      'payment.changed',
+      'notification.changed',
+      'patient_review.changed',
+    ],
+    () => load('refresh')
+  );
 
   useEffect(() => {
     load();

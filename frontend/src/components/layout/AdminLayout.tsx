@@ -29,6 +29,7 @@ import { AdminSessionProvider, AdminUser } from '../admin/AdminSessionContext';
 import FocusTrap from '../ui/FocusTrap';
 import StepUpDialog from '../admin/StepUpDialog';
 import AdminGlobalSearch from '../admin/AdminGlobalSearch';
+import AdminRealtimeBridge from '../admin/AdminRealtimeBridge';
 
 const navGroups = [
   {
@@ -335,6 +336,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </p>
               </div>
             </div>
+            <AdminRealtimeBridge />
             <AdminGlobalSearch />
             <button
               onClick={handleLogout}

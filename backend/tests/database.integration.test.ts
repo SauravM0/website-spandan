@@ -581,3 +581,43 @@ databaseTest('admin needs-action, scoped search, and unified detail agree end to
     await client.end();
   }
 });
+
+databaseTest('admin domain events commit and roll back with their source write', async () => {
+  const client = new Client({ connectionString });
+  await client.connect();
+  const suffix = randomUUID();
+  try {
+    const doctor = await client.query(
+      `INSERT INTO doctors(name,slug,speciality)
+       VALUES('Realtime Doctor',$1,'Testing') RETURNING id`,
+      [`realtime-doctor-${suffix}`]
+    );
+    const patient = await client.query(
+      `INSERT INTO patients(full_name,phone,date_of_birth)
+       VALUES('Realtime Patient','9777766665','1990-01-01') RETURNING id`
+    );
+    await client.query('BEGIN');
+    const appointment = await client.query(
+      `INSERT INTO appointments
+         (patient_id,doctor_id,appointment_date,start_time,end_time,status,booking_state,
+          fee_amount,fee_currency,payment_status,version,source)
+       VALUES($1,$2,CURRENT_DATE + 2,'10:00','10:30','awaiting_payment','payment_required',
+              500,'INR','not_paid',1,'public') RETURNING id`,
+      [patient.rows[0].id, doctor.rows[0].id]
+    );
+    const inside = await client.query(
+      `SELECT event_type,entity_version FROM admin_domain_events
+       WHERE entity_id=$1 ORDER BY id`,
+      [appointment.rows[0].id]
+    );
+    assert.deepEqual(inside.rows, [{ event_type: 'appointment.changed', entity_version: 1 }]);
+    await client.query('ROLLBACK');
+    const outside = await client.query('SELECT 1 FROM admin_domain_events WHERE entity_id=$1', [
+      appointment.rows[0].id,
+    ]);
+    assert.equal(outside.rowCount, 0);
+  } finally {
+    await client.query('ROLLBACK').catch(() => undefined);
+    await client.end();
+  }
+});

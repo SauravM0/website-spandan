@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP23",
+  "deploymentModel": "sole-administrator",
+  "sourceOfTruth": "postgresql",
+  "transport": "authenticated-sse",
+  "events": [
+    "appointment.changed",
+    "package_order.changed",
+    "payment.changed",
+    "notification.changed",
+    "patient_review.changed"
+  ],
+  "eventFields": ["id", "type", "entity_id", "version", "occurred_at"],
+  "containsSensitivePayload": false,
+  "resumeHeader": "Last-Event-ID",
+  "databasePollIntervalMs": 750,
+  "browserFallback": {
+    "minimumIntervalMs": 15000,
+    "jitterMs": 10000,
+    "visibilityAware": true
+  },
+  "capacity": {
+    "idleConnectionsPerReplica": 1200,
+    "requiredMeasuredConnections": 1000,
+    "databasePollersPerReplica": 1
+  },
+  "freshnessSloMs": {
+    "p95": 2000,
+    "p99": 5000
+  }
+}

@@ -109,6 +109,12 @@ test('Prometheus output contains operational aggregates without sensitive payloa
       idleConnections: 1,
       waitingRequests: 0,
     },
+    eventStreams: {
+      activeConnections: 1,
+      capacityPerReplica: 1200,
+      pollIntervalMs: 750,
+      acceptingConnections: true,
+    },
     worker: {
       activeWorkers: 1,
       staleWorkers: 0,
@@ -128,6 +134,7 @@ test('Prometheus output contains operational aggregates without sensitive payloa
   });
   assert.match(output, /spandan_http_latency_p95_ms/);
   assert.match(output, /spandan_worker_active 1/);
+  assert.match(output, /spandan_admin_event_stream_connections 1/);
   for (const forbidden of [
     'patient_name',
     'phone',

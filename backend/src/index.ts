@@ -33,6 +33,8 @@ import { publicPrivacyRouter, adminPrivacyRouter } from './routes/privacySecurit
 import diagnosticTestsRoutes from './routes/diagnosticTests';
 import adminDiagnosticTestsRoutes from './routes/adminDiagnosticTests';
 import telemetryRoutes from './routes/telemetry';
+import adminEventsRoutes from './routes/adminEvents';
+import { stopAdminEventStreams } from './services/adminEventStream';
 import {
   createApplicationLifecycle,
   CachedHealthProbe,
@@ -149,6 +151,7 @@ app.use('/api/privacy', publicPrivacyRouter);
 
 // === Admin Routes (auth required) ===
 app.use('/api/admin', adminAuthRoutes);
+app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/auth', adminAuthRoutes);
 app.use('/api/admin/leads', adminLeadsRoutes);
 app.use('/api/admin/packages', adminPackagesRoutes);
@@ -165,8 +168,8 @@ app.use('/api/admin/privacy-security', adminPrivacyRouter);
 // Error handler
 app.use(errorHandler);
 
-const idleBackground = {
-  stopAccepting: async () => {},
+const apiBackground = {
+  stopAccepting: stopAdminEventStreams,
   drain: async () => {},
 };
 
@@ -178,7 +181,7 @@ export function startApplication() {
   ) {
     throw new Error('SHUTDOWN_TIMEOUT_MS must be an integer between 1 and 29000.');
   }
-  const background = idleBackground;
+  const background = apiBackground;
   const server = app.listen(config.port, '0.0.0.0', () => {
     readiness.markReady();
     logger.info('Server started', { port: config.port, env: config.env });

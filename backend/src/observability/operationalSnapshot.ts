@@ -1,6 +1,7 @@
 import { getDatabasePoolSnapshot, query } from '../config/database';
 import { PostgresWorkerLeaseStore } from '../worker/leaseStore';
 import { telemetrySnapshot } from './metrics';
+import { adminEventStreamSnapshot } from '../services/adminEventStream';
 
 const number = (value: unknown): number => Number(value || 0);
 
@@ -28,6 +29,7 @@ export async function operationalSnapshot() {
   return {
     ...runtime,
     database: getDatabasePoolSnapshot(),
+    eventStreams: adminEventStreamSnapshot(),
     worker,
     payments: {
       pending: number(payment.pending),
@@ -76,6 +78,8 @@ export function renderPrometheus(
     metric('spandan_database_acquisition_p95_ms', snapshot.database.acquisitionP95Ms),
     metric('spandan_database_query_p95_ms', snapshot.database.queryP95Ms),
     metric('spandan_database_query_errors_total', snapshot.database.queryErrorCount),
+    metric('spandan_admin_event_stream_connections', snapshot.eventStreams.activeConnections),
+    metric('spandan_admin_event_stream_capacity', snapshot.eventStreams.capacityPerReplica),
     metric('spandan_worker_active', snapshot.worker.activeWorkers),
     metric('spandan_worker_stale', snapshot.worker.staleWorkers),
     metric('spandan_worker_due_jobs', snapshot.worker.dueJobs),
