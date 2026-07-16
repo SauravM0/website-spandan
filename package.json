@@ -28,6 +28,7 @@
     "worker:check": "node scripts/worker-policy-check.mjs",
     "observability:check": "node scripts/observability-policy-check.mjs",
     "auth:check": "node scripts/admin-auth-policy-check.mjs",
+    "clinical-auth:check": "node scripts/clinical-authorization-policy-check.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",
     "baseline:check": "node scripts/production-baseline-check.mjs",

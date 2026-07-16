@@ -1196,7 +1196,13 @@ export async function searchAdminPatients(search = '', cursor?: string) {
   );
 }
 export async function getAdminPatient(id: string, signal?: AbortSignal) {
-  return fetchAPI<any>(`/admin/patients/${encodeURIComponent(id)}`, { signal });
+  const patientId = encodeURIComponent(id);
+  const [summary, appointments, clinical] = await Promise.all([
+    fetchAPI<any>(`/admin/patients/${patientId}/summary`, { signal }),
+    fetchAPI<any>(`/admin/patients/${patientId}/appointments`, { signal }),
+    fetchAPI<any>(`/admin/patients/${patientId}/clinical/timeline`, { signal }),
+  ]);
+  return { ...summary, ...appointments, ...clinical };
 }
 export async function openPatientEncounter(patientId: string, data: Record<string, unknown>) {
   return fetchAPI<{ encounter: any }>(

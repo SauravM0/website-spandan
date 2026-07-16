@@ -1,17 +1,290 @@
 import crypto from 'crypto';
-import type {PoolClient} from 'pg';
-import {config} from '../config';
-import {getClient,query} from '../config/database';
-import {AppError} from '../utils/errors';
-type Actor={id:string;role:string;doctor_id:string|null};
-async function tx<T>(fn:(db:PoolClient)=>Promise<T>){const db=await getClient();try{await db.query('BEGIN');const v=await fn(db);await db.query('COMMIT');return v}catch(e){await db.query('ROLLBACK');throw e}finally{db.release()}}
-function governance(){if(!config.patientRecord.clinicalWritesEnabled||!config.observations.enabled)throw new AppError(503,'OBSERVATION_GOVERNANCE_REQUIRED','Observation authoring is unavailable until the clinical catalog and workflow are approved.');}
-async function context(db:PoolClient,patientId:string,encounterId:string|undefined,actor:Actor){if(!encounterId)return;const args:any[]=[encounterId,patientId];let scope='';if(actor.role==='doctor'){args.push(actor.doctor_id);scope=' AND doctor_id=$3'}const r=await db.query(`SELECT id FROM encounters WHERE id=$1 AND patient_id=$2 AND status='in_progress'${scope}`,args);if(!r.rows[0])throw new AppError(403,'OBSERVATION_CONTEXT_DENIED','Select an open encounter for this patient and clinician.');}
-async function catalog(db:PoolClient,code:string,version:number){const r=await db.query('SELECT * FROM observation_catalog WHERE code=$1 AND catalog_version=$2 AND active=true',[code,version]);if(!r.rows[0])throw new AppError(422,'OBSERVATION_CATALOG_INVALID','This observation definition is not active.');return r.rows[0]}
-function validate(c:any,i:any){if(c.value_kind!==i.value_kind)throw new AppError(422,'OBSERVATION_STRUCTURE_INVALID','Value structure does not match the governed catalog.');if(!c.allowed_contexts.includes(i.context))throw new AppError(422,'OBSERVATION_CONTEXT_INVALID','Context is not valid for this measure.');if(['quantity','blood_pressure'].includes(i.value_kind)&&!c.allowed_units.includes(i.unit))throw new AppError(422,'OBSERVATION_UNIT_INVALID','Unit is not allowed for this measure. Ambiguous units must not be converted.');const vals=i.value_kind==='quantity'?[i.numeric_value]:i.value_kind==='blood_pressure'?[i.systolic_value,i.diastolic_value]:[];return vals.some((v:number)=>c.plausible_min!==null&&Number(v)<Number(c.plausible_min)||c.plausible_max!==null&&Number(v)>Number(c.plausible_max))?'needs_review':'accepted'}
-function scoped(actor:Actor){return actor.role==='doctor'?{sql:' AND (o.encounter_id IS NULL OR EXISTS(SELECT 1 FROM encounters e WHERE e.id=o.encounter_id AND e.doctor_id=$2))',args:[actor.doctor_id]}:{sql:'',args:[] as any[]}}
-export async function list(patientId:string,actor:Actor,limit:number,cursor?:string){const s=scoped(actor);const r=await query(`SELECT o.*,c.display,su.full_name author_name FROM observation_versions o JOIN observation_catalog c ON c.code=o.catalog_code AND c.catalog_version=o.catalog_version JOIN staff_users su ON su.id=o.authored_by_staff_id WHERE o.patient_id=$1${s.sql} AND ($${2+s.args.length}::timestamptz IS NULL OR o.effective_at < $${2+s.args.length}) ORDER BY o.effective_at DESC,o.id DESC LIMIT $${3+s.args.length}`,[patientId,...s.args,cursor||null,limit+1]);const rows=r.rows.slice(0,limit),latest=new Set<string>();return{data:rows.map(x=>({...x,is_current:!latest.has(x.lineage_id),...(latest.add(x.lineage_id),{})})),cursor:r.rows.length>limit?rows[rows.length-1].effective_at:null,writesEnabled:config.patientRecord.clinicalWritesEnabled&&config.observations.enabled}}
-export async function getCatalog(){const r=await query('SELECT code,catalog_version,display,value_kind,allowed_units,allowed_contexts FROM observation_catalog WHERE active=true ORDER BY display');return r.rows}
-function values(i:any){return[i.numeric_value??null,i.systolic_value??null,i.diastolic_value??null,i.unit||null,i.text_summary||null,i.document_id||null]}
-export async function create(patientId:string,i:any,actor:Actor,key:string){governance();return tx(async db=>{const prior=await db.query('SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',[actor.id,key]);if(prior.rows[0])return prior.rows[0].response;const p=await db.query('SELECT id FROM patients WHERE id=$1 AND archived_at IS NULL FOR SHARE',[patientId]);if(!p.rows[0])throw new AppError(404,'PATIENT_NOT_FOUND','Patient record not found');await context(db,patientId,i.encounter_id,actor);const c=await catalog(db,i.catalog_code,i.catalog_version);const q=validate(c,i),lineage=crypto.randomUUID();const r=await db.query(`INSERT INTO observation_versions(lineage_id,version,patient_id,encounter_id,catalog_code,catalog_version,value_kind,numeric_value,systolic_value,diastolic_value,unit,text_summary,document_id,context,effective_at,issued_at,source,performer,method,specimen,device,reference_range_text,interpretation_text,interpretation_source,status,verification_status,quality_status,raw_source,provenance,authored_by_staff_id) VALUES($1,1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,'unverified',$25,$26,$27,$28) RETURNING *`,[lineage,patientId,i.encounter_id||null,i.catalog_code,i.catalog_version,i.value_kind,...values(i),i.context,i.effective_at,i.issued_at||null,i.source,i.performer||null,i.method||null,i.specimen||null,i.device||null,i.reference_range_text||null,i.interpretation_text||null,i.interpretation_source||null,i.status,q,i.raw_source,JSON.stringify(i.provenance||{}),actor.id]);await db.query(`INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'observation.recorded','observation',$2,$3)`,[actor.id,r.rows[0].id,JSON.stringify({patient_id:patientId,code:i.catalog_code,source:i.source,quality_status:q})]);await db.query(`INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'observation.create',$3)`,[actor.id,key,JSON.stringify(r.rows[0])]);return r.rows[0]})}
-export async function review(patientId:string,id:string,i:any,actor:Actor,key:string){governance();return tx(async db=>{const prior=await db.query('SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',[actor.id,key]);if(prior.rows[0])return prior.rows[0].response;await context(db,patientId,i.encounter_id,actor);if(i.confirm_patient_id!==patientId)throw new AppError(409,'PATIENT_CONFIRMATION_FAILED','Patient confirmation did not match the open record.');const old=(await db.query('SELECT * FROM observation_versions WHERE id=$1 AND patient_id=$2 FOR SHARE',[id,patientId])).rows[0];if(!old||old.version!==i.expected_version|| (await db.query('SELECT 1 FROM observation_versions WHERE supersedes_id=$1',[id])).rows[0])throw new AppError(409,'OBSERVATION_VERSION_CONFLICT','A newer version exists. Refresh before reviewing.');const merged={...old,...i};const c=await catalog(db,merged.catalog_code,merged.catalog_version),q=validate(c,merged);const r=await db.query(`INSERT INTO observation_versions(lineage_id,version,supersedes_id,patient_id,encounter_id,catalog_code,catalog_version,value_kind,numeric_value,systolic_value,diastolic_value,unit,text_summary,document_id,context,effective_at,issued_at,source,performer,method,specimen,device,reference_range_text,interpretation_text,interpretation_source,status,verification_status,quality_status,raw_source,provenance,correction_reason,authored_by_staff_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32) RETURNING *`,[old.lineage_id,old.version+1,old.id,patientId,i.encounter_id,old.catalog_code,old.catalog_version,old.value_kind,...values(merged),merged.context,merged.effective_at,merged.issued_at,old.source,merged.performer,merged.method,merged.specimen,merged.device,merged.reference_range_text,merged.interpretation_text,merged.interpretation_source,i.action==='entered_in_error'?'entered_in_error':'amended',i.action==='verify'?'verified':'unable_to_verify',q,old.raw_source,JSON.stringify({...old.provenance,reviewed_from:id}),i.reason,actor.id]);await db.query(`INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'observation.reviewed','observation',$2,$3)`,[actor.id,r.rows[0].id,JSON.stringify({patient_id:patientId,version:old.version+1,action:i.action})]);await db.query(`INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'observation.review',$3)`,[actor.id,key,JSON.stringify(r.rows[0])]);return r.rows[0]})}
+import type { PoolClient } from 'pg';
+import { config } from '../config';
+import { getClient, query } from '../config/database';
+import { AppError } from '../utils/errors';
+import { assertPatientClinicalAccess, type ClinicalActor } from '../security/clinicalAuthorization';
+type Actor = ClinicalActor;
+async function tx<T>(fn: (db: PoolClient) => Promise<T>) {
+  const db = await getClient();
+  try {
+    await db.query('BEGIN');
+    const v = await fn(db);
+    await db.query('COMMIT');
+    return v;
+  } catch (e) {
+    await db.query('ROLLBACK');
+    throw e;
+  } finally {
+    db.release();
+  }
+}
+function governance() {
+  if (!config.patientRecord.clinicalWritesEnabled || !config.observations.enabled)
+    throw new AppError(
+      503,
+      'OBSERVATION_GOVERNANCE_REQUIRED',
+      'Observation authoring is unavailable until the clinical catalog and workflow are approved.'
+    );
+}
+async function context(
+  db: PoolClient,
+  patientId: string,
+  encounterId: string | undefined,
+  actor: Actor
+) {
+  if (!encounterId) return;
+  const args: any[] = [encounterId, patientId];
+  let scope = '';
+  if (actor.role === 'doctor') {
+    args.push(actor.doctor_id);
+    scope = ' AND doctor_id=$3';
+  }
+  const r = await db.query(
+    `SELECT id FROM encounters WHERE id=$1 AND patient_id=$2 AND status='in_progress'${scope}`,
+    args
+  );
+  if (!r.rows[0])
+    throw new AppError(
+      403,
+      'OBSERVATION_CONTEXT_DENIED',
+      'Select an open encounter for this patient and clinician.'
+    );
+}
+async function catalog(db: PoolClient, code: string, version: number) {
+  const r = await db.query(
+    'SELECT * FROM observation_catalog WHERE code=$1 AND catalog_version=$2 AND active=true',
+    [code, version]
+  );
+  if (!r.rows[0])
+    throw new AppError(
+      422,
+      'OBSERVATION_CATALOG_INVALID',
+      'This observation definition is not active.'
+    );
+  return r.rows[0];
+}
+function validate(c: any, i: any) {
+  if (c.value_kind !== i.value_kind)
+    throw new AppError(
+      422,
+      'OBSERVATION_STRUCTURE_INVALID',
+      'Value structure does not match the governed catalog.'
+    );
+  if (!c.allowed_contexts.includes(i.context))
+    throw new AppError(
+      422,
+      'OBSERVATION_CONTEXT_INVALID',
+      'Context is not valid for this measure.'
+    );
+  if (['quantity', 'blood_pressure'].includes(i.value_kind) && !c.allowed_units.includes(i.unit))
+    throw new AppError(
+      422,
+      'OBSERVATION_UNIT_INVALID',
+      'Unit is not allowed for this measure. Ambiguous units must not be converted.'
+    );
+  const vals =
+    i.value_kind === 'quantity'
+      ? [i.numeric_value]
+      : i.value_kind === 'blood_pressure'
+        ? [i.systolic_value, i.diastolic_value]
+        : [];
+  return vals.some(
+    (v: number) =>
+      (c.plausible_min !== null && Number(v) < Number(c.plausible_min)) ||
+      (c.plausible_max !== null && Number(v) > Number(c.plausible_max))
+  )
+    ? 'needs_review'
+    : 'accepted';
+}
+function scoped(actor: Actor) {
+  return actor.role === 'doctor'
+    ? {
+        sql: ' AND (o.encounter_id IS NULL OR EXISTS(SELECT 1 FROM encounters e WHERE e.id=o.encounter_id AND e.doctor_id=$2))',
+        args: [actor.doctor_id],
+      }
+    : { sql: '', args: [] as any[] };
+}
+export async function list(patientId: string, actor: Actor, limit: number, cursor?: string) {
+  await assertPatientClinicalAccess({ query }, patientId, actor);
+  const s = scoped(actor);
+  const r = await query(
+    `SELECT o.*,c.display,su.full_name author_name FROM observation_versions o JOIN observation_catalog c ON c.code=o.catalog_code AND c.catalog_version=o.catalog_version JOIN staff_users su ON su.id=o.authored_by_staff_id WHERE o.patient_id=$1${s.sql} AND ($${2 + s.args.length}::timestamptz IS NULL OR o.effective_at < $${2 + s.args.length}) ORDER BY o.effective_at DESC,o.id DESC LIMIT $${3 + s.args.length}`,
+    [patientId, ...s.args, cursor || null, limit + 1]
+  );
+  const rows = r.rows.slice(0, limit),
+    latest = new Set<string>();
+  return {
+    data: rows.map((x) => ({
+      ...x,
+      is_current: !latest.has(x.lineage_id),
+      ...(latest.add(x.lineage_id), {}),
+    })),
+    cursor: r.rows.length > limit ? rows[rows.length - 1].effective_at : null,
+    writesEnabled: config.patientRecord.clinicalWritesEnabled && config.observations.enabled,
+  };
+}
+export async function getCatalog() {
+  const r = await query(
+    'SELECT code,catalog_version,display,value_kind,allowed_units,allowed_contexts FROM observation_catalog WHERE active=true ORDER BY display'
+  );
+  return r.rows;
+}
+function values(i: any) {
+  return [
+    i.numeric_value ?? null,
+    i.systolic_value ?? null,
+    i.diastolic_value ?? null,
+    i.unit || null,
+    i.text_summary || null,
+    i.document_id || null,
+  ];
+}
+export async function create(patientId: string, i: any, actor: Actor, key: string) {
+  governance();
+  return tx(async (db) => {
+    await assertPatientClinicalAccess(db, patientId, actor, 'clinical', i.encounter_id);
+    const prior = await db.query(
+      'SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',
+      [actor.id, key]
+    );
+    if (prior.rows[0]) return prior.rows[0].response;
+    const p = await db.query(
+      'SELECT id FROM patients WHERE id=$1 AND archived_at IS NULL FOR SHARE',
+      [patientId]
+    );
+    if (!p.rows[0]) throw new AppError(404, 'PATIENT_NOT_FOUND', 'Patient record not found');
+    await context(db, patientId, i.encounter_id, actor);
+    const c = await catalog(db, i.catalog_code, i.catalog_version);
+    const q = validate(c, i),
+      lineage = crypto.randomUUID();
+    const r = await db.query(
+      `INSERT INTO observation_versions(lineage_id,version,patient_id,encounter_id,catalog_code,catalog_version,value_kind,numeric_value,systolic_value,diastolic_value,unit,text_summary,document_id,context,effective_at,issued_at,source,performer,method,specimen,device,reference_range_text,interpretation_text,interpretation_source,status,verification_status,quality_status,raw_source,provenance,authored_by_staff_id) VALUES($1,1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,'unverified',$25,$26,$27,$28) RETURNING *`,
+      [
+        lineage,
+        patientId,
+        i.encounter_id || null,
+        i.catalog_code,
+        i.catalog_version,
+        i.value_kind,
+        ...values(i),
+        i.context,
+        i.effective_at,
+        i.issued_at || null,
+        i.source,
+        i.performer || null,
+        i.method || null,
+        i.specimen || null,
+        i.device || null,
+        i.reference_range_text || null,
+        i.interpretation_text || null,
+        i.interpretation_source || null,
+        i.status,
+        q,
+        i.raw_source,
+        JSON.stringify(i.provenance || {}),
+        actor.id,
+      ]
+    );
+    await db.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'observation.recorded','observation',$2,$3)`,
+      [
+        actor.id,
+        r.rows[0].id,
+        JSON.stringify({
+          patient_id: patientId,
+          code: i.catalog_code,
+          source: i.source,
+          quality_status: q,
+        }),
+      ]
+    );
+    await db.query(
+      `INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'observation.create',$3)`,
+      [actor.id, key, JSON.stringify(r.rows[0])]
+    );
+    return r.rows[0];
+  });
+}
+export async function review(patientId: string, id: string, i: any, actor: Actor, key: string) {
+  governance();
+  return tx(async (db) => {
+    await assertPatientClinicalAccess(db, patientId, actor, 'clinical', i.encounter_id);
+    const prior = await db.query(
+      'SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',
+      [actor.id, key]
+    );
+    if (prior.rows[0]) return prior.rows[0].response;
+    await context(db, patientId, i.encounter_id, actor);
+    if (i.confirm_patient_id !== patientId)
+      throw new AppError(
+        409,
+        'PATIENT_CONFIRMATION_FAILED',
+        'Patient confirmation did not match the open record.'
+      );
+    const old = (
+      await db.query('SELECT * FROM observation_versions WHERE id=$1 AND patient_id=$2 FOR SHARE', [
+        id,
+        patientId,
+      ])
+    ).rows[0];
+    if (
+      !old ||
+      old.version !== i.expected_version ||
+      (await db.query('SELECT 1 FROM observation_versions WHERE supersedes_id=$1', [id])).rows[0]
+    )
+      throw new AppError(
+        409,
+        'OBSERVATION_VERSION_CONFLICT',
+        'A newer version exists. Refresh before reviewing.'
+      );
+    const merged = { ...old, ...i };
+    const c = await catalog(db, merged.catalog_code, merged.catalog_version),
+      q = validate(c, merged);
+    const r = await db.query(
+      `INSERT INTO observation_versions(lineage_id,version,supersedes_id,patient_id,encounter_id,catalog_code,catalog_version,value_kind,numeric_value,systolic_value,diastolic_value,unit,text_summary,document_id,context,effective_at,issued_at,source,performer,method,specimen,device,reference_range_text,interpretation_text,interpretation_source,status,verification_status,quality_status,raw_source,provenance,correction_reason,authored_by_staff_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32) RETURNING *`,
+      [
+        old.lineage_id,
+        old.version + 1,
+        old.id,
+        patientId,
+        i.encounter_id,
+        old.catalog_code,
+        old.catalog_version,
+        old.value_kind,
+        ...values(merged),
+        merged.context,
+        merged.effective_at,
+        merged.issued_at,
+        old.source,
+        merged.performer,
+        merged.method,
+        merged.specimen,
+        merged.device,
+        merged.reference_range_text,
+        merged.interpretation_text,
+        merged.interpretation_source,
+        i.action === 'entered_in_error' ? 'entered_in_error' : 'amended',
+        i.action === 'verify' ? 'verified' : 'unable_to_verify',
+        q,
+        old.raw_source,
+        JSON.stringify({ ...old.provenance, reviewed_from: id }),
+        i.reason,
+        actor.id,
+      ]
+    );
+    await db.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'observation.reviewed','observation',$2,$3)`,
+      [
+        actor.id,
+        r.rows[0].id,
+        JSON.stringify({ patient_id: patientId, version: old.version + 1, action: i.action }),
+      ]
+    );
+    await db.query(
+      `INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'observation.review',$3)`,
+      [actor.id, key, JSON.stringify(r.rows[0])]
+    );
+    return r.rows[0];
+  });
+}

@@ -1,20 +1,390 @@
 import crypto from 'crypto';
-import type {PoolClient} from 'pg';
-import {config} from '../config';
-import {getClient,query} from '../config/database';
-import {AppError} from '../utils/errors';
+import type { PoolClient } from 'pg';
+import { config } from '../config';
+import { getClient, query } from '../config/database';
+import { AppError } from '../utils/errors';
+import { assertPatientClinicalAccess, type ClinicalActor } from '../security/clinicalAuthorization';
 const Date: any = globalThis.Date;
-type Actor={id:string;role:string;doctor_id:string|null};
-type Input={filename:string;content:string;unit:'mg/dL'|'mmol/L';timezone:'Asia/Kolkata';context:'fasting'|'post_meal'|'random'|'other'};
-const VERSION=1, MAX_ROWS=5000;
-const sha=(v:string)=>crypto.createHash('sha256').update(v).digest('hex');
-function enabled(){if(!config.patientRecord.clinicalWritesEnabled||!config.observations.enabled||!config.deviceIntegrations.enabled)throw new AppError(503,'DEVICE_INTEGRATION_GOVERNANCE_REQUIRED','Device imports are unavailable until the clinical and device workflow is approved.');}
-async function transaction<T>(fn:(db:PoolClient)=>Promise<T>){const db=await getClient();try{await db.query('BEGIN');const out=await fn(db);await db.query('COMMIT');return out}catch(e){await db.query('ROLLBACK');throw e}finally{db.release()}}
-function csvRows(content:string){const lines=content.replace(/^\uFEFF/,'').split(/\r?\n/).filter(x=>x.trim());if(lines.length<2)throw new AppError(422,'DEVICE_CSV_EMPTY','The CSV must contain a header and at least one reading.');if(lines.length-1>MAX_ROWS)throw new AppError(413,'DEVICE_CSV_TOO_LARGE',`Import at most ${MAX_ROWS} readings at a time.`);const parse=(line:string)=>{const out:string[]=[];let value='',quoted=false;for(let i=0;i<line.length;i++){const c=line[i];if(c==='"'&&line[i+1]==='"'&&quoted){value+='"';i++;}else if(c==='"')quoted=!quoted;else if(c===','&&!quoted){out.push(value.trim());value='';}else value+=c;}if(quoted)throw new AppError(422,'DEVICE_CSV_INVALID','The CSV contains an unterminated quoted value.');out.push(value.trim());return out};const headers=parse(lines[0]).map(x=>x.toLowerCase().replace(/\s+/g,'_'));const required=['timestamp','value'];for(const h of required)if(!headers.includes(h))throw new AppError(422,'DEVICE_CSV_HEADERS',`Required CSV columns are timestamp and value. Optional columns: source_id, unit, context, quality.`);return lines.slice(1).map((line,i)=>Object.fromEntries(headers.map((h,j)=>[h,parse(line)[j]??''])) as Record<string,string> & {_row?:number}).map((x,i)=>({...x,_row:i+2}));}
-function normalize(row:any,defaults:Input){const errors:string[]=[],flags:string[]=[];const unit=row.unit||defaults.unit;if(!['mg/dL','mmol/L'].includes(unit))errors.push('Unit must be exactly mg/dL or mmol/L.');const value=Number(row.value);if(!row.value||!Number.isFinite(value)||value<=0)errors.push('Value must be a positive number.');const timestamp=String(row.timestamp||'');if(!/(Z|[+-]\d\d:\d\d)$/.test(timestamp))errors.push('Timestamp must include an explicit UTC offset.');const date=new Date(timestamp);if(Number.isNaN(date.valueOf()))errors.push('Timestamp is invalid.');if(date>Date.now()+5*60_000)flags.push('future_timestamp');const context=row.context||defaults.context;if(!['fasting','post_meal','random','other'].includes(context))errors.push('Context must be fasting, post_meal, random, or other.');if(row.quality)flags.push(...String(row.quality).split('|').map((x:string)=>x.trim()).filter(Boolean).slice(0,10));const identity=sha(JSON.stringify({value,unit,timestamp:!Number.isNaN(date.valueOf())?date.toISOString():timestamp,context,source_id:row.source_id||null}));return{row_number:row._row,source_id:row.source_id||null,raw_payload:row,raw_checksum:identity,value,unit,effective_at:Number.isNaN(date.valueOf())?null:date.toISOString(),context,flags,errors};}
-export async function preview(patientId:string,input:Input,actor:Actor,key:string){enabled();return transaction(async db=>{const idem=await db.query('SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',[actor.id,key]);if(idem.rows[0])return idem.rows[0].response;const patient=await db.query('SELECT id FROM patients WHERE id=$1 AND archived_at IS NULL FOR SHARE',[patientId]);if(!patient.rows[0])throw new AppError(404,'PATIENT_NOT_FOUND','Patient record not found.');const rows=csvRows(input.content).map(r=>normalize(r,input)),checksum=sha(input.content);const existing=await db.query('SELECT id,status FROM device_imports WHERE patient_id=$1 AND connector=$2 AND checksum_sha256=$3',[patientId,'generic_csv',checksum]);if(existing.rows[0])throw new AppError(409,'DEVICE_IMPORT_ALREADY_EXISTS',`This exact file was already imported (${existing.rows[0].status}).`);for(const row of rows)if(!row.errors.length){const dup=await db.query('SELECT 1 FROM device_raw_events WHERE patient_id=$1 AND ((source_id IS NOT NULL AND source_id=$2) OR (source_id IS NULL AND $2::text IS NULL AND raw_checksum_sha256=$3)) AND validation_status=$4 LIMIT 1',[patientId,row.source_id,row.raw_checksum,'accepted']);if(dup.rows[0])row.errors.push('Duplicate of an accepted reading already stored.');}
- const summary={total:rows.length,accepted:rows.filter(x=>!x.errors.length).length,rejected:rows.filter(x=>x.errors.length&&!x.errors[0].startsWith('Duplicate')).length,duplicates:rows.filter(x=>x.errors[0]?.startsWith('Duplicate')).length};const created=await db.query(`INSERT INTO device_imports(patient_id,original_filename,media_type,checksum_sha256,status,timezone,default_unit,total_rows,accepted_rows,rejected_rows,duplicate_rows,error_summary,created_by_staff_id) VALUES($1,$2,'text/csv',$3,'previewed',$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,created_at`,[patientId,input.filename,checksum,input.timezone,input.unit,summary.total,summary.accepted,summary.rejected,summary.duplicates,JSON.stringify(rows.filter(x=>x.errors.length).slice(0,100).map(x=>({row:x.row_number,errors:x.errors}))),actor.id]);const response={import:{...created.rows[0],filename:input.filename,status:'previewed',summary,transformation_version:VERSION},rows:rows.slice(0,200).map(x=>({row_number:x.row_number,source_id:x.source_id,value:x.value,unit:x.unit,effective_at:x.effective_at,context:x.context,quality_flags:x.flags,errors:x.errors}))};await db.query(`INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'device_import.previewed','device_import',$2,$3)`,[actor.id,created.rows[0].id,JSON.stringify({patient_id:patientId,connector:'generic_csv',...summary})]);await db.query(`INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'device_import.preview',$3)`,[actor.id,key,JSON.stringify(response)]);return response;});}
-export async function commit(patientId:string,importId:string,input:Input,actor:Actor,key:string){enabled();return transaction(async db=>{const prior=await db.query('SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',[actor.id,key]);if(prior.rows[0])return prior.rows[0].response;const imp=(await db.query(`SELECT * FROM device_imports WHERE id=$1 AND patient_id=$2 FOR UPDATE`,[importId,patientId])).rows[0];if(!imp)throw new AppError(404,'DEVICE_IMPORT_NOT_FOUND','Import preview not found.');if(imp.status!=='previewed')throw new AppError(409,'DEVICE_IMPORT_STATE_CONFLICT','Refresh: this preview is no longer available to confirm.');if(sha(input.content)!==imp.checksum_sha256)throw new AppError(409,'DEVICE_IMPORT_CHANGED','The file changed after preview. Preview it again.');const rows=csvRows(input.content).map(r=>normalize(r,input));await db.query(`UPDATE device_imports SET status='processing',confirmed_at=NOW() WHERE id=$1`,[importId]);let accepted=0,rejected=0,duplicates=0;for(const row of rows){let status=row.errors.length?'rejected':'accepted',observationId=null;if(!row.errors.length){const dup=await db.query('SELECT 1 FROM device_raw_events WHERE patient_id=$1 AND ((source_id IS NOT NULL AND source_id=$2) OR (source_id IS NULL AND $2::text IS NULL AND raw_checksum_sha256=$3)) AND validation_status=$4 LIMIT 1',[patientId,row.source_id,row.raw_checksum,'accepted']);if(dup.rows[0]){status='duplicate';row.errors.push('Duplicate of an accepted reading already stored.');}else{const obs=await db.query(`INSERT INTO observation_versions(lineage_id,version,patient_id,catalog_code,catalog_version,value_kind,numeric_value,unit,context,effective_at,effective_timezone,source,status,verification_status,quality_status,raw_source,provenance,authored_by_staff_id) VALUES($1,1,$2,'blood_glucose',1,'quantity',$3,$4,$5,$6,'Asia/Kolkata','device','final','unverified',$7,$8,$9,$10) RETURNING id`,[crypto.randomUUID(),patientId,row.value,row.unit,row.context,row.effective_at,row.flags.length?'needs_review':'accepted',`CSV row ${row.row_number}`,JSON.stringify({device_import_id:importId,source_id:row.source_id,transformation_version:VERSION,source_timezone:input.timezone,quality_flags:row.flags}),actor.id]);observationId=obs.rows[0].id;}}
- await db.query(`INSERT INTO device_raw_events(import_id,patient_id,row_number,source_id,raw_payload,raw_checksum_sha256,parsed_value,parsed_unit,parsed_effective_at,source_timezone,context,quality_flags,validation_status,validation_errors,transformation_version,observation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,[importId,patientId,row.row_number,row.source_id,JSON.stringify(row.raw_payload),row.raw_checksum,row.value||null,row.unit||null,row.effective_at,input.timezone,row.context||null,row.flags,status,JSON.stringify(row.errors),VERSION,observationId]);if(status==='accepted')accepted++;else if(status==='duplicate')duplicates++;else rejected++;}
- const finalStatus=rejected||duplicates?'completed_with_errors':'completed';await db.query(`UPDATE device_imports SET status=$2,accepted_rows=$3,rejected_rows=$4,duplicate_rows=$5,completed_at=NOW() WHERE id=$1`,[importId,finalStatus,accepted,rejected,duplicates]);const response={import_id:importId,status:finalStatus,summary:{total:rows.length,accepted,rejected,duplicates}};await db.query(`INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'device_import.completed','device_import',$2,$3)`,[actor.id,importId,JSON.stringify({patient_id:patientId,...response.summary})]);await db.query(`INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'device_import.commit',$3)`,[actor.id,key,JSON.stringify(response)]);return response;});}
-export async function list(patientId:string,actor:Actor,limit:number){const args:any[]=[patientId,limit];let scope='';if(actor.role==='doctor'){args.push(actor.doctor_id);scope=` AND EXISTS(SELECT 1 FROM encounters e WHERE e.patient_id=i.patient_id AND e.doctor_id=$3)`;}const r=await query(`SELECT id,connector,original_filename,status,timezone,default_unit,transformation_version,total_rows,accepted_rows,rejected_rows,duplicate_rows,error_summary,confirmed_at,completed_at,created_at FROM device_imports i WHERE patient_id=$1${scope} ORDER BY created_at DESC LIMIT $2`,args);return{data:r.rows,writesEnabled:config.patientRecord.clinicalWritesEnabled&&config.observations.enabled&&config.deviceIntegrations.enabled};}
+type Actor = ClinicalActor;
+type Input = {
+  filename: string;
+  content: string;
+  unit: 'mg/dL' | 'mmol/L';
+  timezone: 'Asia/Kolkata';
+  context: 'fasting' | 'post_meal' | 'random' | 'other';
+};
+const VERSION = 1,
+  MAX_ROWS = 5000;
+const sha = (v: string) => crypto.createHash('sha256').update(v).digest('hex');
+function enabled() {
+  if (
+    !config.patientRecord.clinicalWritesEnabled ||
+    !config.observations.enabled ||
+    !config.deviceIntegrations.enabled
+  )
+    throw new AppError(
+      503,
+      'DEVICE_INTEGRATION_GOVERNANCE_REQUIRED',
+      'Device imports are unavailable until the clinical and device workflow is approved.'
+    );
+}
+async function transaction<T>(fn: (db: PoolClient) => Promise<T>) {
+  const db = await getClient();
+  try {
+    await db.query('BEGIN');
+    const out = await fn(db);
+    await db.query('COMMIT');
+    return out;
+  } catch (e) {
+    await db.query('ROLLBACK');
+    throw e;
+  } finally {
+    db.release();
+  }
+}
+function csvRows(content: string) {
+  const lines = content
+    .replace(/^\uFEFF/, '')
+    .split(/\r?\n/)
+    .filter((x) => x.trim());
+  if (lines.length < 2)
+    throw new AppError(
+      422,
+      'DEVICE_CSV_EMPTY',
+      'The CSV must contain a header and at least one reading.'
+    );
+  if (lines.length - 1 > MAX_ROWS)
+    throw new AppError(
+      413,
+      'DEVICE_CSV_TOO_LARGE',
+      `Import at most ${MAX_ROWS} readings at a time.`
+    );
+  const parse = (line: string) => {
+    const out: string[] = [];
+    let value = '',
+      quoted = false;
+    for (let i = 0; i < line.length; i++) {
+      const c = line[i];
+      if (c === '"' && line[i + 1] === '"' && quoted) {
+        value += '"';
+        i++;
+      } else if (c === '"') quoted = !quoted;
+      else if (c === ',' && !quoted) {
+        out.push(value.trim());
+        value = '';
+      } else value += c;
+    }
+    if (quoted)
+      throw new AppError(
+        422,
+        'DEVICE_CSV_INVALID',
+        'The CSV contains an unterminated quoted value.'
+      );
+    out.push(value.trim());
+    return out;
+  };
+  const headers = parse(lines[0]).map((x) => x.toLowerCase().replace(/\s+/g, '_'));
+  const required = ['timestamp', 'value'];
+  for (const h of required)
+    if (!headers.includes(h))
+      throw new AppError(
+        422,
+        'DEVICE_CSV_HEADERS',
+        `Required CSV columns are timestamp and value. Optional columns: source_id, unit, context, quality.`
+      );
+  return lines
+    .slice(1)
+    .map(
+      (line, i) =>
+        Object.fromEntries(headers.map((h, j) => [h, parse(line)[j] ?? ''])) as Record<
+          string,
+          string
+        > & { _row?: number }
+    )
+    .map((x, i) => ({ ...x, _row: i + 2 }));
+}
+function normalize(row: any, defaults: Input) {
+  const errors: string[] = [],
+    flags: string[] = [];
+  const unit = row.unit || defaults.unit;
+  if (!['mg/dL', 'mmol/L'].includes(unit)) errors.push('Unit must be exactly mg/dL or mmol/L.');
+  const value = Number(row.value);
+  if (!row.value || !Number.isFinite(value) || value <= 0)
+    errors.push('Value must be a positive number.');
+  const timestamp = String(row.timestamp || '');
+  if (!/(Z|[+-]\d\d:\d\d)$/.test(timestamp))
+    errors.push('Timestamp must include an explicit UTC offset.');
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.valueOf())) errors.push('Timestamp is invalid.');
+  if (date > Date.now() + 5 * 60_000) flags.push('future_timestamp');
+  const context = row.context || defaults.context;
+  if (!['fasting', 'post_meal', 'random', 'other'].includes(context))
+    errors.push('Context must be fasting, post_meal, random, or other.');
+  if (row.quality)
+    flags.push(
+      ...String(row.quality)
+        .split('|')
+        .map((x: string) => x.trim())
+        .filter(Boolean)
+        .slice(0, 10)
+    );
+  const identity = sha(
+    JSON.stringify({
+      value,
+      unit,
+      timestamp: !Number.isNaN(date.valueOf()) ? date.toISOString() : timestamp,
+      context,
+      source_id: row.source_id || null,
+    })
+  );
+  return {
+    row_number: row._row,
+    source_id: row.source_id || null,
+    raw_payload: row,
+    raw_checksum: identity,
+    value,
+    unit,
+    effective_at: Number.isNaN(date.valueOf()) ? null : date.toISOString(),
+    context,
+    flags,
+    errors,
+  };
+}
+export async function preview(patientId: string, input: Input, actor: Actor, key: string) {
+  enabled();
+  return transaction(async (db) => {
+    await assertPatientClinicalAccess(db, patientId, actor);
+    const idem = await db.query(
+      'SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',
+      [actor.id, key]
+    );
+    if (idem.rows[0]) return idem.rows[0].response;
+    const patient = await db.query(
+      'SELECT id FROM patients WHERE id=$1 AND archived_at IS NULL FOR SHARE',
+      [patientId]
+    );
+    if (!patient.rows[0]) throw new AppError(404, 'PATIENT_NOT_FOUND', 'Patient record not found.');
+    const rows = csvRows(input.content).map((r) => normalize(r, input)),
+      checksum = sha(input.content);
+    const existing = await db.query(
+      'SELECT id,status FROM device_imports WHERE patient_id=$1 AND connector=$2 AND checksum_sha256=$3',
+      [patientId, 'generic_csv', checksum]
+    );
+    if (existing.rows[0])
+      throw new AppError(
+        409,
+        'DEVICE_IMPORT_ALREADY_EXISTS',
+        `This exact file was already imported (${existing.rows[0].status}).`
+      );
+    for (const row of rows)
+      if (!row.errors.length) {
+        const dup = await db.query(
+          'SELECT 1 FROM device_raw_events WHERE patient_id=$1 AND ((source_id IS NOT NULL AND source_id=$2) OR (source_id IS NULL AND $2::text IS NULL AND raw_checksum_sha256=$3)) AND validation_status=$4 LIMIT 1',
+          [patientId, row.source_id, row.raw_checksum, 'accepted']
+        );
+        if (dup.rows[0]) row.errors.push('Duplicate of an accepted reading already stored.');
+      }
+    const summary = {
+      total: rows.length,
+      accepted: rows.filter((x) => !x.errors.length).length,
+      rejected: rows.filter((x) => x.errors.length && !x.errors[0].startsWith('Duplicate')).length,
+      duplicates: rows.filter((x) => x.errors[0]?.startsWith('Duplicate')).length,
+    };
+    const created = await db.query(
+      `INSERT INTO device_imports(patient_id,original_filename,media_type,checksum_sha256,status,timezone,default_unit,total_rows,accepted_rows,rejected_rows,duplicate_rows,error_summary,created_by_staff_id) VALUES($1,$2,'text/csv',$3,'previewed',$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id,created_at`,
+      [
+        patientId,
+        input.filename,
+        checksum,
+        input.timezone,
+        input.unit,
+        summary.total,
+        summary.accepted,
+        summary.rejected,
+        summary.duplicates,
+        JSON.stringify(
+          rows
+            .filter((x) => x.errors.length)
+            .slice(0, 100)
+            .map((x) => ({ row: x.row_number, errors: x.errors }))
+        ),
+        actor.id,
+      ]
+    );
+    const response = {
+      import: {
+        ...created.rows[0],
+        filename: input.filename,
+        status: 'previewed',
+        summary,
+        transformation_version: VERSION,
+      },
+      rows: rows.slice(0, 200).map((x) => ({
+        row_number: x.row_number,
+        source_id: x.source_id,
+        value: x.value,
+        unit: x.unit,
+        effective_at: x.effective_at,
+        context: x.context,
+        quality_flags: x.flags,
+        errors: x.errors,
+      })),
+    };
+    await db.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'device_import.previewed','device_import',$2,$3)`,
+      [
+        actor.id,
+        created.rows[0].id,
+        JSON.stringify({ patient_id: patientId, connector: 'generic_csv', ...summary }),
+      ]
+    );
+    await db.query(
+      `INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'device_import.preview',$3)`,
+      [actor.id, key, JSON.stringify(response)]
+    );
+    return response;
+  });
+}
+export async function commit(
+  patientId: string,
+  importId: string,
+  input: Input,
+  actor: Actor,
+  key: string
+) {
+  enabled();
+  return transaction(async (db) => {
+    await assertPatientClinicalAccess(db, patientId, actor);
+    const prior = await db.query(
+      'SELECT response FROM patient_record_idempotency WHERE actor_staff_id=$1 AND key=$2',
+      [actor.id, key]
+    );
+    if (prior.rows[0]) return prior.rows[0].response;
+    const imp = (
+      await db.query(`SELECT * FROM device_imports WHERE id=$1 AND patient_id=$2 FOR UPDATE`, [
+        importId,
+        patientId,
+      ])
+    ).rows[0];
+    if (!imp) throw new AppError(404, 'DEVICE_IMPORT_NOT_FOUND', 'Import preview not found.');
+    if (imp.status !== 'previewed')
+      throw new AppError(
+        409,
+        'DEVICE_IMPORT_STATE_CONFLICT',
+        'Refresh: this preview is no longer available to confirm.'
+      );
+    if (sha(input.content) !== imp.checksum_sha256)
+      throw new AppError(
+        409,
+        'DEVICE_IMPORT_CHANGED',
+        'The file changed after preview. Preview it again.'
+      );
+    const rows = csvRows(input.content).map((r) => normalize(r, input));
+    await db.query(`UPDATE device_imports SET status='processing',confirmed_at=NOW() WHERE id=$1`, [
+      importId,
+    ]);
+    let accepted = 0,
+      rejected = 0,
+      duplicates = 0;
+    for (const row of rows) {
+      let status = row.errors.length ? 'rejected' : 'accepted',
+        observationId = null;
+      if (!row.errors.length) {
+        const dup = await db.query(
+          'SELECT 1 FROM device_raw_events WHERE patient_id=$1 AND ((source_id IS NOT NULL AND source_id=$2) OR (source_id IS NULL AND $2::text IS NULL AND raw_checksum_sha256=$3)) AND validation_status=$4 LIMIT 1',
+          [patientId, row.source_id, row.raw_checksum, 'accepted']
+        );
+        if (dup.rows[0]) {
+          status = 'duplicate';
+          row.errors.push('Duplicate of an accepted reading already stored.');
+        } else {
+          const obs = await db.query(
+            `INSERT INTO observation_versions(lineage_id,version,patient_id,catalog_code,catalog_version,value_kind,numeric_value,unit,context,effective_at,effective_timezone,source,status,verification_status,quality_status,raw_source,provenance,authored_by_staff_id) VALUES($1,1,$2,'blood_glucose',1,'quantity',$3,$4,$5,$6,'Asia/Kolkata','device','final','unverified',$7,$8,$9,$10) RETURNING id`,
+            [
+              crypto.randomUUID(),
+              patientId,
+              row.value,
+              row.unit,
+              row.context,
+              row.effective_at,
+              row.flags.length ? 'needs_review' : 'accepted',
+              `CSV row ${row.row_number}`,
+              JSON.stringify({
+                device_import_id: importId,
+                source_id: row.source_id,
+                transformation_version: VERSION,
+                source_timezone: input.timezone,
+                quality_flags: row.flags,
+              }),
+              actor.id,
+            ]
+          );
+          observationId = obs.rows[0].id;
+        }
+      }
+      await db.query(
+        `INSERT INTO device_raw_events(import_id,patient_id,row_number,source_id,raw_payload,raw_checksum_sha256,parsed_value,parsed_unit,parsed_effective_at,source_timezone,context,quality_flags,validation_status,validation_errors,transformation_version,observation_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)`,
+        [
+          importId,
+          patientId,
+          row.row_number,
+          row.source_id,
+          JSON.stringify(row.raw_payload),
+          row.raw_checksum,
+          row.value || null,
+          row.unit || null,
+          row.effective_at,
+          input.timezone,
+          row.context || null,
+          row.flags,
+          status,
+          JSON.stringify(row.errors),
+          VERSION,
+          observationId,
+        ]
+      );
+      if (status === 'accepted') accepted++;
+      else if (status === 'duplicate') duplicates++;
+      else rejected++;
+    }
+    const finalStatus = rejected || duplicates ? 'completed_with_errors' : 'completed';
+    await db.query(
+      `UPDATE device_imports SET status=$2,accepted_rows=$3,rejected_rows=$4,duplicate_rows=$5,completed_at=NOW() WHERE id=$1`,
+      [importId, finalStatus, accepted, rejected, duplicates]
+    );
+    const response = {
+      import_id: importId,
+      status: finalStatus,
+      summary: { total: rows.length, accepted, rejected, duplicates },
+    };
+    await db.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata) VALUES($1,'device_import.completed','device_import',$2,$3)`,
+      [actor.id, importId, JSON.stringify({ patient_id: patientId, ...response.summary })]
+    );
+    await db.query(
+      `INSERT INTO patient_record_idempotency(actor_staff_id,key,operation,response) VALUES($1,$2,'device_import.commit',$3)`,
+      [actor.id, key, JSON.stringify(response)]
+    );
+    return response;
+  });
+}
+export async function list(patientId: string, actor: Actor, limit: number) {
+  await assertPatientClinicalAccess({ query }, patientId, actor);
+  const args: any[] = [patientId, limit];
+  let scope = '';
+  if (actor.role === 'doctor') {
+    args.push(actor.doctor_id);
+    scope = ` AND EXISTS(SELECT 1 FROM encounters e WHERE e.patient_id=i.patient_id AND e.doctor_id=$3)`;
+  }
+  const r = await query(
+    `SELECT id,connector,original_filename,status,timezone,default_unit,transformation_version,total_rows,accepted_rows,rejected_rows,duplicate_rows,error_summary,confirmed_at,completed_at,created_at FROM device_imports i WHERE patient_id=$1${scope} ORDER BY created_at DESC LIMIT $2`,
+    args
+  );
+  return {
+    data: r.rows,
+    writesEnabled:
+      config.patientRecord.clinicalWritesEnabled &&
+      config.observations.enabled &&
+      config.deviceIntegrations.enabled,
+  };
+}

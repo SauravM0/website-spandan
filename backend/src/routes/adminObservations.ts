@@ -1,12 +1,164 @@
-import {Router} from 'express';import {z} from 'zod';import {authenticate} from '../middleware/auth';import {requirePermission} from '../middleware/authorize';import {validateZod} from '../middleware/validate';import {asyncHandler} from '../middleware/asyncHandler';import {PERMISSIONS} from '../security/permissions';import {AppError} from '../utils/errors';import * as observations from '../services/observations';
-const router=Router();router.use(authenticate);const patient=z.object({patientId:z.string().uuid()}),item=patient.extend({id:z.string().uuid()});
-const provenance=z.record(z.union([z.string().max(500),z.number(),z.boolean(),z.null()])).default({});
-const values={numeric_value:z.number().finite().optional(),systolic_value:z.number().positive().optional(),diastolic_value:z.number().positive().optional(),unit:z.string().trim().min(1).max(30).optional(),text_summary:z.string().trim().min(1).max(4000).optional(),document_id:z.string().uuid().optional()};
-const base=z.object({catalog_code:z.string().max(60),catalog_version:z.number().int().positive(),value_kind:z.enum(['quantity','blood_pressure','document_reference','summary']),...values,encounter_id:z.string().uuid().optional(),context:z.string().max(40),effective_at:z.string().datetime({offset:true}),issued_at:z.string().datetime({offset:true}).optional(),source:z.enum(['patient','guardian','clinician','lab','device','document','import']),performer:z.string().max(500).optional(),method:z.string().max(500).optional(),specimen:z.string().max(500).optional(),device:z.string().max(500).optional(),reference_range_text:z.string().max(500).optional(),interpretation_text:z.string().max(1000).optional(),interpretation_source:z.string().max(500).optional(),status:z.enum(['preliminary','final']),raw_source:z.string().trim().min(1).max(4000),provenance}).superRefine((v,c)=>{const count=[v.numeric_value!==undefined,v.systolic_value!==undefined||v.diastolic_value!==undefined,v.text_summary!==undefined,v.document_id!==undefined].filter(Boolean).length;if(count!==1)c.addIssue({code:z.ZodIssueCode.custom,path:['value_kind'],message:'Provide exactly one value structure.'});if(v.value_kind==='quantity'&&(v.numeric_value===undefined||!v.unit))c.addIssue({code:z.ZodIssueCode.custom,path:['numeric_value'],message:'Quantity value and unit are required together.'});if(v.value_kind==='blood_pressure'&&(v.systolic_value===undefined||v.diastolic_value===undefined||!v.unit))c.addIssue({code:z.ZodIssueCode.custom,path:['systolic_value'],message:'Systolic, diastolic, and unit are required together.'});if(v.value_kind==='summary'&&!v.text_summary)c.addIssue({code:z.ZodIssueCode.custom,path:['text_summary'],message:'Summary text is required.'});if(v.value_kind==='document_reference'&&!v.document_id)c.addIssue({code:z.ZodIssueCode.custom,path:['document_id'],message:'A reviewed document reference is required.'});});
-const review=z.object({encounter_id:z.string().uuid(),expected_version:z.number().int().positive(),confirm_patient_id:z.string().uuid(),action:z.enum(['verify','unable_to_verify','correct','entered_in_error']),reason:z.string().trim().min(5).max(1000),...values,context:z.string().max(40).optional(),effective_at:z.string().datetime({offset:true}).optional(),issued_at:z.string().datetime({offset:true}).optional(),performer:z.string().max(500).optional(),method:z.string().max(500).optional(),specimen:z.string().max(500).optional(),device:z.string().max(500).optional(),reference_range_text:z.string().max(500).optional(),interpretation_text:z.string().max(1000).optional(),interpretation_source:z.string().max(500).optional()});
-const actor=(r:any)=>({id:r.user.id,role:r.user.role,doctor_id:r.user.doctor_id});const key=(r:any)=>{const k=r.header('Idempotency-Key');if(!k||k.length>100)throw new AppError(400,'IDEMPOTENCY_KEY_REQUIRED','A valid Idempotency-Key header is required');return k};
-router.get('/catalog',requirePermission(PERMISSIONS.CLINICAL_READ),asyncHandler(async(_r,s)=>s.json({catalog:await observations.getCatalog()})));
-router.get('/:patientId',requirePermission(PERMISSIONS.CLINICAL_READ),validateZod({params:patient,query:z.object({page_size:z.coerce.number().int().min(1).max(200).default(100),cursor:z.string().datetime({offset:true}).optional()})}),asyncHandler(async(r:any,s)=>s.json(await observations.list(r.params.patientId,actor(r),r.query.page_size,r.query.cursor))));
-router.post('/:patientId',requirePermission(PERMISSIONS.OBSERVATION_REPORT),validateZod({params:patient,body:base}),asyncHandler(async(r:any,s)=>s.status(201).json({observation:await observations.create(r.params.patientId,r.body,actor(r),key(r))})));
-router.post('/:patientId/:id/review',requirePermission(PERMISSIONS.OBSERVATION_VERIFY),validateZod({params:item,body:review}),asyncHandler(async(r:any,s)=>s.status(201).json({observation:await observations.review(r.params.patientId,r.params.id,r.body,actor(r),key(r))})));
+import { Router } from 'express';
+import { z } from 'zod';
+import { authenticate } from '../middleware/auth';
+import { requirePermission } from '../middleware/authorize';
+import { validateZod } from '../middleware/validate';
+import { asyncHandler } from '../middleware/asyncHandler';
+import { PERMISSIONS } from '../security/permissions';
+import { AppError } from '../utils/errors';
+import { auditSensitiveAccess } from '../middleware/sensitiveAccessAudit';
+import * as observations from '../services/observations';
+const router = Router();
+router.use(authenticate);
+router.use(auditSensitiveAccess('patient.observation.access', 'patient'));
+const patient = z.object({ patientId: z.string().uuid() }),
+  item = patient.extend({ id: z.string().uuid() });
+const provenance = z
+  .record(z.union([z.string().max(500), z.number(), z.boolean(), z.null()]))
+  .default({});
+const values = {
+  numeric_value: z.number().finite().optional(),
+  systolic_value: z.number().positive().optional(),
+  diastolic_value: z.number().positive().optional(),
+  unit: z.string().trim().min(1).max(30).optional(),
+  text_summary: z.string().trim().min(1).max(4000).optional(),
+  document_id: z.string().uuid().optional(),
+};
+const base = z
+  .object({
+    catalog_code: z.string().max(60),
+    catalog_version: z.number().int().positive(),
+    value_kind: z.enum(['quantity', 'blood_pressure', 'document_reference', 'summary']),
+    ...values,
+    encounter_id: z.string().uuid().optional(),
+    context: z.string().max(40),
+    effective_at: z.string().datetime({ offset: true }),
+    issued_at: z.string().datetime({ offset: true }).optional(),
+    source: z.enum(['patient', 'guardian', 'clinician', 'lab', 'device', 'document', 'import']),
+    performer: z.string().max(500).optional(),
+    method: z.string().max(500).optional(),
+    specimen: z.string().max(500).optional(),
+    device: z.string().max(500).optional(),
+    reference_range_text: z.string().max(500).optional(),
+    interpretation_text: z.string().max(1000).optional(),
+    interpretation_source: z.string().max(500).optional(),
+    status: z.enum(['preliminary', 'final']),
+    raw_source: z.string().trim().min(1).max(4000),
+    provenance,
+  })
+  .superRefine((v, c) => {
+    const count = [
+      v.numeric_value !== undefined,
+      v.systolic_value !== undefined || v.diastolic_value !== undefined,
+      v.text_summary !== undefined,
+      v.document_id !== undefined,
+    ].filter(Boolean).length;
+    if (count !== 1)
+      c.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['value_kind'],
+        message: 'Provide exactly one value structure.',
+      });
+    if (v.value_kind === 'quantity' && (v.numeric_value === undefined || !v.unit))
+      c.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['numeric_value'],
+        message: 'Quantity value and unit are required together.',
+      });
+    if (
+      v.value_kind === 'blood_pressure' &&
+      (v.systolic_value === undefined || v.diastolic_value === undefined || !v.unit)
+    )
+      c.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['systolic_value'],
+        message: 'Systolic, diastolic, and unit are required together.',
+      });
+    if (v.value_kind === 'summary' && !v.text_summary)
+      c.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['text_summary'],
+        message: 'Summary text is required.',
+      });
+    if (v.value_kind === 'document_reference' && !v.document_id)
+      c.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['document_id'],
+        message: 'A reviewed document reference is required.',
+      });
+  });
+const review = z.object({
+  encounter_id: z.string().uuid(),
+  expected_version: z.number().int().positive(),
+  confirm_patient_id: z.string().uuid(),
+  action: z.enum(['verify', 'unable_to_verify', 'correct', 'entered_in_error']),
+  reason: z.string().trim().min(5).max(1000),
+  ...values,
+  context: z.string().max(40).optional(),
+  effective_at: z.string().datetime({ offset: true }).optional(),
+  issued_at: z.string().datetime({ offset: true }).optional(),
+  performer: z.string().max(500).optional(),
+  method: z.string().max(500).optional(),
+  specimen: z.string().max(500).optional(),
+  device: z.string().max(500).optional(),
+  reference_range_text: z.string().max(500).optional(),
+  interpretation_text: z.string().max(1000).optional(),
+  interpretation_source: z.string().max(500).optional(),
+});
+const actor = (r: any) => ({ id: r.user.id, role: r.user.role, doctor_id: r.user.doctor_id });
+const key = (r: any) => {
+  const k = r.header('Idempotency-Key');
+  if (!k || k.length > 100)
+    throw new AppError(
+      400,
+      'IDEMPOTENCY_KEY_REQUIRED',
+      'A valid Idempotency-Key header is required'
+    );
+  return k;
+};
+router.get(
+  '/catalog',
+  requirePermission(PERMISSIONS.CLINICAL_READ),
+  asyncHandler(async (_r, s) => s.json({ catalog: await observations.getCatalog() }))
+);
+router.get(
+  '/:patientId',
+  requirePermission(PERMISSIONS.CLINICAL_READ),
+  validateZod({
+    params: patient,
+    query: z.object({
+      page_size: z.coerce.number().int().min(1).max(200).default(100),
+      cursor: z.string().datetime({ offset: true }).optional(),
+    }),
+  }),
+  asyncHandler(async (r: any, s) =>
+    s.json(await observations.list(r.params.patientId, actor(r), r.query.page_size, r.query.cursor))
+  )
+);
+router.post(
+  '/:patientId',
+  requirePermission(PERMISSIONS.OBSERVATION_REPORT),
+  validateZod({ params: patient, body: base }),
+  asyncHandler(async (r: any, s) =>
+    s.status(201).json({
+      observation: await observations.create(r.params.patientId, r.body, actor(r), key(r)),
+    })
+  )
+);
+router.post(
+  '/:patientId/:id/review',
+  requirePermission(PERMISSIONS.OBSERVATION_VERIFY),
+  validateZod({ params: item, body: review }),
+  asyncHandler(async (r: any, s) =>
+    s.status(201).json({
+      observation: await observations.review(
+        r.params.patientId,
+        r.params.id,
+        r.body,
+        actor(r),
+        key(r)
+      ),
+    })
+  )
+);
 export default router;

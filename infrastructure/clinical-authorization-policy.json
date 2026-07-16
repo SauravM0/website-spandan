@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP15",
+  "deploymentModel": "sole-administrator",
+  "interfaces": {
+    "summary": "GET /api/admin/patients/:id/summary",
+    "appointments": "GET /api/admin/patients/:id/appointments",
+    "clinical": "GET /api/admin/patients/:id/clinical/timeline",
+    "documentMetadata": "GET /api/admin/patients/:id/documents",
+    "documentContent": "GET /api/admin/patients/:id/documents/:documentId/content"
+  },
+  "separation": [
+    "demographic",
+    "operational",
+    "billing",
+    "clinical",
+    "document-metadata",
+    "document-content"
+  ],
+  "restrictedAccess": {
+    "implicitRoles": ["admin", "system_admin"],
+    "grantLevels": ["clinical", "document_content"],
+    "grantsExpire": true,
+    "grantsAreImmutableEvidence": true
+  },
+  "doctorScope": "encounter-doctor",
+  "auditOutcomes": ["success", "denied"],
+  "clinicalWritesDefault": false
+}

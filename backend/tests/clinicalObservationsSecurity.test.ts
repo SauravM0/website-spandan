@@ -1,7 +1,50 @@
-import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';import {join} from 'node:path';import test from 'node:test';import {PERMISSIONS,roleHasPermission} from '../src/security/permissions';
-const migration=readFileSync(join(process.cwd(),'migrations/023_clinical_observations.sql'),'utf8');const routes=readFileSync(join(process.cwd(),'src/routes/adminObservations.ts'),'utf8');const service=readFileSync(join(process.cwd(),'src/services/observations.ts'),'utf8');const ui=readFileSync(join(process.cwd(),'../frontend/src/components/admin/ObservationManager.tsx'),'utf8');
-test('observation reporting and clinical verification have separate least-privilege capabilities',()=>{assert.equal(roleHasPermission('staff',PERMISSIONS.OBSERVATION_REPORT),true);assert.equal(roleHasPermission('staff',PERMISSIONS.OBSERVATION_VERIFY),false);assert.equal(roleHasPermission('reception',PERMISSIONS.OBSERVATION_REPORT),false);assert.equal(roleHasPermission('doctor',PERMISSIONS.OBSERVATION_VERIFY),true)});
-test('observation storage is append-only, attributable, constrained, and indexed',()=>{assert.match(migration,/Clinical observations are immutable/);assert.match(migration,/UNIQUE\(lineage_id,version\)/);assert.match(migration,/idx_observation_patient_series/);assert.match(migration,/effective_timezone = 'Asia\/Kolkata'/);assert.match(migration,/document_id UUID REFERENCES document_references/);assert.match(migration,/value_kind='blood_pressure'/)});
-test('writes enforce governance, authentication, authorization, idempotency, scope and concurrency',()=>{assert.match(routes,/router\.use\(authenticate\)/);assert.match(routes,/OBSERVATION_VERIFY/);assert.match(routes,/Idempotency-Key/);assert.match(service,/OBSERVATION_GOVERNANCE_REQUIRED/);assert.match(service,/status='in_progress'/);assert.match(service,/confirm_patient_id!==patientId/);assert.match(service,/OBSERVATION_VERSION_CONFLICT/)});
-test('units are never silently converted and alerts are intentionally absent',()=>{assert.match(service,/Ambiguous units must not be converted/);assert.doesNotMatch(service,/critical|diagnos|treatment recommendation/i);assert.doesNotMatch(migration,/CREATE TABLE IF NOT EXISTS observation_alert/i)});
-test('UI exposes required provenance and groups trends by code, exact unit, and context',()=>{for(const word of ['Source','Context','Verification','Status','Measured'])assert.match(ui,new RegExp(word));assert.match(ui,/catalog_code\}\|\$\{x\.unit\}\|\$\{x\.context/);assert.match(ui,/Not clinician verified/);assert.match(ui,/timeZone:'Asia\/Kolkata'/)});
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+import test from 'node:test';
+import { PERMISSIONS, roleHasPermission } from '../src/security/permissions';
+const migration = readFileSync(
+  join(process.cwd(), 'migrations/023_clinical_observations.sql'),
+  'utf8'
+);
+const routes = readFileSync(join(process.cwd(), 'src/routes/adminObservations.ts'), 'utf8');
+const service = readFileSync(join(process.cwd(), 'src/services/observations.ts'), 'utf8');
+const ui = readFileSync(
+  join(process.cwd(), '../frontend/src/components/admin/ObservationManager.tsx'),
+  'utf8'
+);
+test('observation reporting and clinical verification have separate least-privilege capabilities', () => {
+  assert.equal(roleHasPermission('staff', PERMISSIONS.OBSERVATION_REPORT), true);
+  assert.equal(roleHasPermission('staff', PERMISSIONS.OBSERVATION_VERIFY), false);
+  assert.equal(roleHasPermission('reception', PERMISSIONS.OBSERVATION_REPORT), false);
+  assert.equal(roleHasPermission('doctor', PERMISSIONS.OBSERVATION_VERIFY), true);
+});
+test('observation storage is append-only, attributable, constrained, and indexed', () => {
+  assert.match(migration, /Clinical observations are immutable/);
+  assert.match(migration, /UNIQUE\(lineage_id,version\)/);
+  assert.match(migration, /idx_observation_patient_series/);
+  assert.match(migration, /effective_timezone = 'Asia\/Kolkata'/);
+  assert.match(migration, /document_id UUID REFERENCES document_references/);
+  assert.match(migration, /value_kind='blood_pressure'/);
+});
+test('writes enforce governance, authentication, authorization, idempotency, scope and concurrency', () => {
+  assert.match(routes, /router\.use\(authenticate\)/);
+  assert.match(routes, /OBSERVATION_VERIFY/);
+  assert.match(routes, /Idempotency-Key/);
+  assert.match(service, /OBSERVATION_GOVERNANCE_REQUIRED/);
+  assert.match(service, /status='in_progress'/);
+  assert.match(service, /confirm_patient_id\s*!==\s*patientId/);
+  assert.match(service, /OBSERVATION_VERSION_CONFLICT/);
+});
+test('units are never silently converted and alerts are intentionally absent', () => {
+  assert.match(service, /Ambiguous units must not be converted/);
+  assert.doesNotMatch(service, /critical|diagnos|treatment recommendation/i);
+  assert.doesNotMatch(migration, /CREATE TABLE IF NOT EXISTS observation_alert/i);
+});
+test('UI exposes required provenance and groups trends by code, exact unit, and context', () => {
+  for (const word of ['Source', 'Context', 'Verification', 'Status', 'Measured'])
+    assert.match(ui, new RegExp(word));
+  assert.match(ui, /catalog_code\}\|\$\{x\.unit\}\|\$\{x\.context/);
+  assert.match(ui, /Not clinician verified/);
+  assert.match(ui, /timeZone:'Asia\/Kolkata'/);
+});

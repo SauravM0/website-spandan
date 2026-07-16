@@ -41,6 +41,13 @@
       "GET /api/admin/operations/package-orders",
       "GET /api/admin/operations/payments"
     ],
+    "adminPatient": [
+      "GET /api/admin/patients/:id/summary",
+      "GET /api/admin/patients/:id/appointments",
+      "GET /api/admin/patients/:id/clinical/timeline",
+      "GET /api/admin/patients/:id/documents",
+      "GET /api/admin/patients/:id/documents/:documentId/content"
+    ],
     "observability": [
       "GET /api/internal/metrics",
       "POST /api/telemetry/web-vitals",
@@ -64,8 +71,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 33,
-    "migrationHead": "033_admin_auth_hardening.sql"
+    "migrationCount": 34,
+    "migrationHead": "034_patient_clinical_authorization.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

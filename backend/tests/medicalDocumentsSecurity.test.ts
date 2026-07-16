@@ -2,11 +2,31 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import test from 'node:test';
-import { PERMISSIONS,roleHasPermission } from '../src/security/permissions';
-const migration=readFileSync(join(process.cwd(),'migrations/021_medical_documents.sql'),'utf8');
-const routes=readFileSync(join(process.cwd(),'src/routes/adminMedicalDocuments.ts'),'utf8');
-const service=readFileSync(join(process.cwd(),'src/services/medicalDocuments.ts'),'utf8');
-test('document permissions separate upload, read, and clinical review',()=>{assert.equal(roleHasPermission('reception',PERMISSIONS.DOCUMENTS_UPLOAD),true);assert.equal(roleHasPermission('reception',PERMISSIONS.DOCUMENTS_REVIEW),false);assert.equal(roleHasPermission('doctor',PERMISSIONS.DOCUMENTS_REVIEW),true);assert.equal(roleHasPermission('billing',PERMISSIONS.DOCUMENTS_READ),false);});
-test('unscanned content cannot be downloaded',()=>{assert.match(service,/\['awaiting_review','reviewed','verified'\]\.includes\(row\.status\)/);assert.match(routes,/requirePermission\(PERMISSIONS\.DOCUMENTS_READ\)/);assert.match(routes,/router\.use\(authenticate\)/);});
-test('evidence and clinical extraction provenance are constrained',()=>{assert.match(migration,/Document evidence is immutable/);assert.match(migration,/checksum_sha256 CHAR\(64\)/);assert.match(migration,/status VARCHAR\(20\) NOT NULL DEFAULT 'unverified'/);assert.match(migration,/document_id UUID NOT NULL REFERENCES document_references/);});
-test('uploads are bounded, idempotent, encrypted, and magic-byte checked',()=>{assert.match(routes,/express\.raw/);assert.match(routes,/Idempotency-Key/);assert.match(service,/aes-256-gcm/);assert.match(service,/signatureOk/);assert.match(migration,/PRIMARY KEY\(actor_staff_id,key\)/);});
+import { PERMISSIONS, roleHasPermission } from '../src/security/permissions';
+const migration = readFileSync(join(process.cwd(), 'migrations/021_medical_documents.sql'), 'utf8');
+const routes = readFileSync(join(process.cwd(), 'src/routes/adminMedicalDocuments.ts'), 'utf8');
+const service = readFileSync(join(process.cwd(), 'src/services/medicalDocuments.ts'), 'utf8');
+test('document permissions separate upload, read, and clinical review', () => {
+  assert.equal(roleHasPermission('reception', PERMISSIONS.DOCUMENTS_UPLOAD), true);
+  assert.equal(roleHasPermission('reception', PERMISSIONS.DOCUMENTS_REVIEW), false);
+  assert.equal(roleHasPermission('doctor', PERMISSIONS.DOCUMENTS_REVIEW), true);
+  assert.equal(roleHasPermission('billing', PERMISSIONS.DOCUMENTS_READ), false);
+});
+test('unscanned content cannot be downloaded', () => {
+  assert.match(service, /\['awaiting_review', 'reviewed', 'verified'\]\.includes\(row\.status\)/);
+  assert.match(routes, /requirePermission\(PERMISSIONS\.DOCUMENTS_CONTENT_READ\)/);
+  assert.match(routes, /router\.use\(authenticate\)/);
+});
+test('evidence and clinical extraction provenance are constrained', () => {
+  assert.match(migration, /Document evidence is immutable/);
+  assert.match(migration, /checksum_sha256 CHAR\(64\)/);
+  assert.match(migration, /status VARCHAR\(20\) NOT NULL DEFAULT 'unverified'/);
+  assert.match(migration, /document_id UUID NOT NULL REFERENCES document_references/);
+});
+test('uploads are bounded, idempotent, encrypted, and magic-byte checked', () => {
+  assert.match(routes, /express\.raw/);
+  assert.match(routes, /Idempotency-Key/);
+  assert.match(service, /aes-256-gcm/);
+  assert.match(service, /signatureOk/);
+  assert.match(migration, /PRIMARY KEY\(actor_staff_id,key\)/);
+});
