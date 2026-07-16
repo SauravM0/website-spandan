@@ -10,6 +10,7 @@ import { auditAccess } from '../middleware/auditAccess';
 import {
   adminAppointmentFiltersSchema,
   appointmentTransitionSchema,
+  appointmentRescheduleSchema,
   adminCalendarViewQuerySchema,
   adminNotificationBulkRetrySchema,
   adminNotificationDeadLetterSchema,
@@ -99,6 +100,12 @@ router.post(
   requirePermission(PERMISSIONS.APPOINTMENTS_WRITE),
   validateZod({ params: adminPaymentParamsSchema, body: appointmentTransitionSchema }),
   asyncHandler(controller.adminTransitionAppointment)
+);
+router.post(
+  '/appointments/:id/reschedule',
+  requirePermission(PERMISSIONS.APPOINTMENTS_WRITE),
+  validateZod({ params: adminPaymentParamsSchema, body: appointmentRescheduleSchema }),
+  asyncHandler(controller.adminRescheduleAppointment)
 );
 router.get(
   '/availability-rules',

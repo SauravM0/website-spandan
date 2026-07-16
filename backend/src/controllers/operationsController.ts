@@ -37,6 +37,7 @@ import {
   quotePackageOrder,
   recheckAdminPayment,
   transitionAppointment,
+  rescheduleAppointment,
   updateAppointmentConfig,
   updatePaymentStatus,
   appointmentConfigWarnings,
@@ -691,6 +692,35 @@ export async function adminTransitionAppointment(req: AuthenticatedRequest, res:
       expectedVersion: req.body.expected_version,
       reason: req.body.reason,
       evidence: req.body.evidence,
+      actorStaffId,
+      idempotencyKey,
+    });
+    res.json({ appointment });
+  } catch (err) {
+    handleError(res, err);
+  }
+}
+
+export async function adminRescheduleAppointment(req: AuthenticatedRequest, res: Response) {
+  try {
+    const actorStaffId = req.user?.id;
+    const idempotencyKey = req.header('idempotency-key');
+    if (!actorStaffId) {
+      sendApiError(res, 401, 'UNAUTHORIZED', 'Administrator authentication is required.');
+      return;
+    }
+    if (!idempotencyKey) {
+      sendApiError(res, 400, 'IDEMPOTENCY_KEY_REQUIRED', 'Idempotency-Key is required.');
+      return;
+    }
+    const appointment = await rescheduleAppointment({
+      appointmentId: req.params.id,
+      doctorId: req.body.doctor_id,
+      appointmentDate: req.body.appointment_date,
+      startTime: req.body.start_time,
+      expectedVersion: req.body.expected_version,
+      reason: req.body.reason,
+      cancelIfUnavailable: req.body.cancel_if_unavailable,
       actorStaffId,
       idempotencyKey,
     });

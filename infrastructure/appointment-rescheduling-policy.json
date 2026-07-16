@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "workPackage": "WP19",
+  "deploymentModel": "sole-administrator",
+  "timezone": "Asia/Kolkata",
+  "concurrency": {
+    "appointmentRowLock": true,
+    "oldAndNewCalendarLocks": true,
+    "expectedVersionRequired": true,
+    "idempotencyKeyRequired": true
+  },
+  "safety": {
+    "availabilityRevalidatedInTransaction": true,
+    "originalPreservedOnFailure": true,
+    "explicitCancellationFallbackOnly": true,
+    "patientAndPaymentLinksPreserved": true
+  },
+  "effects": {
+    "calendarUpdatedTransactionally": true,
+    "notificationQueuedTransactionally": true,
+    "immutableAuditTimeline": true
+  }
+}

@@ -922,6 +922,31 @@ export async function transitionAdminAppointment(
   );
 }
 
+export async function rescheduleAdminAppointment(
+  token: string | undefined,
+  id: string,
+  input: {
+    doctor_id: string;
+    appointment_date: string;
+    start_time: string;
+    expected_version: number;
+    reason: string;
+    cancel_if_unavailable?: boolean;
+  }
+) {
+  clearApiCache('/admin/operations');
+  clearApiCache('/appointments/slots');
+  clearApiCache('/public/doctors');
+  return fetchAPI<{ appointment: any }>(
+    `/admin/operations/appointments/${encodeURIComponent(id)}/reschedule`,
+    {
+      method: 'POST',
+      headers: { ...authHeaders(token), 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify(input),
+    }
+  );
+}
+
 export async function getAdminPackageOrders(
   token = '',
   filters: { status?: string; search?: string; cursor?: string; pageSize?: number } = {},

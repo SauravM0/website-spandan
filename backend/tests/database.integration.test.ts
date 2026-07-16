@@ -27,6 +27,7 @@ databaseTest('migrations create the critical production tables and constraints',
           'appointments',
           'appointment_payment_evidence',
           'appointment_transition_events',
+          'appointment_reschedule_events',
           'payments',
           'package_orders',
           'package_order_events',
@@ -37,6 +38,7 @@ databaseTest('migrations create the critical production tables and constraints',
     assert.deepEqual(tables.rows.map((row) => row.table_name).sort(), [
       'appointments',
       'appointment_payment_evidence',
+      'appointment_reschedule_events',
       'appointment_transition_events',
       'package_order_events',
       'package_order_price_confirmations',
@@ -85,12 +87,14 @@ databaseTest('migrations create the critical production tables and constraints',
           'appointment_payment_evidence_immutable',
           'appointment_transition_event_immutable',
           'appointment_financial_evidence_required',
+          'appointment_reschedule_event_immutable',
         ],
       ]
     );
     assert.deepEqual(appointmentTriggers.rows.map((row) => row.tgname).sort(), [
       'appointment_financial_evidence_required',
       'appointment_payment_evidence_immutable',
+      'appointment_reschedule_event_immutable',
       'appointment_transition_event_immutable',
     ]);
     const packageOrderTriggers = await client.query(
@@ -106,6 +110,120 @@ databaseTest('migrations create the critical production tables and constraints',
     await client.end();
   }
 });
+
+databaseTest(
+  'concurrent reschedules cannot take one target slot and failures preserve the original',
+  async () => {
+    const client = new Client({ connectionString });
+    await client.connect();
+    const suffix = randomUUID();
+    try {
+      const staff = await client.query(
+        `INSERT INTO staff_users(email,password_hash,full_name,role)
+       VALUES($1,'not-a-real-password-hash','Reschedule Operator','staff') RETURNING id`,
+        [`reschedule-${suffix}@example.test`]
+      );
+      const doctors = await Promise.all(
+        ['Source One', 'Source Two', 'Target'].map((name, index) =>
+          client.query(
+            `INSERT INTO doctors(name,slug,speciality)
+           VALUES($1,$2,'Testing') RETURNING id`,
+            [name, `reschedule-${index}-${suffix}`]
+          )
+        )
+      );
+      const [sourceOne, sourceTwo, target] = doctors.map((result) => result.rows[0].id);
+      await client.query(
+        `INSERT INTO doctor_availability_rules
+         (doctor_id,weekday,start_time,end_time,slot_minutes,effective_from)
+       SELECT $1,EXTRACT(DOW FROM CURRENT_DATE + 20)::int,'10:00','11:00',30,CURRENT_DATE`,
+        [target]
+      );
+      const patients = await Promise.all(
+        ['9999999901', '9999999902', '9999999903'].map((phone, index) =>
+          client.query(
+            `INSERT INTO patients(full_name,phone,age_years)
+           VALUES($1,$2,30) RETURNING id`,
+            [`Reschedule Patient ${index}`, phone]
+          )
+        )
+      );
+      const createSource = (patientId: string, doctorId: string, time: string) =>
+        client.query(
+          `INSERT INTO appointments
+           (patient_id,doctor_id,appointment_date,start_time,end_time,status,booking_state,
+            fee_amount,fee_currency,payment_status,version)
+         VALUES($1,$2,CURRENT_DATE + 10,$3::time,($3::time + interval '30 minutes')::time,
+                'awaiting_payment','payment_required',500,'INR','not_paid',1)
+         RETURNING id,doctor_id,appointment_date,start_time,version`,
+          [patientId, doctorId, time]
+        );
+      const first = await createSource(patients[0].rows[0].id, sourceOne, '09:00');
+      const second = await createSource(patients[1].rows[0].id, sourceTwo, '09:00');
+      const third = await createSource(patients[2].rows[0].id, sourceOne, '10:00');
+      const targetDate = await client.query<{ target_date: string }>(
+        `SELECT TO_CHAR(CURRENT_DATE + 20,'YYYY-MM-DD') AS target_date`
+      );
+      const { rescheduleAppointment } = await import('../src/services/operations');
+      const race = await Promise.allSettled(
+        [first.rows[0], second.rows[0]].map((appointment, index) =>
+          rescheduleAppointment({
+            appointmentId: appointment.id,
+            doctorId: target,
+            appointmentDate: targetDate.rows[0].target_date,
+            startTime: '10:00',
+            expectedVersion: 1,
+            reason: `Concurrent target request ${index}`,
+            actorStaffId: staff.rows[0].id,
+            idempotencyKey: randomUUID(),
+          })
+        )
+      );
+      assert.equal(race.filter((result) => result.status === 'fulfilled').length, 1);
+      assert.equal(
+        race.filter(
+          (result) =>
+            result.status === 'rejected' &&
+            (result.reason as any)?.code === 'APPOINTMENT_TARGET_SLOT_UNAVAILABLE'
+        ).length,
+        1
+      );
+      const targetBookings = await client.query(
+        `SELECT COUNT(*)::int AS count FROM appointments
+       WHERE doctor_id=$1 AND appointment_date=$2 AND start_time='10:00'`,
+        [target, targetDate.rows[0].target_date]
+      );
+      assert.equal(targetBookings.rows[0].count, 1);
+
+      await assert.rejects(
+        rescheduleAppointment({
+          appointmentId: third.rows[0].id,
+          doctorId: target,
+          appointmentDate: targetDate.rows[0].target_date,
+          startTime: '23:30',
+          expectedVersion: 1,
+          reason: 'Unavailable replacement must retain original',
+          actorStaffId: staff.rows[0].id,
+          idempotencyKey: randomUUID(),
+        }),
+        (error: any) => error?.code === 'APPOINTMENT_TARGET_SLOT_UNAVAILABLE'
+      );
+      const preserved = await client.query(
+        'SELECT doctor_id,appointment_date,start_time,version FROM appointments WHERE id=$1',
+        [third.rows[0].id]
+      );
+      assert.equal(preserved.rows[0].doctor_id, third.rows[0].doctor_id);
+      assert.equal(
+        String(preserved.rows[0].appointment_date),
+        String(third.rows[0].appointment_date)
+      );
+      assert.equal(String(preserved.rows[0].start_time), String(third.rows[0].start_time));
+      assert.equal(preserved.rows[0].version, 1);
+    } finally {
+      await client.end();
+    }
+  }
+);
 
 databaseTest('staff email uniqueness is enforced and a failed write rolls back', async () => {
   const client = new Client({ connectionString });

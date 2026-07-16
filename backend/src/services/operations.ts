@@ -457,7 +457,8 @@ export async function listSlotsWithDb(
   db: Queryable,
   doctorId: string,
   date: string,
-  excludeHoldId?: string
+  excludeHoldId?: string,
+  excludeAppointmentId?: string
 ): Promise<Slot[]> {
   const settings = await getAppointmentConfig(db);
   const weekday = new Date(`${date}T00:00:00`).getDay();
@@ -479,8 +480,9 @@ export async function listSlotsWithDb(
     db.query(
       `SELECT start_time, end_time FROM appointments
        WHERE doctor_id = $1 AND appointment_date = $2
-         AND status IN ('awaiting_payment', 'payment_pending', 'confirmed', 'checked_in')`,
-      [doctorId, date]
+         AND status IN ('awaiting_payment', 'payment_pending', 'confirmed', 'checked_in')
+         AND ($3::uuid IS NULL OR id <> $3)`,
+      [doctorId, date, excludeAppointmentId || null]
     ),
     db.query(
       `SELECT start_time, end_time FROM appointment_holds
@@ -3616,6 +3618,298 @@ export async function transitionAppointment(input: {
     return { ...updated.rows[0], allowed_actions: appointmentAllowedActions(target) };
   } catch (err) {
     await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
+}
+
+function appointmentScheduleSnapshot(appointment: any) {
+  return {
+    id: appointment.id,
+    doctor_id: appointment.doctor_id,
+    appointment_date: String(appointment.appointment_date).slice(0, 10),
+    start_time: compactTime(String(appointment.start_time)),
+    end_time: compactTime(String(appointment.end_time)),
+    status: appointment.status,
+    booking_state: appointment.booking_state,
+    payment_status: appointment.payment_status,
+    version: Number(appointment.version),
+  };
+}
+
+async function queueAppointmentScheduleNotification(
+  client: PoolClient,
+  input: {
+    appointment: any;
+    oldDoctorId: string;
+    requestedDoctorId: string;
+    before: ReturnType<typeof appointmentScheduleSnapshot>;
+    after: ReturnType<typeof appointmentScheduleSnapshot>;
+    outcome: 'rescheduled' | 'cancelled_no_slot';
+  }
+) {
+  const contact = await client.query(
+    `SELECT patient.email,patient.preferred_language,
+            old_doctor.name AS old_doctor_name,requested_doctor.name AS requested_doctor_name
+     FROM patients patient
+     JOIN doctors old_doctor ON old_doctor.id=$2
+     JOIN doctors requested_doctor ON requested_doctor.id=$3
+     WHERE patient.id=$1`,
+    [input.appointment.patient_id, input.oldDoctorId, input.requestedDoctorId]
+  );
+  const row = contact.rows[0] || {};
+  const destination = String(row.email || '').trim();
+  const payload = {
+    appointment_number: input.appointment.appointment_number || null,
+    outcome: input.outcome,
+    old_doctor_name: row.old_doctor_name || null,
+    requested_doctor_name: row.requested_doctor_name || null,
+    old_appointment_date: input.before.appointment_date,
+    old_start_time: input.before.start_time,
+    new_appointment_date: input.outcome === 'rescheduled' ? input.after.appointment_date : null,
+    new_start_time: input.outcome === 'rescheduled' ? input.after.start_time : null,
+    timezone: 'Asia/Kolkata',
+  };
+  await client.query(
+    `INSERT INTO notification_outbox
+       (patient_id,appointment_id,channel,template,destination,language,payload,status)
+     VALUES($1,$2,'email',$3,$4,$5,$6,$7)`,
+    [
+      input.appointment.patient_id,
+      input.appointment.id,
+      input.outcome === 'rescheduled' ? 'appointment_rescheduled' : 'appointment_cancelled_no_slot',
+      destination,
+      ['en', 'hi', 'mr'].includes(row.preferred_language) ? row.preferred_language : 'en',
+      JSON.stringify(payload),
+      destination ? 'queued' : 'skipped_no_destination',
+    ]
+  );
+}
+
+export async function rescheduleAppointment(input: {
+  appointmentId: string;
+  doctorId: string;
+  appointmentDate: string;
+  startTime: string;
+  expectedVersion: number;
+  reason: string;
+  cancelIfUnavailable?: boolean;
+  actorStaffId: string;
+  idempotencyKey: string;
+}) {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
+    const earlyReplay = await client.query(
+      `SELECT after_snapshot FROM appointment_reschedule_events
+       WHERE appointment_id=$1 AND idempotency_key=$2`,
+      [input.appointmentId, input.idempotencyKey]
+    );
+    if (earlyReplay.rows[0]) {
+      await client.query('COMMIT');
+      const appointment = earlyReplay.rows[0].after_snapshot;
+      return { ...appointment, allowed_actions: appointmentAllowedActions(appointment.status) };
+    }
+
+    const current = await client.query('SELECT * FROM appointments WHERE id=$1 FOR UPDATE', [
+      input.appointmentId,
+    ]);
+    if (!current.rows[0]) {
+      throw new AppError(404, 'APPOINTMENT_NOT_FOUND', 'Appointment not found.');
+    }
+    const lockedReplay = await client.query(
+      `SELECT after_snapshot FROM appointment_reschedule_events
+       WHERE appointment_id=$1 AND idempotency_key=$2`,
+      [input.appointmentId, input.idempotencyKey]
+    );
+    if (lockedReplay.rows[0]) {
+      await client.query('COMMIT');
+      const appointment = lockedReplay.rows[0].after_snapshot;
+      return { ...appointment, allowed_actions: appointmentAllowedActions(appointment.status) };
+    }
+
+    const appointment = current.rows[0];
+    if (Number(appointment.version) !== input.expectedVersion) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_VERSION_CONFLICT',
+        `Appointment changed to version ${appointment.version}. Refresh before retrying.`
+      );
+    }
+    if (!['awaiting_payment', 'payment_pending', 'confirmed'].includes(appointment.status)) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_RESCHEDULE_NOT_ALLOWED',
+        'Only an active appointment that has not started can be rescheduled.'
+      );
+    }
+    const targetTime = compactTime(input.startTime);
+    const before = appointmentScheduleSnapshot(appointment);
+    if (
+      appointment.doctor_id === input.doctorId &&
+      before.appointment_date === input.appointmentDate &&
+      before.start_time === targetTime
+    ) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_SLOT_UNCHANGED',
+        'Choose a different doctor, date, or time.'
+      );
+    }
+
+    const targetDoctor = await client.query(
+      'SELECT id FROM doctors WHERE id=$1 AND is_active=true',
+      [input.doctorId]
+    );
+    if (!targetDoctor.rows[0]) {
+      throw new AppError(404, 'DOCTOR_NOT_AVAILABLE', 'The selected doctor is not available.');
+    }
+
+    // Match public booking's calendar-then-date order; sort within each tier to avoid swaps deadlocking.
+    const doctorLockKeys = Array.from(
+      new Set([`calendar:${appointment.doctor_id}`, `calendar:${input.doctorId}`])
+    ).sort();
+    const slotLockKeys = Array.from(
+      new Set([
+        `${appointment.doctor_id}:${before.appointment_date}`,
+        `${input.doctorId}:${input.appointmentDate}`,
+      ])
+    ).sort();
+    const lockKeys = [...doctorLockKeys, ...slotLockKeys];
+    for (const key of lockKeys) {
+      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))', [key]);
+    }
+    await expireOldHolds(client);
+    const slots = await listSlotsWithDb(
+      client,
+      input.doctorId,
+      input.appointmentDate,
+      undefined,
+      appointment.id
+    );
+    const targetSlot = slots.find(
+      (slot) => compactTime(slot.start_time) === targetTime && slot.available
+    );
+
+    let outcome: 'rescheduled' | 'cancelled_no_slot' = 'rescheduled';
+    let updated;
+    if (!targetSlot) {
+      if (!input.cancelIfUnavailable) {
+        throw new AppError(
+          409,
+          'APPOINTMENT_TARGET_SLOT_UNAVAILABLE',
+          'The requested slot is unavailable. The original appointment was kept unchanged.',
+          { start_time: ['Select another currently available slot or explicitly cancel.'] }
+        );
+      }
+      outcome = 'cancelled_no_slot';
+      const [evidence, payment] = await Promise.all([
+        client.query('SELECT kind FROM appointment_payment_evidence WHERE appointment_id=$1', [
+          appointment.id,
+        ]),
+        client.query(
+          "SELECT 1 FROM payments WHERE appointment_id=$1 AND status='success' LIMIT 1",
+          [appointment.id]
+        ),
+      ]);
+      const bookingState = evidence.rows[0] || payment.rows[0] ? 'refund_pending' : 'cancelled';
+      updated = await client.query(
+        `UPDATE appointments
+         SET status='cancelled',booking_state=$1,version=version+1,
+             cancelled_at=COALESCE(cancelled_at,NOW()),updated_at=NOW()
+         WHERE id=$2 AND version=$3 RETURNING *`,
+        [bookingState, appointment.id, input.expectedVersion]
+      );
+    } else {
+      const slotMinutes =
+        minutesSinceMidnight(targetSlot.end_time) - minutesSinceMidnight(targetSlot.start_time);
+      updated = await client.query(
+        `UPDATE appointments
+         SET doctor_id=$1,appointment_date=$2,start_time=$3,end_time=$4,slot_minutes=$5,
+             starts_at=($2::date + $3::time) AT TIME ZONE 'Asia/Kolkata',
+             ends_at=($2::date + $4::time) AT TIME ZONE 'Asia/Kolkata',
+             version=version+1,reschedule_count=reschedule_count+1,
+             last_rescheduled_at=NOW(),updated_at=NOW()
+         WHERE id=$6 AND version=$7 RETURNING *`,
+        [
+          input.doctorId,
+          input.appointmentDate,
+          targetSlot.start_time,
+          targetSlot.end_time,
+          slotMinutes,
+          appointment.id,
+          input.expectedVersion,
+        ]
+      );
+    }
+    if (!updated.rows[0]) {
+      throw new AppError(
+        409,
+        'APPOINTMENT_VERSION_CONFLICT',
+        'Appointment changed while rescheduling.'
+      );
+    }
+    const after = appointmentScheduleSnapshot(updated.rows[0]);
+    await client.query(
+      `INSERT INTO appointment_reschedule_events
+         (appointment_id,idempotency_key,outcome,old_doctor_id,old_appointment_date,
+          old_start_time,old_end_time,requested_doctor_id,requested_appointment_date,
+          requested_start_time,resulting_end_time,version_before,version_after,reason,
+          actor_staff_id,before_snapshot,after_snapshot)
+       VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)`,
+      [
+        appointment.id,
+        input.idempotencyKey,
+        outcome,
+        appointment.doctor_id,
+        before.appointment_date,
+        before.start_time,
+        before.end_time,
+        input.doctorId,
+        input.appointmentDate,
+        targetTime,
+        targetSlot?.end_time || null,
+        input.expectedVersion,
+        Number(updated.rows[0].version),
+        input.reason,
+        input.actorStaffId,
+        JSON.stringify(before),
+        JSON.stringify(after),
+      ]
+    );
+    await client.query(
+      `INSERT INTO audit_log(actor_staff_id,action,entity_type,entity_id,metadata)
+       VALUES($1,$2,'appointment',$3,$4)`,
+      [
+        input.actorStaffId,
+        outcome === 'rescheduled' ? 'appointment.rescheduled' : 'appointment.cancelled_no_slot',
+        appointment.id,
+        JSON.stringify({ outcome, reason: input.reason, before, after }),
+      ]
+    );
+    await queueAppointmentScheduleNotification(client, {
+      appointment,
+      oldDoctorId: appointment.doctor_id,
+      requestedDoctorId: input.doctorId,
+      before,
+      after,
+      outcome,
+    });
+    await client.query('COMMIT');
+    return {
+      ...updated.rows[0],
+      allowed_actions: appointmentAllowedActions(updated.rows[0].status),
+    };
+  } catch (err: any) {
+    await client.query('ROLLBACK');
+    if (err?.code === '23505') {
+      throw new AppError(
+        409,
+        'APPOINTMENT_TARGET_SLOT_UNAVAILABLE',
+        'Another booking took the requested slot. The original appointment was kept unchanged.'
+      );
+    }
     throw err;
   } finally {
     client.release();

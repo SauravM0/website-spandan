@@ -132,11 +132,19 @@ export async function getPatientAppointments(id: string, actor: Actor) {
   await assertPatientClinicalAccess({ query }, id, actor);
   const scope = scopeSql(actor, 'a');
   const result = await query(
-    `SELECT a.id,a.appointment_date,a.appointment_time,a.status,a.booking_state,a.appointment_type,
-            a.payment_status,a.doctor_id,d.name doctor_name,a.created_at,a.updated_at
+    `SELECT a.id,a.appointment_date,a.start_time,a.end_time,a.status,a.booking_state,a.appointment_type,
+            a.payment_status,a.doctor_id,d.name doctor_name,a.reschedule_count,a.last_rescheduled_at,
+            COALESCE((
+              SELECT JSONB_AGG(JSONB_BUILD_OBJECT(
+                'id',event.id,'outcome',event.outcome,'reason',event.reason,
+                'before',event.before_snapshot,'after',event.after_snapshot,'created_at',event.created_at
+              ) ORDER BY event.created_at,event.id)
+              FROM appointment_reschedule_events event WHERE event.appointment_id=a.id
+            ),'[]'::jsonb) AS reschedule_history,
+            a.created_at,a.updated_at
        FROM appointments a JOIN doctors d ON d.id=a.doctor_id
       WHERE a.patient_id=$1${scope.sql}
-      ORDER BY a.appointment_date DESC,a.appointment_time DESC,a.id DESC LIMIT 100`,
+      ORDER BY a.appointment_date DESC,a.start_time DESC,a.id DESC LIMIT 100`,
     [id, ...scope.params]
   );
   return { appointments: result.rows };

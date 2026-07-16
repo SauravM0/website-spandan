@@ -40,6 +40,7 @@
       "GET /api/admin/operations/dashboard",
       "GET /api/admin/operations/appointments",
       "POST /api/admin/operations/appointments/:id/transitions",
+      "POST /api/admin/operations/appointments/:id/reschedule",
       "GET /api/admin/operations/package-orders",
       "GET /api/admin/operations/package-orders/:id",
       "POST /api/admin/operations/package-orders/:id/transitions",
@@ -77,8 +78,8 @@
     "paymentTerminal": ["success", "failed", "expired", "refunded", "disputed"]
   },
   "schema": {
-    "migrationCount": 38,
-    "migrationHead": "038_package_order_lifecycle.sql"
+    "migrationCount": 39,
+    "migrationHead": "039_safe_appointment_rescheduling.sql"
   },
   "productionRequiredEnvironment": [
     "DATABASE_URL",

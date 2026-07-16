@@ -13,7 +13,9 @@ import {
   ApiError,
   downloadAdminExport,
   getAdminAppointments,
+  getAppointmentSlots,
   getDoctors,
+  rescheduleAdminAppointment,
   transitionAdminAppointment,
   type AppointmentTransitionEvidence,
 } from '@/lib/api';
@@ -47,8 +49,8 @@ function clinicToday() {
 }
 
 function addClinicDays(value: string, days: number) {
-  const date = new Date(`${value}T00:00:00`);
-  date.setDate(date.getDate() + days);
+  const date = new Date(`${value}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
   return date.toISOString().slice(0, 10);
 }
 
@@ -221,6 +223,63 @@ export default function AdminAppointmentsPage() {
       if (selected?.id === row.id) setSelected(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Could not update appointment.');
+    } finally {
+      setUpdatingId(null);
+    }
+  };
+
+  const reschedule = async (row: any) => {
+    const doctorName = window
+      .prompt(`Doctor (${doctors.map((doctor) => doctor.name).join(', ')}):`, row.doctor_name || '')
+      ?.trim();
+    if (!doctorName) return;
+    const doctor = doctors.find(
+      (candidate) => candidate.name.toLowerCase() === doctorName.toLowerCase()
+    );
+    if (!doctor) {
+      setError('Choose a doctor using the exact displayed name.');
+      return;
+    }
+    const appointmentDate = window
+      .prompt('New appointment date (YYYY-MM-DD):', String(row.appointment_date).slice(0, 10))
+      ?.trim();
+    if (!appointmentDate) return;
+    setUpdatingId(row.id);
+    setError('');
+    try {
+      const result = await getAppointmentSlots(doctor.id, appointmentDate);
+      const available = (result.slots || []).filter((slot) => slot.available);
+      if (!available.length) {
+        setError('No replacement slots are available. The original appointment was kept.');
+        return;
+      }
+      const startTime = window
+        .prompt(
+          `Available start times: ${available.map((slot) => String(slot.start_time).slice(0, 5)).join(', ')}`,
+          String(available[0].start_time).slice(0, 5)
+        )
+        ?.trim();
+      if (!startTime) return;
+      if (
+        !available.some((slot) => String(slot.start_time).slice(0, 5) === startTime.slice(0, 5))
+      ) {
+        setError('Choose one of the currently available start times.');
+        return;
+      }
+      const reason = window.prompt('Reschedule reason:')?.trim();
+      if (!reason || reason.length < 3) return;
+      await rescheduleAdminAppointment('', row.id, {
+        doctor_id: doctor.id,
+        appointment_date: appointmentDate,
+        start_time: startTime,
+        expected_version: Number(row.version),
+        reason,
+        cancel_if_unavailable: false,
+      });
+      await load('refresh');
+      setSelected(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Could not reschedule appointment.');
     } finally {
       setUpdatingId(null);
     }
@@ -414,6 +473,7 @@ export default function AdminAppointmentsPage() {
                       updatingId={updatingId}
                       onSelect={() => setSelected(row)}
                       onStatus={updateStatus}
+                      onReschedule={reschedule}
                     />
                   ))
                 )
@@ -459,7 +519,12 @@ export default function AdminAppointmentsPage() {
                             </StatusBadge>
                           </td>
                           <td className="p-3">
-                            <RowActions row={row} updatingId={updatingId} onStatus={updateStatus} />
+                            <RowActions
+                              row={row}
+                              updatingId={updatingId}
+                              onStatus={updateStatus}
+                              onReschedule={reschedule}
+                            />
                           </td>
                         </tr>
                       ))}
@@ -489,6 +554,7 @@ export default function AdminAppointmentsPage() {
             updatingId={updatingId}
             onClose={() => setSelected(null)}
             onStatus={updateStatus}
+            onReschedule={reschedule}
           />
         )}
       </div>
@@ -500,14 +566,26 @@ function RowActions({
   row,
   updatingId,
   onStatus,
+  onReschedule,
 }: {
   row: any;
   updatingId: string | null;
   onStatus: (row: any, status: string) => void;
+  onReschedule: (row: any) => void;
 }) {
   const actions = row.allowed_actions || [];
   return (
     <div className="flex flex-wrap gap-2">
+      {['awaiting_payment', 'payment_pending', 'confirmed'].includes(row.status) && (
+        <button
+          type="button"
+          className="btn btn-outline btn-sm"
+          disabled={updatingId === row.id}
+          onClick={() => onReschedule(row)}
+        >
+          Reschedule
+        </button>
+      )}
       {row.phone && (
         <a className="btn btn-outline btn-sm" href={`tel:${row.phone}`}>
           Call
@@ -547,11 +625,13 @@ function AppointmentCard({
   updatingId,
   onSelect,
   onStatus,
+  onReschedule,
 }: {
   row: any;
   updatingId: string | null;
   onSelect: () => void;
   onStatus: (row: any, status: string) => void;
+  onReschedule: (row: any) => void;
 }) {
   return (
     <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
@@ -585,7 +665,12 @@ function AppointmentCard({
         </div>
       </button>
       <div className="mt-4">
-        <RowActions row={row} updatingId={updatingId} onStatus={onStatus} />
+        <RowActions
+          row={row}
+          updatingId={updatingId}
+          onStatus={onStatus}
+          onReschedule={onReschedule}
+        />
       </div>
     </div>
   );
@@ -596,11 +681,13 @@ function AppointmentDetailDrawer({
   updatingId,
   onClose,
   onStatus,
+  onReschedule,
 }: {
   row: any;
   updatingId: string | null;
   onClose: () => void;
   onStatus: (row: any, status: string) => void;
+  onReschedule: (row: any) => void;
 }) {
   return (
     <div className="fixed inset-0 z-50">
@@ -628,6 +715,12 @@ function AppointmentDetailDrawer({
           />
           <Detail label="Phone" value={row.phone || row.phone_masked || '-'} />
           <Detail label="Status" value={String(row.status || '-').replace(/_/g, ' ')} />
+          {Number(row.reschedule_count || 0) > 0 && (
+            <Detail
+              label="Rescheduled"
+              value={`${row.reschedule_count} time(s); last ${row.last_rescheduled_at ? new Date(row.last_rescheduled_at).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' }) : '-'}`}
+            />
+          )}
           <Detail
             label="Payment"
             value={String(row.payment_status || 'not linked').replace(/_/g, ' ')}
@@ -636,7 +729,12 @@ function AppointmentDetailDrawer({
           {row.reason && <Detail label="Reason" value={row.reason} />}
           <div>
             <p className="mb-2 text-xs font-bold uppercase text-text-light">Actions</p>
-            <RowActions row={row} updatingId={updatingId} onStatus={onStatus} />
+            <RowActions
+              row={row}
+              updatingId={updatingId}
+              onStatus={onStatus}
+              onReschedule={onReschedule}
+            />
           </div>
         </div>
       </aside>

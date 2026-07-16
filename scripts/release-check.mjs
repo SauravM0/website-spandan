@@ -24,6 +24,7 @@ const steps = [
   ['public-payments:check', ['run', 'public-payments:check']],
   ['authoritative-payments:check', ['run', 'authoritative-payments:check']],
   ['appointment-transitions:check', ['run', 'appointment-transitions:check']],
+  ['appointment-rescheduling:check', ['run', 'appointment-rescheduling:check']],
   ['package-orders:check', ['run', 'package-orders:check']],
   ['migrations:validate', ['run', 'migrations:validate']],
   ['backend:typecheck', ['run', 'backend:typecheck']],

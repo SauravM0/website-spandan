@@ -290,6 +290,15 @@ export const appointmentTransitionSchema = z.object({
   evidence: appointmentTransitionEvidenceSchema.optional(),
 });
 
+export const appointmentRescheduleSchema = z.object({
+  doctor_id: z.string().regex(uuidRegex, 'Must be a valid doctor UUID'),
+  appointment_date: dateSchema,
+  start_time: timeSchema,
+  expected_version: z.number().int().positive(),
+  reason: z.string().trim().min(3).max(500).transform(stripHtml),
+  cancel_if_unavailable: z.boolean().optional().default(false),
+});
+
 export const adminPackageOrderFiltersSchema = z.object({
   status: z
     .enum([

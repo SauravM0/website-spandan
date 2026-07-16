@@ -32,6 +32,7 @@
     "public-payments:check": "node scripts/public-payment-access-policy-check.mjs",
     "authoritative-payments:check": "node scripts/authoritative-payment-policy-check.mjs",
     "appointment-transitions:check": "node scripts/appointment-transition-policy-check.mjs",
+    "appointment-rescheduling:check": "node scripts/appointment-rescheduling-policy-check.mjs",
     "package-orders:check": "node scripts/package-order-lifecycle-policy-check.mjs",
     "platform:check": "node scripts/platform-governance-check.mjs",
     "privacy-security:check": "node scripts/privacy-security-check.mjs",

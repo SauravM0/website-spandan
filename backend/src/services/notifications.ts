@@ -195,6 +195,33 @@ function receiptHtml(payload: Record<string, any>): string {
   `;
 }
 
+function escapeNotificationHtml(value: unknown): string {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
+function appointmentScheduleMessage(template: string, payload: Record<string, any>) {
+  const cancelled = template === 'appointment_cancelled_no_slot';
+  const reference = escapeNotificationHtml(payload.appointment_number || 'your appointment');
+  if (cancelled) {
+    return {
+      subject: `Spandan Clinic appointment update - ${reference}`,
+      html: `<h2>Appointment update</h2><p>Your requested replacement slot was unavailable, so appointment ${reference} was cancelled as authorized.</p><p>Please contact the clinic to arrange another appointment.</p>`,
+    };
+  }
+  const doctor = escapeNotificationHtml(payload.requested_doctor_name || 'your doctor');
+  const date = escapeNotificationHtml(payload.new_appointment_date);
+  const time = escapeNotificationHtml(String(payload.new_start_time || '').slice(0, 5));
+  return {
+    subject: `Spandan Clinic appointment rescheduled - ${reference}`,
+    html: `<h2>Appointment rescheduled</h2><p>Appointment ${reference} is now scheduled with ${doctor} on ${date} at ${time} (Asia/Kolkata).</p>`,
+  };
+}
+
 export async function getReceiptDetailsByPaymentId(db: Queryable, paymentId: string) {
   const result = await db.query(
     `SELECT p.*, r.id AS receipt_id, r.receipt_number, r.pdf_url, r.generated_at, r.issued_at,
@@ -314,21 +341,34 @@ export async function processNotificationOutbox(
   for (const item of picked.rows) {
     try {
       const payload = item.payload || {};
-      const pdf = buildReceiptPdf(payload);
-      await transporter.sendMail({
-        from: `"Spandan Clinic" <${config.smtp.user}>`,
-        to: item.destination,
-        messageId: `<${item.id}@notifications.spandan-clinic.invalid>`,
-        subject: receiptSubject(item.language, payload.receipt_number || 'receipt'),
-        html: receiptHtml(payload),
-        attachments: [
-          {
-            filename: `${payload.receipt_number || 'receipt'}.pdf`,
-            content: pdf,
-            contentType: 'application/pdf',
-          },
-        ],
-      });
+      if (
+        item.template === 'appointment_rescheduled' ||
+        item.template === 'appointment_cancelled_no_slot'
+      ) {
+        const message = appointmentScheduleMessage(item.template, payload);
+        await transporter.sendMail({
+          from: `"Spandan Clinic" <${config.smtp.user}>`,
+          to: item.destination,
+          messageId: `<${item.id}@notifications.spandan-clinic.invalid>`,
+          ...message,
+        });
+      } else {
+        const pdf = buildReceiptPdf(payload);
+        await transporter.sendMail({
+          from: `"Spandan Clinic" <${config.smtp.user}>`,
+          to: item.destination,
+          messageId: `<${item.id}@notifications.spandan-clinic.invalid>`,
+          subject: receiptSubject(item.language, payload.receipt_number || 'receipt'),
+          html: receiptHtml(payload),
+          attachments: [
+            {
+              filename: `${payload.receipt_number || 'receipt'}.pdf`,
+              content: pdf,
+              contentType: 'application/pdf',
+            },
+          ],
+        });
+      }
       const delivered = await query(
         `UPDATE notification_outbox
          SET status = 'sent', sent_at = NOW(), error = NULL, last_error_code = NULL,
@@ -344,7 +384,7 @@ export async function processNotificationOutbox(
     } catch (err) {
       const attempts = Number(item.attempt_count || 1);
       const retry = attempts < MAX_NOTIFICATION_ATTEMPTS;
-      logger.error('Receipt notification failed', { error_code: 'RECEIPT_DELIVERY_FAILED' });
+      logger.error('Notification delivery failed', { error_code: 'NOTIFICATION_DELIVERY_FAILED' });
       await query(
         `UPDATE notification_outbox
          SET status = $1,
