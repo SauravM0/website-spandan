@@ -33,11 +33,10 @@ export default function Footer() {
             <h4 className="mb-4 text-lg font-semibold text-ink">{t('footer_quick_links')}</h4>
             <div className="flex flex-col gap-2 text-sm">
               <Link href="/doctors" className="transition-colors duration-300 hover:text-accent">{t('nav_doctors')}</Link>
-              <Link href="/facilities" className="transition-colors duration-300 hover:text-accent">{t('nav_services_gallery')}</Link>
-              <Link href="/health-resources" className="transition-colors duration-300 hover:text-accent">{t('nav_articles')}</Link>
-              <Link href="/publications" className="transition-colors duration-300 hover:text-accent">{t('nav_publications')}</Link>
-              <Link href="/privacy" className="transition-colors duration-300 hover:text-accent">{t('footer_privacy')}</Link>
-              <Link href="/terms" className="transition-colors duration-300 hover:text-accent">{t('footer_terms')}</Link>
+              <Link href="/care" className="transition-colors duration-300 hover:text-accent">{t('nav_care')}</Link>
+              <Link href="/health" className="transition-colors duration-300 hover:text-accent">{t('nav_health')}</Link>
+              <Link href="/legal#privacy" className="transition-colors duration-300 hover:text-accent">{t('footer_privacy')}</Link>
+              <Link href="/legal#terms" className="transition-colors duration-300 hover:text-accent">{t('footer_terms')}</Link>
             </div>
           </div>
 

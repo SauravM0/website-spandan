@@ -24,7 +24,7 @@ export default function ConsentBanner() {
         <p className="text-xs leading-relaxed md:text-sm">
           This site uses only essential storage for session and preferences. No tracking cookies are used.
           By continuing, you agree to our{' '}
-          <a href="/privacy" className="underline text-accent hover:text-white">Privacy Policy</a>.
+          <a href="/legal#privacy" className="underline text-accent hover:text-white">Privacy Policy</a>.
         </p>
         <button
           onClick={dismiss}

@@ -1,6 +1,7 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import { notFound } from 'next/navigation';
+import ContentUnavailable from '@/components/ui/ContentUnavailable';
 import MedicalDisclaimer from '@/components/health-resources/MedicalDisclaimer';
 import YouTubeEmbed from '@/components/health-resources/YouTubeEmbed';
 import BreadcrumbNav from '@/components/health-resources/BreadcrumbNav';
@@ -8,7 +9,7 @@ import ArticleMeta from '@/components/health-resources/ArticleMeta';
 import TableOfContents from '@/components/health-resources/TableOfContents';
 import MarkdownRenderer from '@/components/health-resources/MarkdownRenderer';
 import RelatedResources from '@/components/health-resources/RelatedResources';
-import { serverApiGet } from '@/lib/serverApi';
+import { serverApiTry } from '@/lib/serverApi';
 import { extractToc } from '@/lib/markdown';
 import type { HealthResourceArticle } from '@/components/health-resources/resource-gallery/ResourceHub';
 import Button from '@/components/ui/Button';
@@ -26,7 +27,8 @@ function formatDate(value?: string | null): string | null {
 }
 
 async function getArticle(slug: string) {
-  return serverApiGet<{ article: ArticleDetailPayload | null }>(
+  // An outage must not masquerade as "this article does not exist".
+  return serverApiTry<{ article: ArticleDetailPayload | null }>(
     `/articles/${slug}`,
     { article: null },
     { next: { revalidate: 3600, tags: ['public-articles'] } }
@@ -34,8 +36,7 @@ async function getArticle(slug: string) {
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const data = await getArticle(params.slug);
-  const article = data.article;
+  const article = (await getArticle(params.slug)).data.article;
   if (!article) return { title: 'Article Not Found | Spandan Clinic' };
   return {
     title: `${article.title} | Health Resources | Spandan Super Speciality Clinic`,
@@ -52,10 +53,21 @@ export async function generateMetadata({ params }: { params: { slug: string } })
 }
 
 export default async function ArticleDetail({ params }: { params: { slug: string } }) {
-  const data = await getArticle(params.slug);
-  const article = data.article;
+  const result = await getArticle(params.slug);
+  const article = result.data.article;
 
-  if (!article) notFound();
+  if (!article) {
+    if (!result.ok) {
+      return (
+        <ContentUnavailable
+          title="This article is temporarily unavailable"
+          backHref="/health-resources"
+          backLabel="All health resources"
+        />
+      );
+    }
+    notFound();
+  }
 
   const tocEntries = extractToc(article.body_md || '');
   const versionDate = formatDate(article.updated_at || article.published_at);

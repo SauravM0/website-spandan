@@ -189,7 +189,7 @@ export default function ServiceCards() {
             return (
               <Link
                 key={care.title}
-                href="/facilities"
+                href="/care"
                 className="group relative flex min-h-[230px] flex-col overflow-hidden rounded-[22px] border border-primary/25 bg-white p-6 shadow-lg transition duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent sm:aspect-square sm:min-h-0"
                 aria-label={`${care.title}: ${care.text}`}
               >

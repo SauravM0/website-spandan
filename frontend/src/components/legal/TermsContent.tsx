@@ -1,16 +1,6 @@
 import React from 'react';
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { clinicSettings, TERMS_POLICY_VERSION } from '@/lib/settings';
-
-export const metadata: Metadata = {
-  title: `Terms of Use | ${clinicSettings.name}`,
-  description: `Terms of use, payment policy, cancellation policy, and refund policy for ${clinicSettings.name}. Learn about appointment booking, fees, and your rights.`,
-  alternates: {
-    canonical: '/terms',
-  },
-};
-
 const sections = [
   { id: 'scope', title: 'Scope and Definitions' },
   { id: 'appointments', title: 'Appointment Holds and Booking' },
@@ -27,17 +17,15 @@ const sections = [
   { id: 'changes', title: 'Changes to These Terms' },
 ] as const;
 
-export default function TermsOfUsePage() {
+
+export default function TermsContent() {
   return (
     <>
-      <section className="soft-page-hero py-16">
-        <div className="container">
-          <h1 className="text-3xl md:text-4xl font-bold">Terms of Use</h1>
-          <p className="mt-2 text-text-light">
-            Version: {TERMS_POLICY_VERSION} | Effective: 8 July 2026
-          </p>
-        </div>
-      </section>
+      <header className="container max-w-[800px]">
+        <h2 className="heading-section text-ink">Terms of Use</h2>
+        <p className="mt-2 text-sm text-text-light">Version: {TERMS_POLICY_VERSION} | Effective: 8 July 2026</p>
+      </header>
+      
 
       <section className="section">
         <div className="container max-w-[800px]">

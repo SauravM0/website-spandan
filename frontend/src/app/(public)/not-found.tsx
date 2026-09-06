@@ -47,7 +47,7 @@ export default function NotFound() {
               Our Doctors
             </Button>
             <Button
-              href="/packages"
+              href="/care"
               variant="outline"
             >
               Health Packages

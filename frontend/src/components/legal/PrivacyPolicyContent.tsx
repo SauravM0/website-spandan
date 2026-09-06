@@ -1,16 +1,6 @@
 import React from 'react';
-import type { Metadata } from 'next';
 import Link from 'next/link';
 import { clinicSettings, PRIVACY_POLICY_VERSION } from '@/lib/settings';
-
-export const metadata: Metadata = {
-  title: `Privacy Policy | ${clinicSettings.name}`,
-  description: `${clinicSettings.name}'s privacy policy — how we collect, use, store, and protect your personal data in compliance with the Digital Personal Data Protection Act (DPDPA) 2023.`,
-  alternates: {
-    canonical: '/privacy',
-  },
-};
-
 const sections = [
   { id: 'who-we-are', title: 'Who We Are (Controller Identity)' },
   { id: 'data-we-collect', title: 'Data We Collect by Workflow' },
@@ -27,15 +17,15 @@ const sections = [
   { id: 'changes', title: 'Changes to This Policy' },
 ] as const;
 
-export default function PrivacyPolicyPage() {
+
+export default function PrivacyPolicyContent() {
   return (
     <>
-      <section className="soft-page-hero py-16">
-        <div className="container">
-          <h1 className="text-3xl md:text-4xl font-bold">Privacy Policy</h1>
-          <p className="mt-2 text-text-light">Version: {PRIVACY_POLICY_VERSION} | Effective: 8 July 2026</p>
-        </div>
-      </section>
+      <header className="container max-w-[800px]">
+        <h2 className="heading-section text-ink">Privacy Policy</h2>
+        <p className="mt-2 text-sm text-text-light">Version: {PRIVACY_POLICY_VERSION} | Effective: 8 July 2026</p>
+      </header>
+      
 
       <section className="section">
         <div className="container max-w-[800px]">
@@ -391,7 +381,7 @@ export default function PrivacyPolicyPage() {
               </ul>
               <p className="mt-3 text-sm">
                 To exercise any of these rights, use our{' '}
-                <Link href="/privacy/rights" className="font-semibold text-accent underline">privacy request form</Link>{' '}
+                <Link href="/legal#data-request" className="font-semibold text-accent underline">privacy request form</Link>{' '}
                 or contact us below. We verify identity before taking action on a request.
               </p>
             </section>

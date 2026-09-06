@@ -22,7 +22,7 @@ export default function VideoPagination({
   function href(page: number): string {
     const params = new URLSearchParams();
     if (topic) params.set('topic', topic);
-    if (lang) params.set('lang', lang);
+    if (lang) params.set('vlang', lang);
     if (page > 1) params.set('page', String(page));
     const qs = params.toString();
     return qs ? `${basePath}?${qs}` : basePath;

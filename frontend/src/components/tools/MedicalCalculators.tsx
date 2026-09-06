@@ -8,32 +8,40 @@ import BmiCalculator from './BmiCalculator';
 import BloodPressureCalculator from './BloodPressureCalculator';
 import DiabetesRiskCalculator from './DiabetesRiskCalculator';
 
-export default function MedicalCalculators() {
+export default function MedicalCalculators({
+  // 'section' embeds the calculators inside a larger page, so the standalone
+  // hero (and its h1) is skipped.
+  variant = 'page',
+}: {
+  variant?: 'page' | 'section';
+} = {}) {
   useEffect(() => {
     guardLocalStorage();
   }, []);
 
   return (
     <>
-      <section className="soft-page-hero py-16 text-center">
-        <div className="container" data-no-storage data-no-analytics>
-          <div className="icon-chip mx-auto mb-4 flex h-12 w-12">
-            <Activity size={26} aria-hidden="true" />
+      {variant === 'page' ? (
+        <section className="soft-page-hero py-16 text-center">
+          <div className="container" data-no-storage data-no-analytics>
+            <div className="icon-chip mx-auto mb-4 flex h-12 w-12">
+              <Activity size={26} aria-hidden="true" />
+            </div>
+            <h1 className="heading-display">Medical Calculators</h1>
+            <p className="lede mx-auto mt-3 max-w-2xl">
+              Quick educational tools for everyday cardiometabolic health checks.
+            </p>
+            <p className="mx-auto mt-2 max-w-2xl text-sm text-text-light">
+              No values you enter are stored, saved, or sent anywhere.
+            </p>
           </div>
-          <h1 className="text-3xl font-bold md:text-4xl">Medical Calculators</h1>
-          <p className="mx-auto mt-3 max-w-2xl text-lg text-text-light">
-            Quick educational tools for everyday cardiometabolic health checks.
-          </p>
-          <p className="mx-auto mt-2 max-w-2xl text-sm text-text-light">
-            No values you enter are stored, saved, or sent anywhere.
-          </p>
-        </div>
-      </section>
+        </section>
+      ) : null}
 
       <section className="section section-alt">
         <div className="container">
           <div
-            className="mb-8 rounded-lg border-l-4 border-amber-400 bg-amber-50 p-4 text-sm text-amber-900"
+            className="mb-8 rounded-lg border-l-4 border-warm bg-warm/10 p-4 text-sm text-warm"
             role="note"
             aria-label="Educational disclaimer"
           >
@@ -66,17 +74,17 @@ export default function MedicalCalculators() {
               className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
               <span className="badge badge-featured mb-3">Diabetes</span>
-              <h2 className="text-lg font-bold text-ink">Diabetes Management Package</h2>
+              <h3 className="heading-card text-ink">Diabetes Management Package</h3>
               <p className="mt-2 text-sm leading-relaxed text-text-light">
                 Review blood sugar, HbA1c, lipids, kidney health, and related diabetes markers.
               </p>
             </Link>
             <Link
-              href="/facilities"
+              href="/care"
               className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
               <span className="badge badge-new mb-3">Monitoring</span>
-              <h2 className="text-lg font-bold text-ink">CGMS and ABPM Facilities</h2>
+              <h3 className="heading-card text-ink">CGMS and ABPM Facilities</h3>
               <p className="mt-2 text-sm leading-relaxed text-text-light">
                 Learn about continuous glucose monitoring and 24-hour blood pressure monitoring at Spandan.
               </p>
@@ -86,7 +94,7 @@ export default function MedicalCalculators() {
               className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
               <span className="badge badge-featured mb-3">Appointments</span>
-              <h2 className="text-lg font-bold text-ink">Talk to Spandan</h2>
+              <h3 className="heading-card text-ink">Talk to Spandan</h3>
               <p className="mt-2 text-sm leading-relaxed text-text-light">
                 Book a clinician review if your scores are elevated or symptoms need attention.
               </p>

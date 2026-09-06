@@ -16,7 +16,7 @@ export default function BreadcrumbNav({ title }: { title: string }) {
           <ChevronRight className="h-4 w-4" />
         </li>
         <li>
-          <Link href="/health-resources" className="transition-colors hover:text-ink">
+          <Link href="/health" className="transition-colors hover:text-ink">
             Health Resources
           </Link>
         </li>

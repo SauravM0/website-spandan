@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
-import { ChevronDown, Globe2, Menu, Phone, MessageCircle, X } from 'lucide-react';
+import { Globe2, Menu, Phone, MessageCircle, X } from 'lucide-react';
 import '../../lib/i18n';
 import { clinicLinks } from '@/lib/settings';
 import Button from '@/components/ui/Button';
@@ -16,29 +16,18 @@ const languages = [
 
 const primaryLinks = [
   { href: '/doctors', label: 'nav_doctors' },
-  { href: '/facilities', label: 'nav_services_gallery' },
-  { href: '/health-resources', label: 'nav_health_resources' },
+  { href: '/care', label: 'nav_care' },
+  { href: '/health', label: 'nav_health' },
   { href: '/contact', label: 'nav_contact' },
-];
-
-const secondaryLinks = [
-  { href: '/about', label: 'nav_about' },
-  { href: '/facilities', label: 'nav_facilities' },
-  { href: '/health-resources', label: 'nav_articles' },
-  { href: '/publications', label: 'nav_publications' },
-  { href: '/tools', label: 'nav_tools' },
-  { href: '/videos', label: 'nav_videos' },
 ];
 
 export default function Navbar() {
   const { t, i18n } = useTranslation('common');
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [languageOpen, setLanguageOpen] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
   const drawerRef = useRef<HTMLDivElement>(null);
   const toggleRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
-  const moreRef = useRef<HTMLDivElement>(null);
 
   // Every nav key is present in all three dictionaries (guarded by
   // src/lib/__tests__/locales.test.ts), so no English fallbacks are needed.
@@ -91,26 +80,6 @@ export default function Navbar() {
     setDrawerOpen(false);
   }, [typeof window !== 'undefined' ? window.location.pathname : '']);
 
-  useEffect(() => {
-    if (!moreOpen) return;
-
-    const closeOnOutsideClick = (event: PointerEvent) => {
-      if (!moreRef.current?.contains(event.target as Node)) {
-        setMoreOpen(false);
-      }
-    };
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setMoreOpen(false);
-    };
-
-    document.addEventListener('pointerdown', closeOnOutsideClick);
-    window.addEventListener('keydown', closeOnEscape);
-    return () => {
-      document.removeEventListener('pointerdown', closeOnOutsideClick);
-      window.removeEventListener('keydown', closeOnEscape);
-    };
-  }, [moreOpen]);
-
   return (
     <header className="sticky top-0 z-50 bg-white shadow-lg">
       <div className="mx-auto flex h-[72px] max-w-[1280px] items-center justify-between px-4 sm:px-6 lg:px-8">
@@ -137,22 +106,10 @@ export default function Navbar() {
               {navLabel(link.label)}
             </Link>
           ))}
-          <div ref={moreRef} className="relative">
-            <button type="button" onClick={() => { setLanguageOpen(false); setMoreOpen((open) => !open); }} className="flex min-h-[44px] items-center gap-1 rounded-2xl px-3 text-sm font-medium text-text transition-colors hover:bg-bg-alt hover:text-accent" aria-expanded={moreOpen} aria-haspopup="true">
-              {t('nav_more')} <ChevronDown size={15} aria-hidden="true" />
-            </button>
-            {moreOpen && (
-              <div className="absolute right-0 top-full z-20 mt-2 w-48 rounded-2xl bg-white p-2 shadow-lg">
-                {secondaryLinks.map((link) => (
-                  <Link key={link.href} href={link.href} onClick={() => setMoreOpen(false)} className="block rounded-xl px-3 py-2 text-sm text-text hover:bg-bg-alt hover:text-accent">{navLabel(link.label)}</Link>
-                ))}
-              </div>
-            )}
-          </div>
           <div className="relative ml-1">
             <button
               type="button"
-              onClick={() => { setMoreOpen(false); setLanguageOpen((v) => !v); }}
+              onClick={() => setLanguageOpen((v) => !v)}
               className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl text-text transition-all duration-300 hover:bg-bg-alt hover:text-accent"
               aria-label="Change language"
               aria-expanded={languageOpen}
@@ -225,11 +182,6 @@ export default function Navbar() {
                   onClick={closeDrawer}
                   className="flex min-h-[48px] items-center rounded-2xl px-3 text-base font-medium text-text transition-all duration-300 hover:bg-bg-alt hover:text-accent"
                 >
-                  {navLabel(link.label)}
-                </Link>
-              ))}
-              {secondaryLinks.map((link) => (
-                <Link key={link.href} href={link.href} onClick={closeDrawer} className="flex min-h-[48px] items-center rounded-2xl px-3 text-base font-medium text-text hover:bg-bg-alt hover:text-accent">
                   {navLabel(link.label)}
                 </Link>
               ))}

@@ -195,11 +195,11 @@ export default function ResourceHub({
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3 lg:justify-end">
-                  <Button href="/videos" variant="outline">
+                  <Button href="/health#videos" variant="outline">
                     <Video className="h-4 w-4" aria-hidden="true" />
                     Videos
                   </Button>
-                  <Button href="/tools" variant="outline">
+                  <Button href="/health#calculators" variant="outline">
                     <Clock className="h-4 w-4" aria-hidden="true" />
                     Tools
                   </Button>

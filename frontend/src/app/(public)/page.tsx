@@ -5,6 +5,7 @@ import TrustStrip from '@/components/home/TrustStrip';
 import ServiceCards from '@/components/home/ServiceCards';
 import DoctorCardsSection from '@/components/home/DoctorCards';
 import ClinicGallery from '@/components/home/ClinicGallery';
+import ClinicStory from '@/components/home/ClinicStory';
 import ExploreBento from '@/components/home/ExploreBento';
 import LocationCTA from '@/components/home/LocationCTA';
 import { getHomePayload } from '@/lib/home';
@@ -58,6 +59,7 @@ export default async function HomePage() {
       <ServiceCards />
       <TrustStrip />
       <ClinicGallery />
+      <ClinicStory />
       <ExploreBento article={payload.featuredArticle} video={payload.featuredVideo} />
       <LocationCTA settings={payload.settings} />
     </>

@@ -52,6 +52,63 @@ const nextConfig = {
         destination: '/packages/full-body-check-up-package',
         permanent: true,
       },
+      // Consolidated in 2026: 17 public pages became 6 hubs. Each retired URL
+      // keeps a permanent redirect to the section that absorbed its content.
+      {
+        source: '/about',
+        destination: '/',
+        permanent: true,
+      },
+      {
+        source: '/explore',
+        destination: '/health',
+        permanent: true,
+      },
+      {
+        source: '/facilities',
+        destination: '/care',
+        permanent: true,
+      },
+      {
+        source: '/packages',
+        destination: '/care',
+        permanent: true,
+      },
+      {
+        source: '/health-resources',
+        destination: '/health',
+        permanent: true,
+      },
+      {
+        source: '/videos',
+        destination: '/health#videos',
+        permanent: true,
+      },
+      {
+        source: '/tools',
+        destination: '/health#calculators',
+        permanent: true,
+      },
+      {
+        source: '/publications',
+        destination: '/health#research',
+        permanent: true,
+      },
+      {
+        source: '/privacy/rights',
+        destination: '/legal#data-request',
+        permanent: true,
+      },
+      {
+        source: '/privacy',
+        destination: '/legal#privacy',
+        permanent: true,
+      },
+      {
+        source: '/terms',
+        destination: '/legal#terms',
+        permanent: true,
+      },
       // Booking, payment and intake flows were removed from the public site.
       // Send each removed URL to the page that now serves that intent.
       {
@@ -61,12 +118,12 @@ const nextConfig = {
       },
       {
         source: '/book-package/:path*',
-        destination: '/packages',
+        destination: '/care',
         permanent: true,
       },
       {
         source: '/build-package/:path*',
-        destination: '/packages',
+        destination: '/care',
         permanent: true,
       },
       {

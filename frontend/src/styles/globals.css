@@ -642,3 +642,4 @@
 @media (prefers-reduced-motion: no-preference) {
   .sticky-bar { animation: slide-up-in var(--duration-base) var(--ease-out) both; }
 }
+

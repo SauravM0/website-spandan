@@ -38,7 +38,7 @@ export default function VideoFilters({
         <label className="block">
           <span className="mb-1.5 block text-sm font-semibold">Language</span>
           <select
-            name="lang"
+            name="vlang"
             defaultValue={currentLang}
             className="min-h-[44px] w-full rounded-2xl border border-border bg-white px-3 py-2 text-sm"
           >

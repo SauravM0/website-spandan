@@ -76,7 +76,7 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
               and published research.
             </p>
           </div>
-          <Link href="/explore" className="home-bento-heading-link">
+          <Link href="/health" className="home-bento-heading-link">
             Explore everything
             <ArrowRight size={18} aria-hidden="true" />
           </Link>
@@ -84,7 +84,7 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
 
         <div className="home-bento-grid">
           <Link
-            href="/facilities"
+            href="/care"
             className="home-bento-card home-bento-facilities group sm:col-span-2 lg:col-span-5 lg:row-span-2"
             aria-label={`Explore ${facilities.length} verified facilities and diagnostics`}
           >
@@ -115,7 +115,7 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
           </Link>
 
           <Link
-            href="/videos"
+            href="/health#videos"
             className="home-bento-card home-bento-video group sm:col-span-2 lg:col-span-4"
             aria-label="Watch health education videos"
           >
@@ -153,7 +153,7 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
           </Link>
 
           <Link
-            href="/explore"
+            href="/health"
             className="home-bento-card group p-6 sm:col-span-2 lg:col-span-3 lg:p-7"
             aria-label="View an overview of Spandan facilities, services, and tools"
           >
@@ -191,7 +191,7 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
           </Link>
 
           <Link
-            href="/publications"
+            href="/health#research"
             className="home-bento-card group p-6 lg:col-span-2"
             aria-label={`Browse ${researchPublications.length} research publications`}
           >
@@ -206,7 +206,7 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
           </Link>
 
           <Link
-            href="/tools"
+            href="/health#calculators"
             className="home-bento-card group p-6 lg:col-span-2"
             aria-label={`Try ${calculatorCount} free educational health calculators`}
           >

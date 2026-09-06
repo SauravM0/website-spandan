@@ -46,7 +46,7 @@ export default function PackageCatalog({ packages }: PackageCatalogProps) {
         {showFilters && (
           <nav className="flex flex-wrap gap-2" aria-label="Package categories">
             <Button
-              href="/packages"
+              href="/care"
               size="sm"
               variant={selectedCategory ? 'outline' : 'primary'}
               aria-current={!selectedCategory ? 'page' : undefined}
@@ -96,7 +96,7 @@ export default function PackageCatalog({ packages }: PackageCatalogProps) {
             No packages found{selectedLabel ? ` for ${selectedLabel}` : ''}
           </h2>
           <p className="mt-2 text-text-light">Try another category or view all active packages.</p>
-          <Button href="/packages" variant="outline" className="mt-5">
+          <Button href="/care" variant="outline" className="mt-5">
             View All Packages
           </Button>
         </div>

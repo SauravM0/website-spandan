@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ContentUnavailable from '@/components/ui/ContentUnavailable';
 import { ArrowLeft, BadgePercent, HelpCircle, MessageCircle, Phone } from 'lucide-react';
 import PackageDetailSection, {
   orderPackagesSelectedFirst,
@@ -13,11 +14,11 @@ import {
   type PublicPackageSummary,
 } from '@/components/packages/PackageCard';
 import { clinicSettings, whatsappLink } from '@/lib/settings';
-import { serverApiGet } from '@/lib/serverApi';
+import { serverApiGet, serverApiTry } from '@/lib/serverApi';
 import Button from '@/components/ui/Button';
 
 async function getPackage(slug: string) {
-  return serverApiGet<{ package: PublicPackageDetail | null }>(
+  return serverApiTry<{ package: PublicPackageDetail | null }>(
     `/packages/${slug}`,
     { package: null },
     { cache: 'no-store' }
@@ -37,13 +38,12 @@ async function getAllPackageDetails() {
   const results = await Promise.all(
     (catalog.packages || []).map((pkg) => getPackage(pkg.slug))
   );
-  return results.map((result) => result.package).filter(Boolean) as PublicPackageDetail[];
+  return results.map((result) => result.data.package).filter(Boolean) as PublicPackageDetail[];
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getPackage(slug);
-  const pkg = data.package;
+  const pkg = (await getPackage(slug)).data.package;
   if (!pkg) return { title: 'Package Not Found | Spandan Clinic' };
 
   return {
@@ -88,9 +88,20 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
     getPackage(slug),
     getAllPackageDetails(),
   ]);
-  const selected = selectedResult.package;
+  const selected = selectedResult.data.package;
 
-  if (!selected) notFound();
+  if (!selected) {
+    if (!selectedResult.ok) {
+      return (
+        <ContentUnavailable
+          title="This health package is temporarily unavailable"
+          backHref="/packages"
+          backLabel="All packages"
+        />
+      );
+    }
+    notFound();
+  }
 
   const orderedPackages = orderPackagesSelectedFirst(allPackages, selected);
   const currentPrice = selected.current_price ?? selected.base_price;
@@ -106,7 +117,7 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
 
       <section className="soft-page-hero py-12 sm:py-14">
         <div className="container">
-          <Link href="/packages" className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-primary">
+          <Link href="/care" className="inline-flex items-center gap-2 text-sm font-semibold text-accent hover:text-primary">
             <ArrowLeft size={16} aria-hidden="true" />
             Back to health packages
           </Link>

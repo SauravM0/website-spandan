@@ -2,6 +2,7 @@ import React from 'react';
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
+import ContentUnavailable from '@/components/ui/ContentUnavailable';
 import {
   ArrowLeft,
   BookOpen,
@@ -11,7 +12,7 @@ import {
   UserRound,
 } from 'lucide-react';
 import { clinicSettings } from '@/lib/settings';
-import { serverApiGet } from '@/lib/serverApi';
+import { serverApiGet, serverApiTry } from '@/lib/serverApi';
 import type { PublicArticleSummary, PublicDoctorSummary } from '@/lib/home';
 import { publicationAuthor, researchPublications } from '@/lib/publications';
 import Button from '@/components/ui/Button';
@@ -41,7 +42,9 @@ function formatReviewDate(value?: string | null) {
 }
 
 async function getDoctor(slug: string) {
-  return serverApiGet<{ doctor: PublicDoctorDetail | null }>(
+  // serverApiTry keeps "backend unreachable" distinct from "no such doctor", so
+  // an outage renders an explanatory page instead of a 404.
+  return serverApiTry<{ doctor: PublicDoctorDetail | null }>(
     `/public/doctors/${slug}`,
     { doctor: null },
     { next: { revalidate: 3600, tags: ['public-doctors'] } }
@@ -64,8 +67,8 @@ async function getRelatedContent(doctor: PublicDoctorDetail) {
 }
 
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const data = await getDoctor(params.slug);
-  const doctor = data.doctor;
+  const result = await getDoctor(params.slug);
+  const doctor = result.data.doctor;
   if (!doctor) return { title: 'Doctor Not Found | Spandan Clinic' };
 
   const titleName = cleanDoctorTitle(doctor.name);
@@ -149,10 +152,22 @@ function CredentialList({ doctor }: { doctor: PublicDoctorDetail }) {
 }
 
 export default async function DoctorDetail({ params }: { params: { slug: string } }) {
-  const data = await getDoctor(params.slug);
-  const doctor = data.doctor;
+  const result = await getDoctor(params.slug);
+  const doctor = result.data.doctor;
 
-  if (!doctor) notFound();
+  // Only a genuine "the backend answered and has no such doctor" is a 404.
+  if (!doctor) {
+    if (!result.ok) {
+      return (
+        <ContentUnavailable
+          title="This doctor's profile is temporarily unavailable"
+          backHref="/doctors"
+          backLabel="All doctors"
+        />
+      );
+    }
+    notFound();
+  }
 
   const { relatedArticles } = await getRelatedContent(doctor);
   const imageSrc = doctor.photo_url || doctor.image_url || undefined;
@@ -283,7 +298,7 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
               <p className="mt-2 text-sm leading-relaxed text-text-light">
                 View clinic diagnostic facilities such as ECG-related monitoring, CGMS, ABPM, Holter, sleep study, and InBody.
               </p>
-              <Button href="/facilities" variant="outline" className="mt-5">View Facilities</Button>
+              <Button href="/care" variant="outline" className="mt-5">View Facilities</Button>
             </article>
 
             {hasResearchPublications && (
@@ -293,7 +308,7 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
                 <p className="mt-2 text-sm leading-relaxed text-text-light">
                   Browse {researchPublications.length} endocrinology publications and case reports associated with this profile.
                 </p>
-                <Button href="/publications" variant="outline" className="mt-5">View Publications</Button>
+                <Button href="/health#research" variant="outline" className="mt-5">View Publications</Button>
               </article>
             )}
 
@@ -306,7 +321,7 @@ export default async function DoctorDetail({ params }: { params: { slug: string 
                     {article.title}
                   </Link>
                 )) : (
-                  <Link href="/health-resources" className="rounded-2xl bg-wash-sage/70 px-3 py-2 text-sm font-semibold text-ink hover:text-accent">
+                  <Link href="/health" className="rounded-2xl bg-wash-sage/70 px-3 py-2 text-sm font-semibold text-ink hover:text-accent">
                     Browse health resources
                   </Link>
                 )}

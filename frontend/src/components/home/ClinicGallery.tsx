@@ -69,7 +69,7 @@ export default function ClinicGallery() {
               treatment you are given.
             </p>
           </div>
-          <Button href="/facilities" variant="outline" className="self-start md:self-auto">
+          <Button href="/care" variant="outline" className="self-start md:self-auto">
             Explore facilities
           </Button>
         </div>
