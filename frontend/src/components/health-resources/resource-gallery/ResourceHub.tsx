@@ -2,6 +2,7 @@ import React from 'react';
 import Link from 'next/link';
 import { BookOpen, CalendarDays, Clock, FileText, Image as ImageIcon, Languages, Search, UserCheck, Video } from 'lucide-react';
 import ResourceGallery from './ResourceGallery';
+import Button from '@/components/ui/Button';
 
 type TabKey = 'blog' | 'images' | 'events';
 
@@ -93,11 +94,11 @@ function ResourceCard({ article }: { article: HealthResourceArticle }) {
       <Link href={`/health-resources/${article.slug}`} className="block flex-1 p-6 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2">
         <div className="flex flex-wrap items-start gap-2">
           {article.category && <span className="badge badge-new">{article.category}</span>}
-          <span className="badge bg-teal-50 text-teal-700">{format}</span>
-          <span className="badge bg-pink-100 text-pink-700">{languageLabel(article.language)}</span>
+          <span className="badge bg-wash-sage text-accent">{format}</span>
+          <span className="badge bg-blush/15 text-blush-deep">{languageLabel(article.language)}</span>
         </div>
 
-        <h3 className="mt-4 text-lg font-bold leading-snug text-navy">{article.title}</h3>
+        <h3 className="mt-4 text-lg font-bold leading-snug text-ink">{article.title}</h3>
         {article.excerpt && (
           <p className="mt-3 text-sm leading-relaxed text-text-light">{article.excerpt}</p>
         )}
@@ -167,8 +168,8 @@ export default function ResourceHub({
                   href={makeTabHref(tab.key, filters)}
                   className={`inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
                     isActive
-                      ? 'bg-gradient-to-r from-accent to-primary text-white shadow-[0_10px_24px_rgba(43,138,198,0.16)]'
-                      : 'bg-white/80 text-text shadow-[inset_0_0_0_1px_rgba(74,144,226,0.16)] hover:-translate-y-0.5 hover:bg-blue-50'
+                      ? 'bg-gradient-to-r from-accent to-primary text-white shadow-md'
+                      : 'bg-white/80 text-text shadow-md hover:-translate-y-0.5 hover:bg-wash-sage'
                   }`}
                   aria-current={isActive ? 'page' : undefined}
                 >
@@ -188,20 +189,20 @@ export default function ResourceHub({
               <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
                 <div className="max-w-[760px]">
                   <p className="text-sm font-semibold uppercase tracking-[0.08em] text-accent">Reviewed education</p>
-                  <h2 className="mt-2 text-2xl font-bold text-navy">Find resources by topic, language, or format</h2>
+                  <h2 className="mt-2 text-2xl font-bold text-ink">Find resources by topic, language, or format</h2>
                   <p className="mt-3 leading-relaxed text-text-light">
                     These resources are for general education. They do not replace a consultation or advice based on your medical history.
                   </p>
                 </div>
                 <div className="flex flex-wrap gap-3 lg:justify-end">
-                  <Link href="/videos" className="btn btn-outline">
+                  <Button href="/videos" variant="outline">
                     <Video className="h-4 w-4" aria-hidden="true" />
                     Videos
-                  </Link>
-                  <Link href="/tools" className="btn btn-outline">
+                  </Button>
+                  <Button href="/tools" variant="outline">
                     <Clock className="h-4 w-4" aria-hidden="true" />
                     Tools
-                  </Link>
+                  </Button>
                 </div>
               </div>
 
@@ -246,8 +247,8 @@ export default function ResourceHub({
                     </select>
                   </label>
                   <div className="flex items-end gap-3">
-                    <button type="submit" className="btn btn-primary w-full md:w-auto">Apply</button>
-                    <Link href="/health-resources?tab=blog" className="btn btn-outline">Reset</Link>
+                    <Button type="submit" variant="primary" className="w-full md:w-auto">Apply</Button>
+                    <Button href="/health-resources?tab=blog" variant="outline">Reset</Button>
                   </div>
                 </div>
               </form>
@@ -261,11 +262,11 @@ export default function ResourceHub({
                 </div>
               ) : (
                 <div className="soft-card p-8 text-center">
-                  <h3 className="text-xl font-bold text-navy">No resources match these filters</h3>
+                  <h3 className="text-xl font-bold text-ink">No resources match these filters</h3>
                   <p className="mx-auto mt-3 max-w-[560px] text-text-light">
                     Try a broader topic, language, or format. For personal symptoms or treatment decisions, contact the clinic directly.
                   </p>
-                  <Link href="/contact" className="btn btn-primary mt-6">Contact Clinic</Link>
+                  <Button href="/contact" variant="primary" className="mt-6">Contact Clinic</Button>
                 </div>
               )}
             </>
@@ -274,7 +275,7 @@ export default function ResourceHub({
           {filters.tab === 'images' && (
             <div>
               <div className="mb-8 max-w-[720px]">
-                <h2 className="text-2xl font-bold text-navy">Resource Images</h2>
+                <h2 className="text-2xl font-bold text-ink">Resource Images</h2>
                 <p className="mt-2 text-text-light">
                   Clinic education and patient support visuals. Image failures leave the captions available.
                 </p>
@@ -285,14 +286,14 @@ export default function ResourceHub({
 
           {filters.tab === 'events' && (
             <div className="soft-card mx-auto max-w-[720px] p-8 text-center">
-              <CalendarDays className="mx-auto h-10 w-10 text-navy" aria-hidden="true" />
-              <h2 className="mt-4 text-2xl font-bold text-navy">Events</h2>
+              <CalendarDays className="mx-auto h-10 w-10 text-ink" aria-hidden="true" />
+              <h2 className="mt-4 text-2xl font-bold text-ink">Events</h2>
               <p className="mt-3 text-text-light">
                 No public events are scheduled at this time. Check back for future clinic updates.
               </p>
-              <Link href="/contact" className="btn btn-primary mt-6">
+              <Button href="/contact" variant="primary" className="mt-6">
                 Contact Clinic
-              </Link>
+              </Button>
             </div>
           )}
         </div>

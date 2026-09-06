@@ -216,11 +216,96 @@ export const paymentCreateSchema = z
   .object({
     order_id: z.string().regex(uuidRegex, 'Must be a valid UUID').optional(),
     appointment_id: z.string().regex(uuidRegex, 'Must be a valid UUID').optional(),
+    payment_creation_token: z.string().regex(/^[A-Za-z0-9_-]{43}$/),
   })
   .refine((value) => Boolean(value.order_id || value.appointment_id), {
     message: 'order_id or appointment_id is required',
     path: ['order_id'],
   });
+
+export const paymentConfigurationSchema = z
+  .object({
+    payment_mode: z.enum(['disabled', 'direct_upi', 'phonepe']),
+    direct_upi_enabled: z.boolean(),
+    gateway_enabled: z.boolean(),
+    active_provider: z.enum(['disabled', 'direct_upi', 'phonepe']),
+    merchant_upi_vpa: z
+      .string()
+      .trim()
+      .max(120)
+      .regex(/^[a-z0-9._-]{2,}@[a-z0-9.-]{2,}$/i, 'Enter a valid merchant UPI VPA')
+      .nullable()
+      .optional(),
+    merchant_display_name: z.string().trim().min(2).max(80).transform(stripHtml).nullable().optional(),
+    merchant_payment_contact: z.string().trim().max(30).transform(stripHtml).nullable().optional(),
+    merchant_category: z.string().regex(/^\d{4}$/).nullable().optional(),
+    upi_transaction_note_template: z
+      .string()
+      .trim()
+      .min(3)
+      .max(80)
+      .refine(
+        (value) => !/[{}]/.test(value.replaceAll('{reference}', '')),
+        'Only the {reference} placeholder is supported'
+      )
+      .transform(stripHtml)
+      .nullable()
+      .optional(),
+    payment_order_expiry_minutes: z.number().int().min(5).max(1440),
+    verification_reservation_minutes: z.number().int().min(5).max(1440),
+    utr_required: z.literal(true),
+    screenshot_enabled: z.boolean(),
+    screenshot_required: z.boolean(),
+    pay_at_clinic_enabled: z.boolean(),
+    effective_from: z.string().datetime(),
+    change_reason: z.string().trim().min(10).max(500).transform(stripHtml),
+  })
+  .superRefine((value, context) => {
+    if (value.payment_mode !== value.active_provider) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['active_provider'],
+        message: 'Payment mode and active provider must match',
+      });
+    }
+    const expectedDirect = value.active_provider === 'direct_upi';
+    const expectedGateway = value.active_provider === 'phonepe';
+    if (value.direct_upi_enabled !== expectedDirect) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['direct_upi_enabled'],
+        message: 'Direct UPI may only be enabled when it is the active provider',
+      });
+    }
+    if (value.gateway_enabled !== expectedGateway) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['gateway_enabled'],
+        message: 'The gateway may only be enabled when PhonePe is the active provider',
+      });
+    }
+    if (new Date(value.effective_from).getTime() > Date.now() + 60_000) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['effective_from'], message: 'Scheduled future activation is not supported; publish when the configuration should become active' });
+    }
+    if (value.screenshot_required && !value.screenshot_enabled) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ['screenshot_required'], message: 'Required screenshots must be enabled' });
+    }
+    if (value.active_provider === 'direct_upi' && value.direct_upi_enabled) {
+      for (const field of ['merchant_upi_vpa', 'merchant_display_name', 'upi_transaction_note_template'] as const) {
+        if (!value[field]) context.addIssue({ code: z.ZodIssueCode.custom, path: [field], message: 'Required for Direct UPI' });
+      }
+    }
+  });
+
+export const directUpiInitiationSchema = z.object({ channel: z.enum(['intent', 'qr']) });
+export const directUpiUtrSchema = z.object({ utr: z.string().trim().min(6).max(35) });
+export const directUpiVerificationSchema = z.object({
+  action: z.enum(['confirm', 'reject', 'amount_mismatch', 'duplicate', 'request_clarification']),
+  expected_version: z.number().int().positive(),
+  reason: z.string().trim().min(10).max(500).transform(stripHtml),
+  observed_amount_paisa: z.number().int().min(0).optional(),
+  duplicate_of_payment_id: z.string().uuid().optional(),
+});
 
 export const appointmentConfigSchema = z
   .object({
@@ -374,9 +459,16 @@ export const adminPaymentFiltersSchema = z.object({
     .enum([
       'created',
       'pending',
+      'payment_initiated',
+      'verification_pending',
+      'clarification_requested',
       'success',
       'failed',
+      'cancelled',
       'expired',
+      'rejected',
+      'amount_mismatch',
+      'duplicate_transaction',
       'verification_required',
       'refunded',
       'disputed',

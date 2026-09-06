@@ -2,23 +2,12 @@
 
 import React from 'react';
 import { Trash2 } from 'lucide-react';
-import { formatDate, formatShortDate, formatTime, dayStatus, slotsForDay } from './CalendarUtils';
-
-function Field({ label, children }: { label: string; children: React.ReactElement<{ className?: string }> }) {
-  return (
-    <label className="grid gap-1 text-sm font-bold text-navy">
-      {label}
-      {React.cloneElement(children, {
-        className: 'rounded-md border border-border px-3 py-2 text-sm font-semibold text-text',
-      })}
-    </label>
-  );
-}
+import { formatDate, formatTime, dayStatus, slotsForDay } from './CalendarUtils';
 
 function Stat({ label, value }: { label: string; value: number }) {
   return (
     <div className="rounded-lg bg-bg-alt p-3">
-      <p className="text-2xl font-black text-navy">{value}</p>
+      <p className="text-2xl font-black text-ink">{value}</p>
       <p className="text-xs font-bold text-text-light">{label}</p>
     </div>
   );
@@ -45,11 +34,11 @@ export default function DayInspector({
   const selectedCounts = slotsForDay(daySlots);
 
   const toneMap: Record<string, string> = {
-    danger: 'bg-rose-100 text-rose-800',
+    danger: 'bg-danger/15 text-danger',
     warm: 'bg-amber-100 text-amber-900',
     success: 'bg-emerald-100 text-emerald-800',
-    info: 'bg-sky-100 text-sky-800',
-    muted: 'bg-slate-100 text-slate-700',
+    info: 'bg-wash-sage text-accent',
+    muted: 'bg-bg-alt text-text-light',
   };
 
   return (
@@ -57,7 +46,7 @@ export default function DayInspector({
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <p className="text-xs font-bold uppercase tracking-[0.14em] text-accent">Selected Date</p>
-          <h2 className="mt-1 text-xl font-black text-navy">{formatDate(selectedDate)}</h2>
+          <h2 className="mt-1 text-xl font-black text-ink">{formatDate(selectedDate)}</h2>
         </div>
         <span className={`rounded-full px-3 py-1 text-xs font-bold ${toneMap[selectedStatus.tone] || toneMap.muted}`}>
           {selectedStatus.label}
@@ -71,7 +60,7 @@ export default function DayInspector({
       </div>
 
       <div className="mb-4 rounded-lg border border-border bg-bg-alt p-3">
-        <p className="mb-2 text-sm font-black text-navy">Slots</p>
+        <p className="mb-2 text-sm font-black text-ink">Slots</p>
         <div className="grid max-h-44 gap-2 overflow-auto">
           {daySlots.map((slot) => (
             <div
@@ -92,7 +81,7 @@ export default function DayInspector({
 
       {selectedOverrides.length > 0 && (
         <div className="mb-4 rounded-lg border border-border p-3">
-          <p className="mb-2 text-sm font-black text-navy">Saved Changes</p>
+          <p className="mb-2 text-sm font-black text-ink">Saved Changes</p>
           <div className="grid gap-2">
             {selectedOverrides.map((item: any) => (
               <div

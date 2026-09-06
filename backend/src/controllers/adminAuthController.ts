@@ -3,14 +3,12 @@ import { config } from '../config';
 import { query } from '../config/database';
 import type { AuthenticatedRequest } from '../middleware/auth';
 import { permissionsForRole } from '../security/permissions';
-import { authenticationFingerprint } from '../security/authSecurity';
 import {
-  beginAdminLogin,
+  authenticationFingerprint,
   changeAdminPassword,
-  completeAdminMfa,
   listSessions,
+  loginAdmin,
   revokeOwnSession,
-  verifyStepUp,
 } from '../services/adminAuth';
 import { AppError, badRequest, unauthorized } from '../utils/errors';
 import { hashTelemetry } from '../utils/redaction';
@@ -88,45 +86,9 @@ export async function login(req: Request, res: Response): Promise<void> {
     return;
   }
   try {
-    const challenge = await beginAdminLogin(email, password, requestContext(req));
-    await auditAuthentication(req, 'auth.password_verified', null, {
-      account_hash: authenticationFingerprint('account', email),
-      enrollment_required: challenge.enrollmentRequired,
-    });
-    res.status(202).json({
-      mfa: {
-        required: true,
-        challenge_id: challenge.challengeId,
-        expires_at: challenge.expiresAt,
-        enrollment_required: challenge.enrollmentRequired,
-        ...(challenge.secret
-          ? { secret: challenge.secret, otpauth_uri: challenge.otpauthUri }
-          : {}),
-      },
-    });
-  } catch (error) {
-    await auditAuthentication(req, 'auth.login_failed', null, {
-      account_hash: authenticationFingerprint('account', email),
-      error_code: error instanceof AppError ? error.code : 'LOGIN_FAILED',
-    });
-    throw error;
-  }
-}
-
-export async function completeMfa(req: Request, res: Response): Promise<void> {
-  const challengeId = String(req.body.challenge_id || '');
-  const code = String(req.body.code || '');
-  const recoveryCode = req.body.recovery_code ? String(req.body.recovery_code) : undefined;
-  if (!challengeId || (!code && !recoveryCode)) {
-    badRequest(res, 'Challenge and authentication code are required');
-    return;
-  }
-  try {
-    const result = await completeAdminMfa(challengeId, code, recoveryCode, requestContext(req));
+    const result = await loginAdmin(email, password, requestContext(req));
     await auditAuthentication(req, 'auth.login_success', result.user.id, {
-      mfa: true,
-      recovery_used: result.recoveryUsed,
-      enrollment_completed: Boolean(result.recoveryCodes),
+      account_hash: authenticationFingerprint('account', email),
     });
     res.cookie(
       config.adminSessionCookieName,
@@ -135,35 +97,11 @@ export async function completeMfa(req: Request, res: Response): Promise<void> {
     );
     res.json({
       user: publicStaffUser(result.user, result.session.idleExpiresAt.toISOString()),
-      ...(result.recoveryCodes ? { recovery_codes: result.recoveryCodes } : {}),
     });
   } catch (error) {
-    await auditAuthentication(req, 'auth.mfa_failed', null, {
-      error_code: error instanceof AppError ? error.code : 'MFA_FAILED',
-    });
-    throw error;
-  }
-}
-
-export async function stepUp(req: AuthenticatedRequest, res: Response): Promise<void> {
-  if (!req.user?.id || !req.sessionId) {
-    unauthorized(res);
-    return;
-  }
-  try {
-    const result = await verifyStepUp(
-      req.user.id,
-      req.sessionId,
-      String(req.body.code || ''),
-      req.body.recovery_code ? String(req.body.recovery_code) : undefined
-    );
-    await auditAuthentication(req, 'auth.step_up_success', req.user.id, {
-      recovery_used: result.recoveryUsed,
-    });
-    res.json({ success: true, valid_for_seconds: Math.floor(config.adminStepUpMaxAgeMs / 1_000) });
-  } catch (error) {
-    await auditAuthentication(req, 'auth.step_up_failed', req.user.id, {
-      error_code: error instanceof AppError ? error.code : 'STEP_UP_FAILED',
+    await auditAuthentication(req, 'auth.login_failed', null, {
+      account_hash: authenticationFingerprint('account', email),
+      error_code: error instanceof AppError ? error.code : 'LOGIN_FAILED',
     });
     throw error;
   }
@@ -191,7 +129,6 @@ export async function me(req: AuthenticatedRequest, res: Response): Promise<void
       id: req.sessionId,
       idle_expires_at: req.sessionExpiresAt,
       absolute_expires_at: req.sessionAbsoluteExpiresAt,
-      step_up_verified_at: req.stepUpVerifiedAt,
     },
   });
 }

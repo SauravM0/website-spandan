@@ -1,16 +1,16 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import EnquiryForm from '@/components/forms/EnquiryForm';
 import LazyMap from '@/components/contact/LazyMap';
 import { clinicSettings } from '@/lib/settings';
-import { Phone, MessageCircle, MapPin, Clock, AlertTriangle, SendHorizontal } from 'lucide-react';
+import { Phone, MessageCircle, MapPin, Clock, AlertTriangle } from 'lucide-react';
+import Button from '@/components/ui/Button';
 
 export const metadata: Metadata = {
   title: `Contact Us | ${clinicSettings.name}`,
-  description: `Get in touch with ${clinicSettings.name}. Call ${clinicSettings.phone}, email, or visit us in ${clinicSettings.city}. Submit an enquiry for appointments and health packages.`,
+  description: `Contact ${clinicSettings.name} by phone, WhatsApp, email, or in person in ${clinicSettings.city}.`,
   openGraph: {
     title: `Contact ${clinicSettings.name}`,
-    description: `Reach out to us for appointments and enquiries in ${clinicSettings.city}.`,
+    description: `Call, WhatsApp, or visit our clinic in ${clinicSettings.city}.`,
   },
   alternates: {
     canonical: '/contact',
@@ -52,41 +52,41 @@ export default function ContactPage() {
           <h1 id="contact-heading" className="text-3xl md:text-4xl font-bold mb-3">Contact Us</h1>
           <p className="text-lg mb-8 text-text-light">Call, WhatsApp, email, or visit us. We&apos;re here to help.</p>
           <div className="flex flex-wrap justify-center gap-4">
-            <a
+            <Button
               href={`tel:${clinicSettings.phone}`}
-              className="btn btn-accent"
+              variant="accent"
               aria-label={`Call ${clinicSettings.name} at ${clinicSettings.phone}`}
             >
               <Phone size={18} aria-hidden="true" />
               Call Now
-            </a>
-            <a
+            </Button>
+            <Button
               href={clinicSettings.social.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-outline"
+              variant="outline"
               aria-label={`WhatsApp ${clinicSettings.name}`}
             >
               <MessageCircle size={18} aria-hidden="true" />
               WhatsApp
-            </a>
-            <a
+            </Button>
+            <Button
               href={clinicSettings.googleMapsUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-outline"
+              variant="outline"
               aria-label="Get directions to clinic"
             >
               <MapPin size={18} aria-hidden="true" />
               Get Directions
-            </a>
+            </Button>
           </div>
         </div>
       </section>
 
-      <section className="section" aria-label="Contact details and enquiry form">
+      <section className="section" aria-label="Contact details">
         <div className="container">
-          <div className="grid-2 gap-12">
+          <div className="mx-auto max-w-3xl">
             <div>
               <div className="mb-8">
                 <h3 className="text-lg font-semibold mb-2 flex items-center gap-2">
@@ -151,17 +151,10 @@ export default function ContactPage() {
                 </p>
               </div>
 
-              <div className="mb-8 rounded-2xl bg-amber-50 p-5 shadow-[0_10px_30px_rgba(245,158,11,0.08)]" role="alert">
+              <div className="mb-8 rounded-2xl bg-amber-50 p-5 shadow-lg" role="alert">
                 <p className="text-sm font-semibold text-amber-800 flex items-start gap-2">
                   <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
                   <span>For medical emergencies, please call local emergency services (108) or proceed to the nearest hospital.</span>
-                </p>
-              </div>
-
-              <div className="soft-card mb-8 p-5">
-                <p className="text-sm text-text-light flex items-start gap-2">
-                  <SendHorizontal size={16} className="text-accent mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>We respond to enquiries within 24 hours during working days. For urgent matters, please call us directly.</span>
                 </p>
               </div>
 
@@ -182,10 +175,6 @@ export default function ContactPage() {
               </div>
             </div>
 
-            <div>
-              <h3 className="text-xl font-bold mb-6 text-center">Send us a message</h3>
-              <EnquiryForm enquiryType="general" />
-            </div>
           </div>
         </div>
       </section>

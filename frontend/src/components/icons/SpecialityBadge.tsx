@@ -15,14 +15,14 @@ const configs: Record<BadgeType, {
   cardiology: {
     icons: [<HeartIcon key="h" size={14} color="#0F766E" />],
     label: 'Cardiology',
-    bg: 'bg-teal-50',
-    text: 'text-teal-800',
+    bg: 'bg-wash-sage',
+    text: 'text-accent',
   },
   endocrinology: {
     icons: [<DropletIcon key="d" size={14} color="#2E86C1" />],
     label: 'Endocrinology',
-    bg: 'bg-blue-50',
-    text: 'text-blue-700',
+    bg: 'bg-wash-sage',
+    text: 'text-accent',
   },
   both: {
     icons: [
@@ -30,8 +30,8 @@ const configs: Record<BadgeType, {
       <DropletIcon key="d" size={14} color="#2E86C1" />,
     ],
     label: 'Cardiology & Endocrinology',
-    bg: 'bg-pink-50',
-    text: 'text-pink-700',
+    bg: 'bg-wash-blush',
+    text: 'text-blush-deep',
   },
 };
 

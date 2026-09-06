@@ -9,18 +9,19 @@ import {
   publicationYears,
   type ResearchPublication,
 } from '@/lib/publications';
+import Button from '@/components/ui/Button';
 
 function PublicationCard({ publication }: { publication: ResearchPublication }) {
   return (
     <article id={publication.id} className="soft-card flex h-full scroll-mt-28 flex-col p-5 sm:p-6">
       <div className="flex flex-wrap gap-2">
         {publication.topics.slice(0, 2).map((topic) => (
-          <span key={topic} className="rounded-full bg-blue-50 px-3 py-1 text-xs font-semibold text-accent">
+          <span key={topic} className="rounded-full bg-wash-sage px-3 py-1 text-xs font-semibold text-accent">
             {topic}
           </span>
         ))}
       </div>
-      <h2 className="mt-4 text-lg font-bold leading-snug text-navy">{publication.title}</h2>
+      <h2 className="mt-4 text-lg font-bold leading-snug text-ink">{publication.title}</h2>
       <dl className="mt-4 grid gap-2 text-sm text-text-light">
         {publication.journal && (
           <div className="flex items-start gap-2">
@@ -35,14 +36,15 @@ function PublicationCard({ publication }: { publication: ResearchPublication }) 
       </dl>
       <p className="mt-4 flex-1 text-sm leading-relaxed text-text-light">{publication.description}</p>
       {publication.externalUrl ? (
-        <a
+        <Button
           href={publication.externalUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn btn-outline mt-5 self-start"
+          variant="outline"
+          className="mt-5 self-start"
         >
           View publication <ExternalLink size={15} aria-hidden="true" />
-        </a>
+        </Button>
       ) : (
         <p className="mt-5 rounded-2xl bg-bg-alt px-4 py-3 text-xs font-semibold text-text-light">
           External publication link not currently available.
@@ -83,7 +85,7 @@ export default function PublicationLibrary({ publications }: { publications: Res
         <div className="container">
           <div className="soft-card grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.4fr)_1fr_0.7fr_auto] lg:items-end">
             <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-navy">Search publications</span>
+              <span className="mb-1.5 block text-sm font-semibold text-ink">Search publications</span>
               <span className="relative block">
                 <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light" size={17} aria-hidden="true" />
                 <input
@@ -96,22 +98,22 @@ export default function PublicationLibrary({ publications }: { publications: Res
               </span>
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-navy">Research topic</span>
+              <span className="mb-1.5 block text-sm font-semibold text-ink">Research topic</span>
               <select value={topic} onChange={(event) => setTopic(event.target.value)} className="min-h-[44px] w-full rounded-2xl border border-border bg-white px-3 py-2">
                 <option value="">All topics</option>
                 {publicationTopics.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
             <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-navy">Year</span>
+              <span className="mb-1.5 block text-sm font-semibold text-ink">Year</span>
               <select value={year} onChange={(event) => setYear(event.target.value)} className="min-h-[44px] w-full rounded-2xl border border-border bg-white px-3 py-2">
                 <option value="">All years</option>
                 {publicationYears.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
-            <button type="button" onClick={clearFilters} className="btn btn-outline" disabled={!query && !topic && !year}>
+            <Button onClick={clearFilters} variant="outline" disabled={!query && !topic && !year}>
               <X size={16} aria-hidden="true" /> Clear
-            </button>
+            </Button>
           </div>
         </div>
       </section>
@@ -133,9 +135,9 @@ export default function PublicationLibrary({ publications }: { publications: Res
             </div>
           ) : (
             <div className="soft-card p-10 text-center">
-              <h2 className="text-xl font-bold text-navy">No publications match these filters</h2>
+              <h2 className="text-xl font-bold text-ink">No publications match these filters</h2>
               <p className="mt-3 text-text-light">Try a broader keyword, topic, or year.</p>
-              <button type="button" onClick={clearFilters} className="btn btn-primary mt-6">Clear filters</button>
+              <Button onClick={clearFilters} variant="primary" className="mt-6">Clear filters</Button>
             </div>
           )}
         </div>

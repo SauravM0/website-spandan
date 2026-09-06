@@ -8,7 +8,6 @@
   "samePerson": {
     "minimumConfirmedFactors": 2,
     "canonicalRecordRequired": true,
-    "stepUpRequired": true,
     "expectedVersionRequired": true,
     "idempotencyRequired": true
   },

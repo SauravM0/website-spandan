@@ -3,16 +3,15 @@ import type { Metadata } from 'next';
 import HeroSection from '@/components/home/HeroSection';
 import TrustStrip from '@/components/home/TrustStrip';
 import ServiceCards from '@/components/home/ServiceCards';
-import FeaturedPackages from '@/components/home/FeaturedPackages';
 import DoctorCardsSection from '@/components/home/DoctorCards';
-import TeamCardsSection from '@/components/home/TeamCards';
+import ClinicGallery from '@/components/home/ClinicGallery';
 import ExploreBento from '@/components/home/ExploreBento';
 import LocationCTA from '@/components/home/LocationCTA';
 import { getHomePayload } from '@/lib/home';
 
 export const metadata: Metadata = {
   title: 'Spandan Super Speciality Clinic | Cardiology, Endocrinology & Diagnostics',
-  description: 'Book cardiology, endocrinology, diabetes, thyroid, diagnostic, and health package care at Spandan Clinic in Chhatrapati Sambhajinagar.',
+  description: 'Premium cardiology, diabetes, thyroid, and diagnostic care at Spandan Clinic in Chhatrapati Sambhajinagar.',
   openGraph: {
     title: 'Spandan Super Speciality Clinic',
     description: 'Specialist medical care and diagnostics in Chhatrapati Sambhajinagar.',
@@ -56,10 +55,9 @@ export default async function HomePage() {
       />
       <HeroSection settings={payload.settings} doctors={payload.doctors} />
       <DoctorCardsSection doctors={payload.doctors} />
-      <ServiceCards doctors={payload.doctors} />
+      <ServiceCards />
       <TrustStrip />
-      <TeamCardsSection />
-      <FeaturedPackages packages={payload.featuredPackages} />
+      <ClinicGallery />
       <ExploreBento article={payload.featuredArticle} video={payload.featuredVideo} />
       <LocationCTA settings={payload.settings} />
     </>

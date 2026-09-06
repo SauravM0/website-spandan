@@ -12,6 +12,7 @@ import {
   ResponsiveDataView,
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
+import Button from '@/components/ui/Button';
 
 const sortOptions = [
   ['order', 'Default order'],
@@ -113,7 +114,10 @@ function PackagesInner() {
   const hasLoadedRef = useRef(false);
 
   useEffect(() => {
-    setFilters(filtersFromParams(searchParams));
+    const next = filtersFromParams(searchParams);
+    setFilters((current) =>
+      queryFromFilters(current) === queryFromFilters(next) ? current : next
+    );
   }, [searchParams]);
 
   const updateFilters = useCallback(
@@ -180,7 +184,7 @@ function PackagesInner() {
           {packages.map((pkg) => (
             <tr key={pkg.id} className="border-b border-border align-top hover:bg-bg-alt">
               <td className="p-3">
-                <Link href={`/admin/packages/${pkg.id}`} className="font-semibold text-navy hover:text-accent">
+                <Link href={`/admin/packages/${pkg.id}`} className="font-semibold text-ink hover:text-accent">
                   {pkg.name}
                 </Link>
                 <p className="mt-1 text-xs text-text-light">{pkg.slug}</p>
@@ -192,9 +196,9 @@ function PackagesInner() {
               </td>
               <td className="p-3 text-xs text-text-light">{dateLabel(pkg.updated_at)}</td>
               <td className="p-3">
-                <Link href={`/admin/packages/${pkg.id}`} className="btn btn-outline btn-sm">
+                <Button href={`/admin/packages/${pkg.id}`} variant="outline" size="sm">
                   Edit
-                </Link>
+                </Button>
               </td>
             </tr>
           ))}
@@ -208,7 +212,7 @@ function PackagesInner() {
         <article key={pkg.id} className="rounded-lg border border-border bg-white p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <Link href={`/admin/packages/${pkg.id}`} className="font-semibold text-navy">
+              <Link href={`/admin/packages/${pkg.id}`} className="font-semibold text-ink">
                 {pkg.name}
               </Link>
               <p className="mt-0.5 text-xs text-text-light">{pkg.category}</p>
@@ -226,9 +230,9 @@ function PackagesInner() {
             </div>
           </div>
           <div className="mt-4">
-            <Link href={`/admin/packages/${pkg.id}`} className="btn btn-outline btn-sm w-full">
+            <Button href={`/admin/packages/${pkg.id}`} variant="outline" size="sm" className="w-full">
               Edit package
-            </Link>
+            </Button>
           </div>
         </article>
       ))

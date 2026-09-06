@@ -18,6 +18,7 @@ import {
   ResponsiveDataView,
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
+import Button from '@/components/ui/Button';
 
 const statuses = [
   '',
@@ -113,7 +114,7 @@ function SummaryCard({
         ? 'text-danger'
         : tone === 'warning'
           ? 'text-amber-800'
-          : 'text-navy';
+          : 'text-ink';
   return (
     <div className="rounded-lg border border-border bg-white p-4">
       <p className="text-xs font-semibold uppercase text-text-light">{title}</p>
@@ -131,7 +132,7 @@ function History({ history }: { history: any[] }) {
         <li key={`${item.type}-${item.id}`} className="rounded-lg border border-border p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-semibold capitalize text-navy">
+              <p className="font-semibold capitalize text-ink">
                 {label(item.action || item.type)}
               </p>
               <p className="mt-1 text-sm text-text-light">
@@ -345,7 +346,7 @@ function NotificationsInner() {
               <td className="p-3">
                 <button
                   type="button"
-                  className="text-left font-semibold text-navy hover:text-accent"
+                  className="text-left font-semibold text-ink hover:text-accent"
                   onClick={() => loadDetail(item.id)}
                 >
                   {label(item.template)}
@@ -372,14 +373,14 @@ function NotificationsInner() {
                 {item.attempt_count || 0}/{item.max_attempts || 3}
               </td>
               <td className="p-3">
-                <button
-                  className="btn btn-outline min-h-11 px-3 py-2 text-xs"
-                  type="button"
+                <Button
+                  variant="outline"
+                  className="min-h-11 px-3 py-2 text-xs"
                   onClick={() => retry(item.id)}
                   disabled={!item.retry_eligible || retryingId === item.id}
                 >
                   {retryingId === item.id ? 'Retrying' : 'Retry'}
-                </button>
+                </Button>
               </td>
             </tr>
           ))}
@@ -394,7 +395,7 @@ function NotificationsInner() {
           <div className="flex items-start justify-between gap-3">
             <button
               type="button"
-              className="text-left font-semibold text-navy"
+              className="text-left font-semibold text-ink"
               onClick={() => loadDetail(item.id)}
             >
               {label(item.template)}
@@ -420,21 +421,23 @@ function NotificationsInner() {
             {item.error && <p className="text-danger">{item.error}</p>}
           </div>
           <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
-            <button
-              type="button"
-              className="btn btn-outline btn-sm flex-1"
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
               onClick={() => toggleSelect(item.id)}
             >
               {selectedIds.includes(item.id) ? 'Selected' : 'Select'}
-            </button>
-            <button
-              type="button"
-              className="btn btn-accent btn-sm flex-1"
+            </Button>
+            <Button
+              variant="accent"
+              size="sm"
+              className="flex-1"
               onClick={() => retry(item.id)}
               disabled={!item.retry_eligible || retryingId === item.id}
             >
               {retryingId === item.id ? 'Retrying' : 'Retry'}
-            </button>
+            </Button>
           </div>
           {!item.retry_eligible && item.retry_ineligible_reason && (
             <p className="mt-2 text-xs text-text-light">{item.retry_ineligible_reason}</p>
@@ -450,15 +453,14 @@ function NotificationsInner() {
           title="Notifications"
           description="Review masked clinic messages, retry only eligible failures, and move manual cases out of the worker queue."
           action={
-            <button
-              className="btn btn-outline"
-              type="button"
+            <Button
+              variant="outline"
               onClick={bulkRetry}
               disabled={!selectedIds.length || bulkRetrying}
             >
               <CheckSquare size={16} />
               {bulkRetrying ? 'Retrying...' : `Retry Selected (${selectedIds.length})`}
-            </button>
+            </Button>
           }
         />
 
@@ -620,14 +622,14 @@ function NotificationsInner() {
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-navy">Notification detail</h2>
+                <h2 className="text-xl font-bold text-ink">Notification detail</h2>
                 <p className="text-sm text-text-light">
                   {selectedDetail ? label(selectedDetail.template) : selectedId}
                 </p>
               </div>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setSelectedId('');
                   setDetail(null);
@@ -635,7 +637,7 @@ function NotificationsInner() {
               >
                 <X size={16} />
                 Close
-              </button>
+              </Button>
             </div>
 
             {detailLoading ? (
@@ -674,7 +676,7 @@ function NotificationsInner() {
 
                 {selectedDetail.payload_preview && (
                   <div className="mt-4 rounded-lg border border-border p-4 text-sm text-text-light">
-                    <h3 className="font-bold text-navy">Redacted preview</h3>
+                    <h3 className="font-bold text-ink">Redacted preview</h3>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2">
                       {Object.entries(selectedDetail.payload_preview).map(([key, value]) =>
                         value ? (
@@ -688,15 +690,15 @@ function NotificationsInner() {
                 )}
 
                 <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
-                  <button
-                    type="button"
-                    className="btn btn-accent flex-1"
+                  <Button
+                    variant="accent"
+                    className="flex-1"
                     onClick={() => retry(selectedDetail.id)}
                     disabled={!selectedDetail.retry_eligible || retryingId === selectedDetail.id}
                   >
                     <RefreshCw size={16} />
                     {retryingId === selectedDetail.id ? 'Retrying...' : 'Retry Notification'}
-                  </button>
+                  </Button>
                 </div>
                 {!selectedDetail.retry_eligible && selectedDetail.retry_ineligible_reason && (
                   <p className="mt-2 rounded-md bg-bg-alt p-3 text-sm text-text-light">
@@ -705,7 +707,7 @@ function NotificationsInner() {
                 )}
 
                 <div className="mt-6 rounded-lg border border-border p-4">
-                  <h3 className="font-bold text-navy">Manual follow-up</h3>
+                  <h3 className="font-bold text-ink">Manual follow-up</h3>
                   <p className="mt-1 text-sm text-text-light">
                     Use this when the worker should stop retrying and staff must contact the patient
                     another way.
@@ -716,20 +718,20 @@ function NotificationsInner() {
                     onChange={(event) => setDeadLetterReason(event.target.value)}
                     placeholder="Reason for manual follow-up"
                   />
-                  <button
-                    type="button"
-                    className="btn btn-outline mt-3"
+                  <Button
+                    variant="outline"
+                    className="mt-3"
                     onClick={deadLetter}
                     disabled={
                       deadLetterReason.trim().length < 3 || selectedDetail.status === 'sent'
                     }
                   >
                     Move to Manual Follow-up
-                  </button>
+                  </Button>
                 </div>
 
                 <div className="mt-6">
-                  <h3 className="mb-3 text-lg font-bold text-navy">History</h3>
+                  <h3 className="mb-3 text-lg font-bold text-ink">History</h3>
                   <History history={detail?.history || []} />
                 </div>
               </>
@@ -749,7 +751,7 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-xs font-semibold uppercase text-text-light">{label}</p>
-      <div className="mt-1 break-words text-sm font-medium text-navy">{value}</div>
+      <div className="mt-1 break-words text-sm font-medium text-ink">{value}</div>
     </div>
   );
 }

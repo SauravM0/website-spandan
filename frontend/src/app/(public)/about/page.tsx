@@ -1,23 +1,12 @@
 import React from 'react';
+import Image from 'next/image';
 import type { Metadata } from 'next';
 import Link from 'next/link';
-import {
-  Accessibility,
-  BookOpenCheck,
-  CalendarCheck,
-  ClipboardCheck,
-  HeartPulse,
-  Languages,
-  MapPin,
-  Microscope,
-  Phone,
-  ShieldCheck,
-  Stethoscope,
-  UsersRound,
-} from 'lucide-react';
-import { clinicSettings } from '@/lib/settings';
+import { Accessibility, BookOpenCheck, ClipboardCheck, Languages, MapPin, MessageCircle, Microscope, Phone, ShieldCheck, Stethoscope, UsersRound } from 'lucide-react';
+import { clinicSettings, whatsappLink } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
 import type { PublicDoctorSummary } from '@/lib/home';
+import Button from '@/components/ui/Button';
 
 export const metadata: Metadata = {
   title: 'About Spandan Super Speciality Clinic | Specialist Care in Chhatrapati Sambhajinagar',
@@ -60,9 +49,9 @@ const processSteps = [
     icon: BookOpenCheck,
   },
   {
-    title: 'Book or contact',
-    text: 'Use appointment, package, phone, WhatsApp, or map actions depending on the next step you need.',
-    icon: CalendarCheck,
+    title: 'Call or message',
+    text: 'Use phone, WhatsApp, or map directions depending on the next step you need.',
+    icon: Phone,
   },
 ];
 
@@ -110,7 +99,7 @@ function VerifiedFact({ label, value, icon: Icon }: { label: string; value: stri
         <Icon size={22} aria-hidden="true" />
       </span>
       <h3 className="text-sm font-bold uppercase text-text-light">{label}</h3>
-      <p className="mt-2 font-semibold text-navy">{value}</p>
+      <p className="mt-2 font-semibold text-ink">{value}</p>
     </article>
   );
 }
@@ -128,7 +117,7 @@ function CareProcess() {
               </span>
               <span className="text-sm font-bold text-accent">Step {index + 1}</span>
             </div>
-            <h3 className="text-lg font-bold text-navy">{step.title}</h3>
+            <h3 className="text-lg font-bold text-ink">{step.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-text-light">{step.text}</p>
           </article>
         );
@@ -142,10 +131,17 @@ function MediaBlock() {
     <div className="grid gap-4 sm:grid-cols-2">
       <div className="soft-card overflow-hidden">
         <div className="aspect-[4/3] bg-bg-alt p-8">
-          <img src="/logo.png" alt={`${clinicSettings.name} logo`} className="h-full w-full object-contain" />
+          <Image
+            src="/logo.png"
+            alt={`${clinicSettings.name} logo`}
+            width={320}
+            height={160}
+            sizes="320px"
+            className="h-full w-full object-contain"
+          />
         </div>
         <div className="p-5">
-          <h3 className="font-bold text-navy">Clinic identity</h3>
+          <h3 className="font-bold text-ink">Clinic identity</h3>
           <p className="mt-2 text-sm leading-relaxed text-text-light">
             Public clinic information is governed from shared settings used across the site.
           </p>
@@ -155,7 +151,7 @@ function MediaBlock() {
         <span className="icon-chip mb-4 flex h-11 w-11">
           <Microscope size={22} aria-hidden="true" />
         </span>
-        <h3 className="font-bold text-navy">Facility preview</h3>
+        <h3 className="font-bold text-ink">Facility preview</h3>
         <ul className="mt-4 grid gap-2 text-sm text-text-light">
           {facilities.map((facility) => (
             <li key={facility} className="rounded-2xl bg-bg-alt px-3 py-2">
@@ -163,9 +159,9 @@ function MediaBlock() {
             </li>
           ))}
         </ul>
-        <Link href="/facilities" className="btn btn-outline mt-5">
+        <Button href="/facilities" variant="outline" className="mt-5">
           View Facilities
-        </Link>
+        </Button>
       </div>
     </div>
   );
@@ -222,7 +218,7 @@ export default async function AboutPage() {
       <section className="soft-page-hero py-16">
         <div className="container">
           <div className="max-w-[760px]">
-            <p className="mb-4 inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-pink-700 shadow-[0_8px_20px_rgba(236,72,153,0.12)]">
+            <p className="mb-4 inline-flex items-center rounded-full bg-white px-4 py-2 text-sm font-semibold text-blush-deep shadow-md">
               Last reviewed {formatReviewDate(aboutReview.reviewedAt)}
             </p>
             <h1 className="text-3xl font-bold sm:text-4xl">About {clinicSettings.name}</h1>
@@ -238,7 +234,7 @@ export default async function AboutPage() {
         <div className="container">
           <div className="grid gap-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-start">
             <div>
-              <h2 className="heading-section mb-3 text-navy">Clinic story and purpose</h2>
+              <h2 className="heading-section mb-3 text-ink">Clinic story and purpose</h2>
               <p className="leading-relaxed text-text-light">
                 The public website is organised around practical patient decisions: finding the
                 right specialist, understanding available diagnostics, comparing health packages,
@@ -261,7 +257,7 @@ export default async function AboutPage() {
       <section className="section bg-bg-alt">
         <div className="container">
           <div className="mb-10 max-w-3xl">
-            <h2 className="heading-section mb-2 text-navy">Care principles</h2>
+            <h2 className="heading-section mb-2 text-ink">Care principles</h2>
             <p className="text-text-light">
               These principles describe how the public care journey is structured on the website.
             </p>
@@ -269,7 +265,7 @@ export default async function AboutPage() {
           <div className="grid-3">
             {principles.map((principle) => (
               <article key={principle.title} className="soft-card p-6">
-                <h3 className="text-lg font-bold text-navy">{principle.title}</h3>
+                <h3 className="text-lg font-bold text-ink">{principle.title}</h3>
                 <p className="mt-2 text-sm leading-relaxed text-text-light">{principle.text}</p>
               </article>
             ))}
@@ -280,7 +276,7 @@ export default async function AboutPage() {
       <section className="section">
         <div className="container">
           <div className="mb-10 max-w-3xl">
-            <h2 className="heading-section mb-2 text-navy">Cardiology and endocrinology collaboration</h2>
+            <h2 className="heading-section mb-2 text-ink">Cardiology and endocrinology collaboration</h2>
             <p className="text-text-light">
               Heart, hormone, diabetes, thyroid, weight, and metabolic concerns can overlap. The
               site keeps specialist paths distinct while linking related diagnostics and packages.
@@ -304,7 +300,7 @@ export default async function AboutPage() {
                       )}
                     </span>
                     <div>
-                      <h3 className="text-lg font-bold text-navy">{doctor.name}</h3>
+                      <h3 className="text-lg font-bold text-ink">{doctor.name}</h3>
                       <p className="mt-1 text-sm font-semibold text-accent">{doctor.speciality}</p>
                       <p className="mt-1 text-sm text-text-light">{doctor.qualifications}</p>
                     </div>
@@ -326,7 +322,7 @@ export default async function AboutPage() {
       <section className="section bg-bg-alt">
         <div className="container">
           <div className="mb-10 max-w-3xl">
-            <h2 className="heading-section mb-2 text-navy">Patient journey</h2>
+            <h2 className="heading-section mb-2 text-ink">Patient journey</h2>
             <p className="text-text-light">
               The journey is designed to be useful even before a patient shares personal details.
             </p>
@@ -338,7 +334,7 @@ export default async function AboutPage() {
       <section className="section">
         <div className="container grid gap-8 lg:grid-cols-[0.95fr_1.05fr] lg:items-start">
           <div>
-            <h2 className="heading-section mb-3 text-navy">Counselling, education, and access</h2>
+            <h2 className="heading-section mb-3 text-ink">Counselling, education, and access</h2>
             <p className="leading-relaxed text-text-light">
               The site supports patient education through articles, videos, and tools while keeping
               personal health information inside booking or enquiry workflows.
@@ -369,21 +365,21 @@ export default async function AboutPage() {
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-text-light sm:text-base">
               {clinicSettings.address}, {clinicSettings.city}, {clinicSettings.state} {clinicSettings.pincode}
             </p>
-            <p className="mt-3 text-sm font-semibold text-pink-700">{clinicSettings.timings}</p>
+            <p className="mt-3 text-sm font-semibold text-blush-deep">{clinicSettings.timings}</p>
           </div>
           <div className="grid gap-3 min-[420px]:grid-cols-3 md:grid-cols-1 lg:grid-cols-3">
-            <Link href="/book-appointment" className="btn btn-accent">
-              <CalendarCheck size={18} aria-hidden="true" />
-              Book
-            </Link>
-            <a href={`tel:${clinicSettings.phone}`} className="btn btn-outline">
+            <Button href={whatsappLink()} target="_blank" rel="noopener noreferrer" variant="accent">
+              <MessageCircle size={18} aria-hidden="true" />
+              WhatsApp
+            </Button>
+            <Button href={`tel:${clinicSettings.phone}`} variant="outline">
               <Phone size={18} aria-hidden="true" />
               Call
-            </a>
-            <a href={clinicSettings.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline">
+            </Button>
+            <Button href={clinicSettings.googleMapsUrl} target="_blank" rel="noopener noreferrer" variant="outline">
               <MapPin size={18} aria-hidden="true" />
               Map
-            </a>
+            </Button>
           </div>
         </div>
       </section>

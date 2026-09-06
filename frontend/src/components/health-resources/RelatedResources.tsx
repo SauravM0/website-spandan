@@ -3,6 +3,7 @@ import Link from 'next/link';
 import { ArrowRight, Clock } from 'lucide-react';
 import { serverApiGet } from '@/lib/serverApi';
 import type { HealthResourceArticle } from '@/components/health-resources/resource-gallery/ResourceHub';
+import Button from '@/components/ui/Button';
 
 function formatDate(value?: string | null): string | null {
   if (!value) return null;
@@ -40,7 +41,7 @@ export default async function RelatedResources({
 
   return (
     <section className="mt-14 border-t border-border pt-10">
-      <h2 className="mb-6 text-xl font-bold text-navy">Related Resources</h2>
+      <h2 className="mb-6 text-xl font-bold text-ink">Related Resources</h2>
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {related.map((article) => {
           const authorName = formatDoctorName(article.author_doctor_name);
@@ -54,7 +55,7 @@ export default async function RelatedResources({
                 <div className="flex flex-wrap items-center gap-2">
                   {article.category && <span className="badge badge-new text-xs">{article.category}</span>}
                 </div>
-                <h3 className="mt-2 font-semibold leading-snug text-navy">{article.title}</h3>
+                <h3 className="mt-2 font-semibold leading-snug text-ink">{article.title}</h3>
                 {article.excerpt && (
                   <p className="mt-1.5 text-sm leading-relaxed text-text-light line-clamp-2">{article.excerpt}</p>
                 )}
@@ -72,13 +73,14 @@ export default async function RelatedResources({
         })}
       </div>
       <div className="mt-6 text-center">
-        <Link
+        <Button
           href={`/health-resources${category ? `?tab=blog&category=${encodeURIComponent(category)}` : '?tab=blog'}`}
-          className="btn btn-outline inline-flex items-center gap-2"
+          variant="outline"
+          className="inline-flex items-center gap-2"
         >
           View all resources
           <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        </Button>
       </div>
     </section>
   );

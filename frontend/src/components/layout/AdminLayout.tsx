@@ -4,22 +4,14 @@ import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import {
-  Bell,
-  CalendarDays,
   ChevronLeft,
   ChevronRight,
-  ClipboardList,
-  CreditCard,
   LayoutDashboard,
   LogOut,
   Menu,
-  Package,
-  Settings,
   X,
   Users,
-  FileCheck,
   Files,
-  FlaskConical,
   ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
@@ -27,62 +19,18 @@ import '../../lib/i18n';
 import { getAdminSession, logout } from '../../lib/api';
 import { AdminSessionProvider, AdminUser } from '../admin/AdminSessionContext';
 import FocusTrap from '../ui/FocusTrap';
-import StepUpDialog from '../admin/StepUpDialog';
 import AdminGlobalSearch from '../admin/AdminGlobalSearch';
 import AdminRealtimeBridge from '../admin/AdminRealtimeBridge';
 import AdminActionDialog from '../admin/AdminActionDialog';
 
 const navGroups = [
   {
-    label: 'Operations',
-    items: [
-      {
-        href: '/admin',
-        label: 'Dashboard',
-        icon: LayoutDashboard,
-        capability: 'admin.dashboard.read',
-      },
-      {
-        href: '/admin/calendar',
-        label: 'Calendar',
-        icon: CalendarDays,
-        capability: 'admin.calendar.read',
-      },
-      {
-        href: '/admin/appointments',
-        label: 'Appointments',
-        icon: ClipboardList,
-        capability: 'admin.appointments.read',
-      },
-      {
-        href: '/admin/package-orders',
-        label: 'Package Orders',
-        icon: Package,
-        capability: 'admin.package_orders.read',
-      },
-    ],
+    label: 'Workspace',
+    items: [{ href: '/admin', label: 'Dashboard', icon: LayoutDashboard, capability: 'admin.dashboard.read' }],
   },
   {
     label: 'Enquiries',
     items: [
-      {
-        href: '/admin/leads',
-        label: 'Enquiries / Leads',
-        icon: Users,
-        capability: 'admin.leads.read',
-      },
-      {
-        href: '/admin/notifications',
-        label: 'Notifications',
-        icon: Bell,
-        capability: 'admin.notifications.read',
-      },
-      {
-        href: '/admin/intake',
-        label: 'Remote Intake',
-        icon: FileCheck,
-        capability: 'admin.intake.read',
-      },
       {
         href: '/admin/patients',
         label: 'Patient Records',
@@ -98,31 +46,8 @@ const navGroups = [
     ],
   },
   {
-    label: 'Finance',
-    items: [
-      {
-        href: '/admin/payments',
-        label: 'Payments',
-        icon: CreditCard,
-        capability: 'admin.payments.read',
-      },
-    ],
-  },
-  {
     label: 'Content & Settings',
     items: [
-      {
-        href: '/admin/packages',
-        label: 'Packages',
-        icon: Settings,
-        capability: 'admin.packages.read',
-      },
-      {
-        href: '/admin/diagnostic-tests',
-        label: 'Diagnostic Tests',
-        icon: FlaskConical,
-        capability: 'admin.pricing.read',
-      },
       {
         href: '/admin/privacy-security',
         label: 'Privacy & Security',
@@ -235,7 +160,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         Skip to main content
       </a>
       <aside
-        className={`sticky top-0 hidden h-screen border-r border-border bg-navy text-white shadow-sm md:flex md:flex-col ${
+        className={`sticky top-0 hidden h-screen border-r border-border bg-ink text-white shadow-sm md:flex md:flex-col ${
           collapsed ? 'w-[76px]' : 'w-[264px]'
         }`}
       >
@@ -286,7 +211,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               className="absolute inset-0 bg-black/40"
               onClick={() => setDrawerOpen(false)}
             />
-            <aside className="relative flex h-full w-[min(88vw,320px)] flex-col bg-navy text-white shadow-xl">
+            <aside className="relative flex h-full w-[min(88vw,320px)] flex-col bg-ink text-white shadow-xl">
               <div className="flex min-h-[64px] items-center justify-between gap-3 border-b border-white/10 px-4">
                 <Link href="/admin" className="min-w-0 truncate text-base font-bold">
                   {t('admin_title')}
@@ -325,13 +250,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <button
                 type="button"
                 onClick={() => setDrawerOpen(true)}
-                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-border text-navy hover:bg-bg-alt md:hidden"
+                className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-md border border-border text-ink hover:bg-bg-alt md:hidden"
                 aria-label="Open navigation"
               >
                 <Menu size={20} />
               </button>
               <div className="min-w-0">
-                <p className="truncate text-lg font-bold text-navy">{title}</p>
+                <p className="truncate text-lg font-bold text-ink">{title}</p>
                 <p className="hidden truncate text-xs text-text-light sm:block">
                   Signed in as {user.full_name}
                 </p>
@@ -341,7 +266,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <AdminGlobalSearch />
             <button
               onClick={handleLogout}
-              className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-border px-3 text-sm font-semibold text-navy hover:bg-bg-alt"
+              className="inline-flex min-h-[40px] items-center gap-2 rounded-md border border-border px-3 text-sm font-semibold text-ink hover:bg-bg-alt"
               aria-label="Logout"
             >
               <LogOut size={16} />
@@ -359,7 +284,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   return (
     <AdminSessionProvider user={user}>
       {shell}
-      <StepUpDialog />
       <AdminActionDialog />
     </AdminSessionProvider>
   );
@@ -396,7 +320,7 @@ function AdminNav({
                   title={collapsed ? item.label : undefined}
                   className={`inline-flex min-h-[44px] items-center rounded-md text-sm font-semibold transition-colors ${
                     collapsed ? 'justify-center px-2' : 'gap-3 px-3'
-                  } ${active ? 'bg-white text-navy' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
+                  } ${active ? 'bg-white text-ink' : 'text-white/80 hover:bg-white/10 hover:text-white'}`}
                   aria-current={active ? 'page' : undefined}
                 >
                   <Icon size={18} />

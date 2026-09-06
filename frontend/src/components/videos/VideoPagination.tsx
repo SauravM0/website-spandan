@@ -1,6 +1,6 @@
 import React from 'react';
-import Link from 'next/link';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
+import Button from '@/components/ui/Button';
 
 export default function VideoPagination({
   currentPage,
@@ -31,13 +31,14 @@ export default function VideoPagination({
   return (
     <nav aria-label="Pagination" className="mt-10 flex flex-wrap items-center justify-center gap-3">
       {currentPage > 1 ? (
-        <Link
+        <Button
           href={href(currentPage - 1)}
-          className="btn btn-outline inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5"
+          variant="outline"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5"
         >
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
           <span className="hidden sm:inline">Previous</span>
-        </Link>
+        </Button>
       ) : (
         <span className="btn btn-outline inline-flex min-h-[44px] min-w-[44px] cursor-not-allowed items-center justify-center gap-1.5 opacity-40">
           <ChevronLeft className="h-4 w-4" aria-hidden="true" />
@@ -51,13 +52,14 @@ export default function VideoPagination({
       </span>
 
       {currentPage < totalPages ? (
-        <Link
+        <Button
           href={href(currentPage + 1)}
-          className="btn btn-outline inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5"
+          variant="outline"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5"
         >
           <span className="hidden sm:inline">Next</span>
           <ChevronRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        </Button>
       ) : (
         <span className="btn btn-outline inline-flex min-h-[44px] min-w-[44px] cursor-not-allowed items-center justify-center gap-1.5 opacity-40">
           <span className="hidden sm:inline">Next</span>

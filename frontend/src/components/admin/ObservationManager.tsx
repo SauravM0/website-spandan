@@ -123,7 +123,7 @@ export default function ObservationManager({
   }, [items]);
   return (
     <section className="my-6" aria-labelledby="observations-title">
-      <h2 id="observations-title" className="text-lg font-bold text-navy">
+      <h2 id="observations-title" className="text-lg font-bold text-ink">
         Clinical observations
       </h2>
       <p className="text-sm text-text-light">
@@ -131,7 +131,7 @@ export default function ObservationManager({
         diagnostic or treatment conclusions are generated.
       </p>
       {message && (
-        <p role="status" className="my-3 rounded bg-blue-50 p-3">
+        <p role="status" className="my-3 rounded bg-wash-sage p-3">
           {message}
         </p>
       )}
@@ -212,7 +212,7 @@ export default function ObservationManager({
               </strong>
               <ol className="mt-2 flex flex-wrap gap-3" aria-label={`${v[0].display} trend`}>
                 {[...v].reverse().map((x: any) => (
-                  <li key={x.id} className="rounded bg-slate-100 px-2 py-1">
+                  <li key={x.id} className="rounded bg-bg-alt px-2 py-1">
                     {x.numeric_value}
                     <span className="sr-only">
                       {' '}
@@ -229,7 +229,7 @@ export default function ObservationManager({
         <div
           role="region"
           aria-labelledby="observation-review"
-          className="my-4 rounded border-2 border-navy bg-white p-4"
+          className="my-4 rounded border-2 border-ink bg-white p-4"
         >
           <h3 id="observation-review" className="font-bold">
             Review {selected.display} for {patientName}
@@ -250,7 +250,7 @@ export default function ObservationManager({
             <button
               disabled={reason.trim().length < 5 || busy}
               onClick={() => review('verify')}
-              className="min-h-11 rounded bg-navy px-3 text-white disabled:opacity-50"
+              className="min-h-11 rounded bg-ink px-3 text-white disabled:opacity-50"
             >
               Verify unchanged
             </button>
@@ -422,7 +422,7 @@ export default function ObservationManager({
               className="rounded border p-2"
             />
           </label>
-          <button className="min-h-11 rounded bg-navy px-4 font-semibold text-white sm:col-span-2">
+          <button className="min-h-11 rounded bg-ink px-4 font-semibold text-white sm:col-span-2">
             Save as unverified
           </button>
         </fieldset>

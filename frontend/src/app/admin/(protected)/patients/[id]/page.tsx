@@ -12,6 +12,7 @@ import { confirmAdminAction } from '../../../../../lib/adminDialogs';
 import MedicationManager from '../../../../../components/admin/MedicationManager';
 import ObservationManager from '../../../../../components/admin/ObservationManager';
 import DeviceImportManager from '../../../../../components/admin/DeviceImportManager';
+import Button from '@/components/ui/Button';
 const labels: Record<string, string> = {
   condition: 'Condition',
   allergy: 'Allergy or intolerance',
@@ -143,11 +144,11 @@ export default function PatientRecordPage() {
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
       <section
         aria-labelledby="patient-banner"
-        className="sticky top-16 z-20 mb-5 rounded-md border-2 border-navy bg-white p-4 shadow"
+        className="sticky top-16 z-20 mb-5 rounded-md border-2 border-ink bg-white p-4 shadow"
       >
         <div className="flex flex-wrap justify-between gap-3">
           <div>
-            <h1 id="patient-banner" className="text-xl font-bold text-navy">
+            <h1 id="patient-banner" className="text-xl font-bold text-ink">
               {p.full_name}
             </h1>
             <p className="text-sm">
@@ -187,7 +188,7 @@ export default function PatientRecordPage() {
       <DeviceImportManager patientId={id} patientName={p.full_name} />
       <div className="grid gap-5 lg:grid-cols-[2fr_1fr]">
         <main>
-          <h2 className="mb-3 text-lg font-bold text-navy">Longitudinal timeline</h2>
+          <h2 className="mb-3 text-lg font-bold text-ink">Longitudinal timeline</h2>
           <div className="grid gap-3">
             {[
               ...data.resources.map((r: any) => ({ ...r, kind: 'resource', when: r.authored_at })),
@@ -207,7 +208,7 @@ export default function PatientRecordPage() {
                     {item.kind === 'encounter' ? 'Encounter' : labels[item.resource_type]} ·{' '}
                     {new Date(item.when).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST
                   </p>
-                  <h3 className="mt-1 font-bold text-navy">
+                  <h3 className="mt-1 font-bold text-ink">
                     {item.kind === 'encounter'
                       ? `${item.doctor_name} · ${item.status}`
                       : item.display}
@@ -229,7 +230,7 @@ export default function PatientRecordPage() {
         </main>
         <aside className="space-y-5">
           <section className="rounded-md border border-border bg-white p-4">
-            <h2 className="font-bold text-navy">Identity and warnings</h2>
+            <h2 className="font-bold text-ink">Identity and warnings</h2>
             <p className="mt-2 text-sm">
               Confidentiality: {p.confidentiality}. Identifiers are masked and external identifiers
               never replace the internal record ID.
@@ -241,7 +242,7 @@ export default function PatientRecordPage() {
             ))}
           </section>
           <form onSubmit={addResource} className="rounded-md border border-border bg-white p-4">
-            <h2 className="font-bold text-navy">Add structured information</h2>
+            <h2 className="font-bold text-ink">Add structured information</h2>
             <fieldset disabled={!data.clinicalWritesEnabled || busy} className="mt-3 grid gap-3">
               <label className="text-sm font-semibold">
                 Type
@@ -279,13 +280,13 @@ export default function PatientRecordPage() {
                   <option value="clinician">Clinician verified</option>
                 </select>
               </label>
-              <button className="min-h-[44px] rounded-md bg-navy px-4 font-semibold text-white">
+              <button className="min-h-[44px] rounded-md bg-ink px-4 font-semibold text-white">
                 Add to record
               </button>
             </fieldset>
           </form>
           <section className="rounded-md border border-border bg-white p-4">
-            <h2 className="font-bold text-navy">Encounter note</h2>
+            <h2 className="font-bold text-ink">Encounter note</h2>
             {!data.encounters[0] ? (
               <p className="mt-2 text-sm">Open an encounter before authoring a note.</p>
             ) : (
@@ -304,7 +305,7 @@ export default function PatientRecordPage() {
                   type="button"
                   onClick={saveDraft}
                   disabled={!note.trim()}
-                  className="min-h-[44px] rounded-md border border-navy px-4 font-semibold text-navy"
+                  className="min-h-[44px] rounded-md border border-ink px-4 font-semibold text-ink"
                 >
                   Save draft
                 </button>
@@ -312,7 +313,7 @@ export default function PatientRecordPage() {
                   <button
                     type="button"
                     onClick={sign}
-                    className="min-h-[44px] rounded-md bg-navy px-4 font-semibold text-white"
+                    className="min-h-[44px] rounded-md bg-ink px-4 font-semibold text-white"
                   >
                     Review and sign
                   </button>
@@ -343,7 +344,7 @@ function OperationalJourney({
 }) {
   return (
     <section className="mb-5 rounded-md border border-border bg-white p-4">
-      <h2 className="font-bold text-navy">Operational journey</h2>
+      <h2 className="font-bold text-ink">Operational journey</h2>
       <p className="mt-1 text-xs text-text-light">
         Includes appointments and orders from identity-linked source records. No source record was
         moved or deleted.
@@ -384,14 +385,14 @@ function OperationalJourney({
         </div>
       </div>
       {hasMore && (
-        <button
-          type="button"
-          className="btn btn-outline mt-4"
+        <Button
+          variant="outline"
+          className="mt-4"
           disabled={loading}
           onClick={onLoadMore}
         >
           {loading ? 'Loading history...' : 'Load older appointments'}
-        </button>
+        </Button>
       )}
     </section>
   );

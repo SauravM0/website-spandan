@@ -92,8 +92,8 @@ export default function DeviceImportManager({
     }
   }
   return (
-    <section className="my-6 rounded border bg-slate-50 p-4" aria-labelledby="device-import-title">
-      <h2 id="device-import-title" className="text-lg font-bold text-navy">
+    <section className="my-6 rounded border bg-bg-alt p-4" aria-labelledby="device-import-title">
+      <h2 id="device-import-title" className="text-lg font-bold text-ink">
         Glucose device import
       </h2>
       <p className="text-sm text-text-light">
@@ -154,7 +154,7 @@ export default function DeviceImportManager({
             <input
               readOnly
               value="Asia/Kolkata"
-              className="min-h-11 rounded border bg-slate-100 px-3"
+              className="min-h-11 rounded border bg-bg-alt px-3"
             />
             <span className="text-xs font-normal">
               Each CSV timestamp must still include its own UTC offset.
@@ -162,7 +162,7 @@ export default function DeviceImportManager({
           </label>
           <button
             disabled={!draft.content}
-            className="min-h-11 self-start rounded bg-navy px-4 font-semibold text-white disabled:opacity-50"
+            className="min-h-11 self-start rounded bg-ink px-4 font-semibold text-white disabled:opacity-50"
           >
             Preview import
           </button>
@@ -175,7 +175,7 @@ export default function DeviceImportManager({
       )}
       {preview && (
         <section
-          className="mt-4 rounded border-2 border-navy bg-white p-4"
+          className="mt-4 rounded border-2 border-ink bg-white p-4"
           aria-labelledby="preview-title"
         >
           <h3 id="preview-title" className="font-bold">
@@ -221,7 +221,7 @@ export default function DeviceImportManager({
             <button
               disabled={busy || preview.import.summary.accepted === 0}
               onClick={confirm}
-              className="min-h-11 rounded bg-navy px-4 font-semibold text-white disabled:opacity-50"
+              className="min-h-11 rounded bg-ink px-4 font-semibold text-white disabled:opacity-50"
             >
               Confirm patient and import
             </button>

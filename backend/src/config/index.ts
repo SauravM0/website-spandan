@@ -40,8 +40,6 @@ export const config = {
   port: parseInt(process.env.PORT || '4000', 10),
   shutdownTimeoutMs: parseInt(process.env.SHUTDOWN_TIMEOUT_MS || '25000', 10),
   metricsBearerToken: process.env.METRICS_BEARER_TOKEN || '',
-  mfaEncryptionKey: process.env.MFA_ENCRYPTION_KEY || '',
-  mfaEncryptionKeyVersion: process.env.MFA_ENCRYPTION_KEY_VERSION || 'v1',
   databaseUrl,
   jwtSecret,
   jwtSecretVersion: process.env.JWT_SECRET_VERSION || 'v1',
@@ -55,7 +53,6 @@ export const config = {
     process.env.ADMIN_SESSION_IDLE_TIMEOUT_MS || String(30 * 60 * 1000),
     10
   ),
-  adminStepUpMaxAgeMs: parseInt(process.env.ADMIN_STEP_UP_MAX_AGE_MS || String(10 * 60 * 1000), 10),
   adminSessionCookieSameSite: (process.env.ADMIN_SESSION_COOKIE_SAMESITE || 'lax') as
     'lax' | 'strict' | 'none',
   corsOrigin: corsOrigins[0],
@@ -85,6 +82,23 @@ export const config = {
   },
   payments: {
     mockEnabled: process.env.PAYMENT_MOCK_ENABLED === 'true',
+    directUpiEmergencyDisabled: process.env.DIRECT_UPI_EMERGENCY_DISABLED !== 'false',
+    utrHmacSecret: process.env.DIRECT_UPI_UTR_HMAC_SECRET || '',
+    utrEncryptionKey: process.env.DIRECT_UPI_UTR_ENCRYPTION_KEY || '',
+    utrEncryptionKeyVersion: process.env.DIRECT_UPI_UTR_ENCRYPTION_KEY_VERSION || 'v1',
+    evidenceStorageDir:
+      process.env.PAYMENT_EVIDENCE_STORAGE_DIR || '.private-payment-evidence',
+    evidenceEncryptionKey: process.env.PAYMENT_EVIDENCE_ENCRYPTION_KEY || '',
+    evidenceEncryptionKeyVersion:
+      process.env.PAYMENT_EVIDENCE_ENCRYPTION_KEY_VERSION || 'v1',
+    evidenceMaxBytes: parseInt(
+      process.env.PAYMENT_EVIDENCE_MAX_BYTES || String(5 * 1024 * 1024),
+      10
+    ),
+    evidenceRetentionDays: parseInt(
+      process.env.PAYMENT_EVIDENCE_RETENTION_DAYS || '90',
+      10
+    ),
   },
   publicRelease: {
     commerceMode: (process.env.PUBLIC_COMMERCE_MODE ||

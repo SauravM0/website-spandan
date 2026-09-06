@@ -3,14 +3,14 @@ import { serverApiGet } from '../lib/serverApi';
 
 const BASE_URL = process.env.NEXT_PUBLIC_SITE_URL || 'https://spandanclinic.com';
 
-async function getPackages(): Promise<{ slug: string }[]> {
-  const data = await serverApiGet('/packages', { packages: [] });
-  return data.packages?.map((p: any) => ({ slug: p.slug })) || [];
-}
-
 async function getDoctors(): Promise<{ slug: string }[]> {
   const data = await serverApiGet('/doctors', { doctors: [] });
   return data.doctors?.map((d: any) => ({ slug: d.slug })) || [];
+}
+
+async function getPackages(): Promise<{ slug: string }[]> {
+  const data = await serverApiGet('/packages', { packages: [] });
+  return data.packages?.filter((p: any) => p.slug).map((p: any) => ({ slug: p.slug })) || [];
 }
 
 async function getArticles(): Promise<{ slug: string }[]> {
@@ -19,37 +19,35 @@ async function getArticles(): Promise<{ slug: string }[]> {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const [packages, doctors, articles] = await Promise.all([
-    getPackages(),
+  const [doctors, articles, packages] = await Promise.all([
     getDoctors(),
     getArticles(),
+    getPackages(),
   ]);
 
   const staticPages = [
     { url: BASE_URL, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 1 },
     { url: `${BASE_URL}/about`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.7 },
     { url: `${BASE_URL}/contact`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.7 },
-    { url: `${BASE_URL}/explore`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.9 },
     { url: `${BASE_URL}/publications`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.7 },
     { url: `${BASE_URL}/facilities`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.7 },
-    { url: `${BASE_URL}/packages`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.8 },
-    { url: `${BASE_URL}/build-package`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.8 },
     { url: `${BASE_URL}/doctors`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.8 },
+    { url: `${BASE_URL}/packages`, lastModified: new Date(), changeFrequency: 'monthly' as const, priority: 0.8 },
     { url: `${BASE_URL}/health-resources`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.6 },
     { url: `${BASE_URL}/videos`, lastModified: new Date(), changeFrequency: 'weekly' as const, priority: 0.6 },
     { url: `${BASE_URL}/privacy`, lastModified: new Date(), changeFrequency: 'yearly' as const, priority: 0.3 },
     { url: `${BASE_URL}/terms`, lastModified: new Date(), changeFrequency: 'yearly' as const, priority: 0.3 },
   ];
 
-  const packagePages = packages.map((p) => ({
-    url: `${BASE_URL}/packages/${p.slug}`,
+  const doctorPages = doctors.map((d) => ({
+    url: `${BASE_URL}/doctors/${d.slug}`,
     lastModified: new Date(),
     changeFrequency: 'monthly' as const,
     priority: 0.6,
   }));
 
-  const doctorPages = doctors.map((d) => ({
-    url: `${BASE_URL}/doctors/${d.slug}`,
+  const packagePages = packages.map((p) => ({
+    url: `${BASE_URL}/packages/${p.slug}`,
     lastModified: new Date(),
     changeFrequency: 'monthly' as const,
     priority: 0.6,
@@ -62,5 +60,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.5,
   }));
 
-  return [...staticPages, ...packagePages, ...doctorPages, ...articlePages];
+  return [...staticPages, ...doctorPages, ...packagePages, ...articlePages];
 }

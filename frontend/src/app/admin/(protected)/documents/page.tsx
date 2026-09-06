@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import {
+  ApiError,
   downloadMedicalDocument,
   getMedicalDocuments,
   reviewMedicalDocument,
@@ -8,6 +9,7 @@ import {
   uploadMedicalDocument,
 } from '../../../../lib/api';
 import { promptAdminAction } from '../../../../lib/adminDialogs';
+import Button from '@/components/ui/Button';
 const categories = {
   lab_report: 'Lab report',
   imaging: 'Imaging',
@@ -26,11 +28,29 @@ export default function DocumentsPage() {
     [source, setSource] = useState('staff'),
     [status, setStatus] = useState(''),
     [error, setError] = useState(''),
+    [unavailable, setUnavailable] = useState(''),
     [busy, setBusy] = useState(false);
-  const load = () =>
-    getMedicalDocuments(status ? { status } : {})
-      .then((x) => setDocs(x.data))
-      .catch((e) => setError(e.message));
+  const load = () => {
+    setError('');
+    return getMedicalDocuments(status ? { status } : {})
+      .then((x) => {
+        setUnavailable('');
+        setDocs(x.data);
+      })
+      .catch((failure: unknown) => {
+        if (
+          failure instanceof ApiError &&
+          failure.status === 503 &&
+          ['DOCUMENT_GOVERNANCE_REQUIRED', 'DOCUMENT_SCANNER_REQUIRED'].includes(
+            failure.code || ''
+          )
+        ) {
+          setUnavailable(failure.message);
+          return;
+        }
+        setError(failure instanceof Error ? failure.message : 'Unable to load documents.');
+      });
+  };
   useEffect(() => {
     load();
     searchAdminPatients()
@@ -84,9 +104,23 @@ export default function DocumentsPage() {
       setBusy(false);
     }
   }
+  if (unavailable) {
+    return (
+      <div className="mx-auto max-w-4xl p-4 sm:p-6">
+        <h1 className="text-2xl font-bold text-ink">Medical documents</h1>
+        <div className="mt-5 rounded-md border border-amber-300 bg-amber-50 p-5 text-amber-950">
+          <h2 className="font-bold">Document handling is unavailable</h2>
+          <p className="mt-2 text-sm">{unavailable}</p>
+          <Button className="mt-4 border border-amber-500" onClick={load}>
+            Check again
+          </Button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
-      <h1 className="text-2xl font-bold text-navy">Medical documents</h1>
+      <h1 className="text-2xl font-bold text-ink">Medical documents</h1>
       <p className="mt-1 text-sm text-text-light">
         Uploads remain quarantined until scanning completes. Extracted or uploaded information is
         never automatically clinically verified.
@@ -101,7 +135,7 @@ export default function DocumentsPage() {
       )}
       <div className="mt-5 grid gap-5 lg:grid-cols-[1fr_2fr]">
         <form onSubmit={submit} className="h-fit rounded-md border border-border bg-white p-4">
-          <h2 className="font-bold text-navy">Upload to quarantine</h2>
+          <h2 className="font-bold text-ink">Upload to quarantine</h2>
           <fieldset disabled={busy} className="mt-3 grid gap-3">
             <label className="text-sm font-semibold">
               Confirm patient
@@ -162,7 +196,7 @@ export default function DocumentsPage() {
             </div>
             <button
               disabled={!file || !patientId}
-              className="min-h-[44px] rounded-md bg-navy px-4 font-semibold text-white disabled:opacity-50"
+              className="min-h-[44px] rounded-md bg-ink px-4 font-semibold text-white disabled:opacity-50"
             >
               {busy ? 'Uploading…' : 'Confirm and upload'}
             </button>
@@ -170,7 +204,7 @@ export default function DocumentsPage() {
         </form>
         <section>
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-bold text-navy">Review queue</h2>
+            <h2 className="font-bold text-ink">Review queue</h2>
             <label className="text-sm">
               Status{' '}
               <select
@@ -192,7 +226,7 @@ export default function DocumentsPage() {
               <article key={d.id} className="rounded-md border border-border bg-white p-4">
                 <div className="flex flex-wrap justify-between gap-2">
                   <div>
-                    <h3 className="font-bold text-navy">{d.original_filename}</h3>
+                    <h3 className="font-bold text-ink">{d.original_filename}</h3>
                     <p className="text-sm">
                       {d.patient_name} · {categories[d.category as keyof typeof categories]} ·{' '}
                       {(d.byte_size / 1024).toFixed(1)} KB
@@ -220,14 +254,14 @@ export default function DocumentsPage() {
                       <button
                         disabled={busy}
                         onClick={() => review(d, 'review')}
-                        className="min-h-[44px] rounded-md border border-navy px-3 font-semibold text-navy"
+                        className="min-h-[44px] rounded-md border border-ink px-3 font-semibold text-ink"
                       >
                         Mark reviewed
                       </button>
                       <button
                         disabled={busy}
                         onClick={() => review(d, 'verify')}
-                        className="min-h-[44px] rounded-md bg-navy px-3 font-semibold text-white"
+                        className="min-h-[44px] rounded-md bg-ink px-3 font-semibold text-white"
                       >
                         Verify for clinical reference
                       </button>

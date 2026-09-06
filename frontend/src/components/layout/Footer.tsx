@@ -24,29 +24,25 @@ export default function Footer() {
       <div className="container">
         <div className="grid gap-8 md:grid-cols-[1.1fr_0.9fr_1.2fr_0.8fr]">
           <div>
-            <h4 className="mb-4 text-lg font-semibold text-navy">{clinicSettings.name}</h4>
+            <h4 className="mb-4 text-lg font-semibold text-ink">{clinicSettings.name}</h4>
             <p className="text-sm leading-relaxed">{clinicSettings.tagline}</p>
-            <p className="mt-4 text-sm font-semibold text-pink-700">{clinicSettings.emergencyNote}</p>
+            <p className="mt-4 text-sm font-semibold text-blush-deep">{clinicSettings.emergencyNote}</p>
           </div>
 
           <div>
-            <h4 className="mb-4 text-lg font-semibold text-navy">Quick Links</h4>
+            <h4 className="mb-4 text-lg font-semibold text-ink">Quick Links</h4>
             <div className="flex flex-col gap-2 text-sm">
-              <Link href="/explore" className="transition-colors duration-300 hover:text-accent">Explore</Link>
               <Link href="/doctors" className="transition-colors duration-300 hover:text-accent">{t('nav_doctors')}</Link>
-              <Link href="/packages" className="transition-colors duration-300 hover:text-accent">{t('nav_packages')}</Link>
-              <Link href="/facilities" className="transition-colors duration-300 hover:text-accent">{t('nav_facilities')}</Link>
+              <Link href="/facilities" className="transition-colors duration-300 hover:text-accent">Services & Gallery</Link>
               <Link href="/health-resources" className="transition-colors duration-300 hover:text-accent">{t('nav_articles')}</Link>
               <Link href="/publications" className="transition-colors duration-300 hover:text-accent">Publications</Link>
               <Link href="/privacy" className="transition-colors duration-300 hover:text-accent">Privacy Policy</Link>
               <Link href="/terms" className="transition-colors duration-300 hover:text-accent">Terms of Use</Link>
-              <Link href="/terms#refunds" className="transition-colors duration-300 hover:text-accent">Refund Policy</Link>
-              <Link href="/terms#payments" className="transition-colors duration-300 hover:text-accent">Payment Policy</Link>
             </div>
           </div>
 
           <div>
-            <h4 className="mb-4 text-lg font-semibold text-navy">{t('contact_title')}</h4>
+            <h4 className="mb-4 text-lg font-semibold text-ink">{t('contact_title')}</h4>
             <div className="flex flex-col gap-2 text-sm">
               <p>{clinicSettings.address}, {clinicSettings.city}, {clinicSettings.state} {clinicSettings.pincode}</p>
               <p>{t('contact_phone')}: {clinicSettings.phone}</p>
@@ -64,7 +60,7 @@ export default function Footer() {
           </div>
 
           <div>
-            <h4 className="mb-4 text-lg font-semibold text-navy">Language</h4>
+            <h4 className="mb-4 text-lg font-semibold text-ink">Language</h4>
             <div className="flex flex-col gap-2">
               {languages.map((lang) => (
                 <button

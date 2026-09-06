@@ -1,6 +1,5 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import MedicalDisclaimer from '@/components/health-resources/MedicalDisclaimer';
 import YouTubeEmbed from '@/components/health-resources/YouTubeEmbed';
@@ -12,6 +11,7 @@ import RelatedResources from '@/components/health-resources/RelatedResources';
 import { serverApiGet } from '@/lib/serverApi';
 import { extractToc } from '@/lib/markdown';
 import type { HealthResourceArticle } from '@/components/health-resources/resource-gallery/ResourceHub';
+import Button from '@/components/ui/Button';
 
 type ArticleDetailPayload = HealthResourceArticle & {
   body_md?: string | null;
@@ -59,7 +59,6 @@ export default async function ArticleDetail({ params }: { params: { slug: string
 
   const tocEntries = extractToc(article.body_md || '');
   const versionDate = formatDate(article.updated_at || article.published_at);
-  const reviewedDate = formatDate(article.reviewed_at || article.updated_at || article.published_at);
 
   const jsonLd = {
     '@context': 'https://schema.org',
@@ -93,7 +92,7 @@ export default async function ArticleDetail({ params }: { params: { slug: string
         <div className="container">
           <div className="flex flex-wrap items-center gap-3">
             {article.category && (
-              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase text-pink-700 shadow-[0_8px_20px_rgba(236,72,153,0.12)]">
+              <span className="rounded-full bg-white px-3 py-1 text-xs font-semibold uppercase text-blush-deep shadow-md">
                 {article.category}
               </span>
             )}
@@ -125,7 +124,7 @@ export default async function ArticleDetail({ params }: { params: { slug: string
 
           {article.references && article.references.length > 0 && (
             <section className="soft-card mt-10 p-6">
-              <h2 className="mb-4 text-lg font-bold text-navy">References</h2>
+              <h2 className="mb-4 text-lg font-bold text-ink">References</h2>
               <ol className="space-y-2 text-sm text-text-light">
                 {article.references.map((ref, i) => (
                   <li key={i}>
@@ -160,7 +159,7 @@ export default async function ArticleDetail({ params }: { params: { slug: string
           <div className="soft-card mt-12 p-8 text-center">
             <h3 className="mb-3 text-lg font-semibold">Have questions about this topic?</h3>
             <p className="mb-5 text-text-light">Our specialists are here to help. Schedule a consultation today.</p>
-            <Link href="/contact" className="btn btn-accent">Contact Us</Link>
+            <Button href="/contact" variant="accent">Contact Us</Button>
           </div>
         </div>
       </section>

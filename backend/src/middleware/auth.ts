@@ -9,7 +9,6 @@ export interface AuthenticatedRequest extends Request {
   sessionExpiresAt?: string | null;
   sessionId?: string;
   sessionAbsoluteExpiresAt?: string | null;
-  stepUpVerifiedAt?: string | null;
 }
 
 const STAFF_CACHE_TTL_MS = 30_000;
@@ -57,10 +56,10 @@ function getRequestToken(req: Request): string | undefined {
   return undefined;
 }
 
-type SessionIdentity = { userId: string; sid?: string; mfa?: boolean };
+type SessionIdentity = { userId: string; sid?: string };
 
-async function refreshMfaSession(identity: SessionIdentity) {
-  if (!identity.sid || identity.mfa !== true) return null;
+async function refreshSession(identity: SessionIdentity) {
+  if (!identity.sid) return null;
   const session = await import('../config/database').then(({ query }) =>
     query(
       `UPDATE staff_sessions SET
@@ -68,8 +67,7 @@ async function refreshMfaSession(identity: SessionIdentity) {
          idle_expires_at=LEAST(absolute_expires_at,NOW()+($3::text||' milliseconds')::interval)
        WHERE id=$1 AND staff_user_id=$2 AND revoked_at IS NULL
          AND idle_expires_at>NOW() AND absolute_expires_at>NOW()
-         AND mfa_verified_at IS NOT NULL
-       RETURNING id,idle_expires_at,absolute_expires_at,step_up_verified_at,mfa_verified_at`,
+       RETURNING id,idle_expires_at,absolute_expires_at`,
       [identity.sid, identity.userId, config.adminSessionIdleTimeoutMs]
     )
   );
@@ -94,13 +92,12 @@ export async function authenticate(
       doctor_id?: string;
       exp?: number;
       sid?: string;
-      mfa?: boolean;
     };
-    if (!decoded.sid || decoded.mfa !== true) {
-      sendApiError(res, 401, 'SESSION_UPGRADE_REQUIRED', 'Multi-factor login is required.');
+    if (!decoded.sid) {
+      sendApiError(res, 401, 'SESSION_UPGRADE_REQUIRED', 'A current login session is required.');
       return;
     }
-    const session = await refreshMfaSession(decoded);
+    const session = await refreshSession(decoded);
     if (!session) {
       res.status(401).json({ error: 'Session expired or revoked' });
       return;
@@ -113,30 +110,11 @@ export async function authenticate(
     req.user = user;
     req.sessionExpiresAt = session.idle_expires_at;
     req.sessionAbsoluteExpiresAt = session.absolute_expires_at;
-    req.stepUpVerifiedAt = session.step_up_verified_at;
     req.sessionId = decoded.sid;
     next();
   } catch {
     res.status(401).json({ error: 'Invalid or expired token' });
   }
-}
-
-export function requireRecentStepUp(
-  req: AuthenticatedRequest,
-  res: Response,
-  next: NextFunction
-): void {
-  const verifiedAt = req.stepUpVerifiedAt ? new Date(req.stepUpVerifiedAt).getTime() : 0;
-  if (!verifiedAt || Date.now() - verifiedAt > config.adminStepUpMaxAgeMs) {
-    sendApiError(
-      res,
-      403,
-      'STEP_UP_REQUIRED',
-      'Recent multi-factor authentication is required for this action.'
-    );
-    return;
-  }
-  next();
 }
 
 export async function optionalAuth(
@@ -154,9 +132,8 @@ export async function optionalAuth(
     const decoded = jwt.verify(token, config.jwtSecret) as {
       userId: string;
       sid?: string;
-      mfa?: boolean;
     };
-    const session = await refreshMfaSession(decoded);
+    const session = await refreshSession(decoded);
     if (!session || !decoded.sid) {
       next();
       return;
@@ -167,7 +144,6 @@ export async function optionalAuth(
       req.sessionId = decoded.sid;
       req.sessionExpiresAt = session.idle_expires_at;
       req.sessionAbsoluteExpiresAt = session.absolute_expires_at;
-      req.stepUpVerifiedAt = session.step_up_verified_at;
     }
     next();
   } catch {

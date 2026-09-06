@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { ApiError, changeAdminPassword, getAdminSessions, revokeAdminSession } from '@/lib/api';
 import { confirmAdminAction } from '@/lib/adminDialogs';
+import Button from '@/components/ui/Button';
 
 type Session = {
   id: string;
@@ -13,8 +14,6 @@ type Session = {
   absolute_expires_at: string;
   revoked_at?: string | null;
   revoke_reason?: string | null;
-  mfa_verified_at?: string | null;
-  step_up_verified_at?: string | null;
 };
 
 const date = (value: string) =>
@@ -81,15 +80,14 @@ export default function AdminSessionsPage() {
   return (
     <section className="p-4 sm:p-6">
       <div className="mx-auto max-w-5xl">
-        <h1 className="text-2xl font-bold text-navy">Administrator sessions</h1>
+        <h1 className="text-2xl font-bold text-ink">Administrator sessions</h1>
         <p className="mt-2 text-sm text-text-light">
-          Review active and recently revoked sessions. Revocation requires fresh multi-factor
-          authentication.
+          Review active and recently revoked administrator sessions.
         </p>
         <form onSubmit={changePassword} className="soft-card mt-6 max-w-xl p-4">
-          <h2 className="font-bold text-navy">Change administrator password</h2>
+          <h2 className="font-bold text-ink">Change administrator password</h2>
           <p className="mt-1 text-sm text-text-light">
-            Fresh MFA is required. A successful change signs out every administrator session.
+            A successful change signs out every administrator session.
           </p>
           <label htmlFor="current-password" className="mt-4 block font-semibold">
             Current password
@@ -119,13 +117,13 @@ export default function AdminSessionsPage() {
             disabled={changingPassword}
             className="mt-1 w-full"
           />
-          <button
+          <Button
             type="submit"
             disabled={changingPassword}
-            className="btn mt-4 bg-accent text-white"
+            className="mt-4 bg-accent text-white"
           >
             {changingPassword ? 'Changing password...' : 'Change password'}
-          </button>
+          </Button>
         </form>
         {error && (
           <p
@@ -145,7 +143,7 @@ export default function AdminSessionsPage() {
               <article key={session.id} className="soft-card p-4">
                 <div className="flex flex-wrap items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-bold text-navy">
+                    <h2 className="font-bold text-ink">
                       {session.current
                         ? 'Current session'
                         : session.revoked_at
@@ -162,13 +160,12 @@ export default function AdminSessionsPage() {
                     </p>
                   </div>
                   {!session.revoked_at && (
-                    <button
-                      type="button"
-                      className="btn border border-danger text-danger"
+                    <Button
+                      className="border border-danger text-danger"
                       onClick={() => revoke(session)}
                     >
                       Revoke
-                    </button>
+                    </Button>
                   )}
                 </div>
               </article>

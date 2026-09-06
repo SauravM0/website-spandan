@@ -65,7 +65,7 @@ export default function IntakeAdminPage() {
   };
   return (
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
-      <h1 className="text-2xl font-bold text-navy">Remote intake</h1>
+      <h1 className="text-2xl font-bold text-ink">Remote intake</h1>
       <p className="mt-1 text-text-light">
         Create privacy-safe links and review patient-submitted information. Intake never confirms a
         slot.

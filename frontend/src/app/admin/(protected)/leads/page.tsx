@@ -12,6 +12,7 @@ import {
   ResponsiveDataView,
   StatusBadge,
 } from '@/components/admin/AdminPrimitives';
+import Button from '@/components/ui/Button';
 
 const presets = [
   ['', 'All'],
@@ -173,7 +174,7 @@ function LeadsInner() {
           {leads.map((lead) => (
             <tr key={lead.id} className="border-b border-border align-top hover:bg-bg-alt">
               <td className="p-3">
-                <Link href={`/admin/leads/${lead.id}`} className="font-semibold text-navy hover:text-accent">
+                <Link href={`/admin/leads/${lead.id}`} className="font-semibold text-ink hover:text-accent">
                   {lead.patient_name}
                 </Link>
                 <p className="mt-1 text-xs text-text-light">{lead.source_language || 'en'}</p>
@@ -188,7 +189,7 @@ function LeadsInner() {
               <td className="p-3 text-xs text-text-light">{lead.preferred_date || lead.preferred_time_window || '-'}</td>
               <td className="p-3"><StatusBadge tone={statusTone(lead.status)}>{label(lead.status)}</StatusBadge></td>
               <td className="p-3">
-                <Link href={`/admin/leads/${lead.id}`} className="btn btn-outline btn-sm">Open</Link>
+                <Button href={`/admin/leads/${lead.id}`} variant="outline" size="sm">Open</Button>
               </td>
             </tr>
           ))}
@@ -201,7 +202,7 @@ function LeadsInner() {
     <article key={lead.id} className="rounded-lg border border-border bg-white p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <Link href={`/admin/leads/${lead.id}`} className="font-semibold text-navy">
+          <Link href={`/admin/leads/${lead.id}`} className="font-semibold text-ink">
             {lead.patient_name}
           </Link>
           <p className="mt-1 text-xs text-text-light">{lead.phone_masked || '-'}</p>
@@ -215,7 +216,7 @@ function LeadsInner() {
         <Detail label="Preferred" value={lead.preferred_date || lead.preferred_time_window || '-'} />
       </div>
       <div className="mt-4">
-        <Link href={`/admin/leads/${lead.id}`} className="btn btn-outline btn-sm w-full">Open Detail</Link>
+        <Button href={`/admin/leads/${lead.id}`} variant="outline" size="sm" className="w-full">Open Detail</Button>
       </div>
     </article>
   )) : null;
@@ -230,14 +231,15 @@ function LeadsInner() {
 
         <div className="mb-6 flex flex-wrap gap-2">
           {presets.map(([value, text]) => (
-            <button
+            <Button
               key={value || 'all'}
-              type="button"
+              size="sm"
+              variant={filters.status === value ? 'primary' : 'outline'}
+              aria-pressed={filters.status === value}
               onClick={() => updateFilters({ status: value })}
-              className={`btn btn-sm ${filters.status === value ? 'btn-primary' : 'btn-outline'}`}
             >
               {text}
-            </button>
+            </Button>
           ))}
         </div>
 

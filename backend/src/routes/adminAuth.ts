@@ -2,15 +2,13 @@ import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import {
   changePassword,
-  completeMfa,
   login,
   logout,
   me,
   revokeSession,
   sessions,
-  stepUp,
 } from '../controllers/adminAuthController';
-import { authenticate, requireRecentStepUp } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/authorize';
 import { PERMISSIONS } from '../security/permissions';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -29,10 +27,8 @@ const loginLimiter = rateLimit({
 });
 
 router.post('/login', loginLimiter, asyncHandler(login));
-router.post('/mfa/verify', loginLimiter, asyncHandler(completeMfa));
 router.post('/logout', authenticate, asyncHandler(logout));
 router.get('/me', authenticate, asyncHandler(me));
-router.post('/step-up', authenticate, loginLimiter, asyncHandler(stepUp));
 router.get(
   '/sessions',
   authenticate,
@@ -43,14 +39,12 @@ router.post(
   '/sessions/:id/revoke',
   authenticate,
   requirePermission(PERMISSIONS.SECURITY_ADMIN),
-  requireRecentStepUp,
   asyncHandler(revokeSession)
 );
 router.post(
   '/password/change',
   authenticate,
   requirePermission(PERMISSIONS.SECURITY_ADMIN),
-  requireRecentStepUp,
   asyncHandler(changePassword)
 );
 

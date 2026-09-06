@@ -61,6 +61,7 @@ docs/work-packages/**
 !docs/work-packages/WP13-production-observability.md
 !docs/production-baseline.json
 machine/
+backend/.private-documents/
 
 # OS metadata
 .DS_Store

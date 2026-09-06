@@ -1,4 +1,4 @@
-import type { ToolResult, FieldDefinition, ToolMeta } from './types';
+import type { ToolResult, FieldDefinition, ToolMeta, ResultBand, ResultScale } from './types';
 
 export function calculateDiabetesRisk(params: {
   ageYears: number;
@@ -26,6 +26,16 @@ export function calculateDiabetesRisk(params: {
   return ageScore + waistScore + params.activityScore + params.familyScore;
 }
 
+export const DIABETES_BANDS: ResultBand[] = [
+  { upTo: 30, label: 'Low', tone: 'green' },
+  { upTo: 50, label: 'Moderate', tone: 'amber' },
+  { upTo: 100, label: 'High', tone: 'red' },
+];
+
+function diabetesScale(score: number): ResultScale {
+  return { value: score, min: 0, max: 100, bands: DIABETES_BANDS, caption: 'risk score' };
+}
+
 export function classifyDiabetesRisk(score: number): ToolResult {
   if (score < 30) {
     return {
@@ -34,6 +44,7 @@ export function classifyDiabetesRisk(score: number): ToolResult {
       detail:
         'Maintain waist control, physical activity, and routine screening as advised for your age.',
       tone: 'green',
+      scale: diabetesScale(score),
     };
   }
   if (score <= 50) {
@@ -43,6 +54,7 @@ export function classifyDiabetesRisk(score: number): ToolResult {
       detail:
         'A fasting sugar or HbA1c test may be useful, especially if weight or family history is changing.',
       tone: 'amber',
+      scale: diabetesScale(score),
     };
   }
   return {
@@ -51,6 +63,7 @@ export function classifyDiabetesRisk(score: number): ToolResult {
     detail:
       'Please consider a diabetes evaluation and preventive plan with an endocrinology team.',
     tone: 'red',
+    scale: diabetesScale(score),
   };
 }
 

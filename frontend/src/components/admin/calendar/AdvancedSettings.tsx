@@ -4,10 +4,11 @@ import React from 'react';
 import { ChevronLeft, ChevronRight, Settings2 } from 'lucide-react';
 import { apiWeekdays, formatShortDate, formatTime } from './CalendarUtils';
 import type { AppointmentSettings } from '@/lib/api';
+import Button from '@/components/ui/Button';
 
 function Field({ label, children }: { label: string; children: React.ReactElement<{ className?: string }> }) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-navy">
+    <label className="grid gap-1 text-sm font-bold text-ink">
       {label}
       {React.cloneElement(children, {
         className: 'rounded-md border border-border px-3 py-2 text-sm font-semibold text-text',
@@ -66,7 +67,7 @@ export default function AdvancedSettings({
       <button
         type="button"
         onClick={() => setOpen(!open)}
-        className="flex w-full items-center justify-between p-4 text-left font-black text-navy"
+        className="flex w-full items-center justify-between p-4 text-left font-black text-ink"
       >
         <span className="flex items-center gap-2">
           <Settings2 size={18} /> Advanced settings
@@ -77,7 +78,7 @@ export default function AdvancedSettings({
       {open && (
         <div className="grid gap-5 border-t border-border p-4">
           <form onSubmit={handleRuleSubmit} className="grid gap-3">
-            <h3 className="font-bold text-navy">Regular weekly hours</h3>
+            <h3 className="font-bold text-ink">Regular weekly hours</h3>
             <div className="grid grid-cols-2 gap-3">
               <Field label="Weekday">
                 <select value={weekday} onChange={(e) => setWeekday(e.target.value)}>
@@ -89,7 +90,7 @@ export default function AdvancedSettings({
               <Field label="From date">
                 <input type="date" value={effectiveFrom} onChange={(e) => setEffectiveFrom(e.target.value)} />
               </Field>
-              <label className="col-span-2 flex items-center gap-2 text-sm font-bold text-navy">
+              <label className="col-span-2 flex items-center gap-2 text-sm font-bold text-ink">
                 <input type="checkbox" checked={ruleClosed} onChange={(e) => setRuleClosed(e.target.checked)} />
                 Closed on this weekday
               </label>
@@ -107,14 +108,14 @@ export default function AdvancedSettings({
                 </>
               )}
             </div>
-            <button className="btn btn-outline w-full" type="submit" disabled={saving}>
+            <Button variant="outline" className="w-full" type="submit" disabled={saving}>
               Save weekday schedule
-            </button>
+            </Button>
           </form>
 
           {settings && canManageBookingPolicy && (
             <form onSubmit={onSaveSettings} className="grid gap-3">
-              <h3 className="font-bold text-navy">Booking rules</h3>
+              <h3 className="font-bold text-ink">Booking rules</h3>
               {settingsWarnings.map((warning) => (
                 <p key={warning} className="rounded-md bg-amber-50 p-2 text-xs font-bold text-amber-900">{warning}</p>
               ))}
@@ -143,7 +144,7 @@ export default function AdvancedSettings({
                     onChange={(e) => onUpdateSettings({ cancellation_cutoff_hours: Number(e.target.value) })} />
                 </Field>
               </div>
-              <label className="flex items-center gap-2 text-sm font-bold text-navy">
+              <label className="flex items-center gap-2 text-sm font-bold text-ink">
                 <input type="checkbox" checked={settings.same_day_booking_allowed}
                   onChange={(e) => onUpdateSettings({ same_day_booking_allowed: e.target.checked })} />
                 Same-day booking
@@ -152,18 +153,18 @@ export default function AdvancedSettings({
                 <input value={settings.arrival_buffer_instructions}
                   onChange={(e) => onUpdateSettings({ arrival_buffer_instructions: e.target.value })} />
               </Field>
-              <button className="btn btn-outline w-full" type="submit" disabled={saving}>
+              <Button variant="outline" className="w-full" type="submit" disabled={saving}>
                 Save booking rules
-              </button>
+              </Button>
             </form>
           )}
 
           <div>
-            <h3 className="mb-2 font-bold text-navy">Recent calendar changes</h3>
+            <h3 className="mb-2 font-bold text-ink">Recent calendar changes</h3>
             <div className="grid gap-2">
               {overrides.slice(0, 5).map((row) => (
                 <div key={row.id} className="rounded-md bg-bg-alt p-2 text-xs font-semibold">
-                  <p className="font-bold text-navy">
+                  <p className="font-bold text-ink">
                     {formatShortDate(String(row.exception_date).slice(0, 10))} - {String(row.override_type).replace(/_/g, ' ')}
                   </p>
                   <p className="text-text-light">
@@ -179,11 +180,11 @@ export default function AdvancedSettings({
           </div>
 
           <div>
-            <h3 className="mb-2 font-bold text-navy">Weekly working hours</h3>
+            <h3 className="mb-2 font-bold text-ink">Weekly working hours</h3>
             <div className="grid gap-2">
               {rules.slice(0, 6).map((row) => (
                 <div key={row.id} className="rounded-md bg-bg-alt p-2 text-xs font-semibold">
-                  <p className="font-bold text-navy">{apiWeekdays[row.weekday]}</p>
+                  <p className="font-bold text-ink">{apiWeekdays[row.weekday]}</p>
                   <p className="text-text-light">{formatTime(row.start_time)} to {formatTime(row.end_time)}</p>
                 </div>
               ))}

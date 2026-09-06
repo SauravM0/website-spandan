@@ -1,8 +1,7 @@
 'use client';
 
 import React, { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { Download, ExternalLink, RefreshCw, Search, X } from 'lucide-react';
+import { Download, ExternalLink, RefreshCw, Search, Settings, X } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
   downloadAdminExport,
@@ -11,6 +10,8 @@ import {
   getAdminPaymentsSummary,
   recheckAdminPayment,
   requestAdminPaymentRefund,
+  verifyAdminDirectUpiPayment,
+  adminPaymentEvidenceUrl,
 } from '@/lib/api';
 import {
   AdminDrawer,
@@ -23,14 +24,24 @@ import {
 import { browserApiUrl } from '@/lib/apiUrl';
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 import type { AdminPayment } from '@/lib/types';
+import { useAdminSession } from '@/components/admin/AdminSessionContext';
+import { confirmAdminAction, promptAdminAction } from '@/lib/adminDialogs';
+import Button from '@/components/ui/Button';
 
 const statuses = [
   '',
   'created',
   'pending',
+  'payment_initiated',
+  'verification_pending',
+  'clarification_requested',
   'success',
   'failed',
+  'cancelled',
   'expired',
+  'rejected',
+  'amount_mismatch',
+  'duplicate_transaction',
   'verification_required',
   'refunded',
   'disputed',
@@ -84,8 +95,8 @@ function maskRef(value: unknown) {
 
 function statusTone(status: string): 'neutral' | 'success' | 'warning' | 'danger' | 'info' {
   if (status === 'success') return 'success';
-  if (['failed', 'expired', 'disputed'].includes(status)) return 'danger';
-  if (['pending', 'created', 'verification_required'].includes(status)) return 'warning';
+  if (['failed', 'expired', 'rejected', 'duplicate_transaction', 'disputed'].includes(status)) return 'danger';
+  if (['pending', 'created', 'payment_initiated', 'verification_pending', 'clarification_requested', 'amount_mismatch', 'verification_required'].includes(status)) return 'warning';
   if (status === 'refunded') return 'info';
   return 'neutral';
 }
@@ -129,7 +140,7 @@ function SummaryCard({
         ? 'text-danger'
         : tone === 'warning'
           ? 'text-amber-800'
-          : 'text-navy';
+          : 'text-ink';
   return (
     <div className="rounded-lg border border-border bg-white p-4">
       <p className="text-xs font-semibold uppercase text-text-light">{label}</p>
@@ -153,7 +164,7 @@ function PaymentTimeline({ events }: { events: any[] }) {
         <li key={`${event.type}-${event.id}`} className="rounded-lg border border-border p-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-semibold capitalize text-navy">
+              <p className="font-semibold capitalize text-ink">
                 {label(event.event_name || event.action || event.type)}
               </p>
               <p className="mt-1 text-sm text-text-light">
@@ -176,6 +187,9 @@ function PaymentTimeline({ events }: { events: any[] }) {
 }
 
 function PaymentsInner() {
+  const { hasCapability } = useAdminSession();
+  const canVerify = hasCapability('admin.payments.verify');
+  const canViewEvidence = hasCapability('admin.payment_evidence.read');
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -191,7 +205,7 @@ function PaymentsInner() {
   const [error, setError] = useState('');
   const [exporting, setExporting] = useState(false);
   const [selectedId, setSelectedId] = useState('');
-  const [detail, setDetail] = useState<{ payment: any; events: any[] } | null>(null);
+  const [detail, setDetail] = useState<{ payment: any; events: any[]; evidence?: any[] } | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [recheckingId, setRecheckingId] = useState('');
   const [refundAmount, setRefundAmount] = useState('');
@@ -199,6 +213,7 @@ function PaymentsInner() {
   const [refundPreview, setRefundPreview] = useState(false);
   const [refundSubmitting, setRefundSubmitting] = useState(false);
   const [refundMessage, setRefundMessage] = useState('');
+  const [verificationBusy, setVerificationBusy] = useState('');
   const requestRef = useRef(0);
   const hasLoadedRef = useRef(false);
 
@@ -352,6 +367,68 @@ function PaymentsInner() {
   };
 
   const selectedPayment = detail?.payment || payments.find((payment) => payment.id === selectedId);
+  const verifyPayment = async (
+    action: 'confirm' | 'reject' | 'amount_mismatch' | 'duplicate' | 'request_clarification'
+  ) => {
+    if (!selectedPayment) return;
+    const reason = await promptAdminAction({
+      title: action === 'confirm' ? 'Confirm Direct UPI payment' : `Record ${label(action)}`,
+      description:
+        action === 'confirm'
+          ? `Verify the clinic account entry for ${selectedPayment.public_order_reference || selectedPayment.merchant_transaction_id}, UTR ${selectedPayment.utr || '-'}, and ${money(selectedPayment.amount)}.`
+          : 'Enter the audited reason for this decision.',
+      label: 'Verification note',
+      multiline: true,
+      minLength: 10,
+      danger: action !== 'confirm',
+    });
+    if (!reason) return;
+    let observedAmountPaisa: number | undefined =
+      action === 'confirm' ? Number(selectedPayment.amount_paisa) : undefined;
+    let duplicateOfPaymentId: string | undefined;
+    if (action === 'amount_mismatch') {
+      const observed = await promptAdminAction({
+        title: 'Observed bank amount',
+        description: `Expected ${money(selectedPayment.amount)}. Enter the amount actually observed in INR.`,
+        label: 'Observed amount (INR)',
+        defaultValue: String(selectedPayment.amount),
+      });
+      if (observed === null || !Number.isFinite(Number(observed)) || Number(observed) < 0) return;
+      observedAmountPaisa = Math.round(Number(observed) * 100);
+    }
+    if (action === 'duplicate') {
+      const canonical = await promptAdminAction({
+        title: 'Canonical payment',
+        description: 'Enter the internal payment ID that should remain canonical.',
+        label: 'Canonical payment ID',
+      });
+      if (!canonical) return;
+      duplicateOfPaymentId = canonical.trim();
+    }
+    const confirmed = await confirmAdminAction({
+      title: 'Confirm audited payment action',
+      description: `Apply ${label(action)} to ${selectedPayment.public_order_reference || selectedPayment.merchant_transaction_id}?`,
+      confirmLabel: action === 'confirm' ? 'Confirm as paid' : 'Apply decision',
+      danger: action !== 'confirm',
+    });
+    if (!confirmed) return;
+    setVerificationBusy(action);
+    setError('');
+    try {
+      await verifyAdminDirectUpiPayment(selectedPayment.id, {
+        action,
+        expected_version: Number(selectedPayment.status_version),
+        reason,
+        observed_amount_paisa: observedAmountPaisa,
+        duplicate_of_payment_id: duplicateOfPaymentId,
+      });
+      await Promise.all([loadDetail(selectedPayment.id), load(filters, true)]);
+    } catch (reasonValue) {
+      setError(reasonValue instanceof Error ? reasonValue.message : 'Verification action failed.');
+    } finally {
+      setVerificationBusy('');
+    }
+  };
   const noRecords =
     !loading &&
     !payments.length &&
@@ -390,7 +467,7 @@ function PaymentsInner() {
                 <button
                   type="button"
                   onClick={() => loadDetail(payment.id)}
-                  className="text-left font-semibold text-navy hover:text-accent"
+                  className="text-left font-semibold text-ink hover:text-accent"
                 >
                   {maskRef(payment.merchant_transaction_id)}
                 </button>
@@ -430,15 +507,15 @@ function PaymentsInner() {
               </td>
               <td className="p-3 text-xs text-text-light">{dateTime(payment.updated_at)}</td>
               <td className="p-3">
-                <button
-                  type="button"
-                  className="btn btn-outline btn-sm"
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={() => recheck(payment.id)}
                   disabled={recheckingId === payment.id}
                 >
                   <RefreshCw size={14} />
                   {recheckingId === payment.id ? 'Checking' : 'Recheck'}
-                </button>
+                </Button>
               </td>
             </tr>
           ))}
@@ -454,7 +531,7 @@ function PaymentsInner() {
             <button
               type="button"
               onClick={() => loadDetail(payment.id)}
-              className="text-left font-semibold text-navy"
+              className="text-left font-semibold text-ink"
             >
               {maskRef(payment.merchant_transaction_id)}
             </button>
@@ -486,27 +563,30 @@ function PaymentsInner() {
           </div>
           <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
             {payment.pdf_url ? (
-              <a
-                className="btn btn-outline btn-sm flex-1"
+              <Button
+                variant="outline"
+                size="sm"
+                className="flex-1"
                 href={receiptUrl(payment.id)}
                 target="_blank"
                 rel="noopener noreferrer"
               >
                 Receipt
-              </a>
+              </Button>
             ) : (
               <span className="btn btn-sm flex-1 cursor-not-allowed bg-bg-alt text-text-light">
                 No receipt
               </span>
             )}
-            <button
-              type="button"
-              className="btn btn-accent btn-sm flex-1"
+            <Button
+              variant="accent"
+              size="sm"
+              className="flex-1"
               onClick={() => recheck(payment.id)}
               disabled={recheckingId === payment.id}
             >
               {recheckingId === payment.id ? 'Checking' : 'Recheck'}
-            </button>
+            </Button>
           </div>
         </article>
       ))
@@ -520,18 +600,20 @@ function PaymentsInner() {
           description="Reconcile payment status, receipts, notifications, and provider events without exposing raw provider payloads."
           action={
             <div className="flex flex-wrap gap-2">
-              <Link className="btn btn-accent" href="/admin/payments/pricing">
+              <Button variant="accent" href="/admin/payments/pricing">
                 Service Pricing
-              </Link>
-              <button
-                className="btn btn-outline"
-                type="button"
+              </Button>
+              <Button variant="outline" href="/admin/payments/settings">
+                <Settings size={16} /> Payment Settings
+              </Button>
+              <Button
+                variant="outline"
                 onClick={exportCsv}
                 disabled={exporting}
               >
                 <Download size={16} />
                 {exporting ? 'Exporting...' : 'Export CSV'}
-              </button>
+              </Button>
             </div>
           }
         />
@@ -684,14 +766,14 @@ function PaymentsInner() {
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-navy">Payment detail</h2>
+                <h2 className="text-xl font-bold text-ink">Payment detail</h2>
                 <p className="text-sm text-text-light">
                   {selectedPayment ? maskRef(selectedPayment.merchant_transaction_id) : selectedId}
                 </p>
               </div>
-              <button
-                type="button"
-                className="btn btn-outline btn-sm"
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => {
                   setSelectedId('');
                   setDetail(null);
@@ -699,7 +781,7 @@ function PaymentsInner() {
               >
                 <X size={16} />
                 Close
-              </button>
+              </Button>
             </div>
 
             {detailLoading ? (
@@ -708,6 +790,10 @@ function PaymentsInner() {
               <>
                 <div className="grid gap-3 rounded-lg border border-border p-4 sm:grid-cols-2">
                   <Detail label="Amount" value={money(selectedPayment.amount)} />
+                  <Detail
+                    label="Public reference"
+                    value={selectedPayment.public_order_reference || '-'}
+                  />
                   <Detail
                     label="Status"
                     value={
@@ -743,41 +829,91 @@ function PaymentsInner() {
                     }
                   />
                   <Detail label="Updated" value={dateTime(selectedPayment.updated_at)} />
+                  {selectedPayment.provider === 'direct_upi' && (
+                    <>
+                      <Detail label="Patient" value={selectedPayment.patient_name || '-'} />
+                      <Detail label="Mobile" value={selectedPayment.patient_phone || '-'} />
+                      <Detail label="Doctor / service" value={[selectedPayment.doctor_name, selectedPayment.service_name].filter(Boolean).join(' / ') || '-'} />
+                      <Detail label="Submitted UTR" value={selectedPayment.utr || 'Not submitted'} />
+                      <Detail label="Submitted" value={dateTime(selectedPayment.utr_submitted_at)} />
+                      <Detail label="Verification note" value={selectedPayment.verification_note || '-'} />
+                    </>
+                  )}
                 </div>
 
                 <div className="mt-4 flex flex-col gap-2 min-[390px]:flex-row">
                   {selectedPayment.pdf_url ? (
-                    <a
-                      className="btn btn-outline flex-1"
+                    <Button
+                      variant="outline"
+                      className="flex-1"
                       href={receiptUrl(selectedPayment.id)}
                       target="_blank"
                       rel="noopener noreferrer"
                     >
                       <ExternalLink size={16} />
                       Open Receipt
-                    </a>
+                    </Button>
                   ) : (
                     <span className="btn flex-1 cursor-not-allowed bg-bg-alt text-text-light">
                       Receipt not generated
                     </span>
                   )}
-                  <button
-                    type="button"
-                    className="btn btn-accent flex-1"
-                    onClick={() => recheck(selectedPayment.id)}
-                    disabled={recheckingId === selectedPayment.id}
-                  >
-                    <RefreshCw size={16} />
-                    {recheckingId === selectedPayment.id ? 'Checking...' : 'Safe Provider Recheck'}
-                  </button>
+                  {selectedPayment.provider !== 'direct_upi' && (
+                    <Button
+                      variant="accent"
+                      className="flex-1"
+                      onClick={() => recheck(selectedPayment.id)}
+                      disabled={recheckingId === selectedPayment.id}
+                    >
+                      <RefreshCw size={16} />
+                      {recheckingId === selectedPayment.id ? 'Checking...' : 'Safe Provider Recheck'}
+                    </Button>
+                  )}
                 </div>
+
+                {selectedPayment.provider === 'direct_upi' &&
+                  ['verification_pending', 'clarification_requested', 'amount_mismatch'].includes(selectedPayment.status) && (
+                    <section className="mt-6 rounded-lg border border-border-strong bg-wash-sage p-4">
+                      <h3 className="font-bold text-ink">Manual verification</h3>
+                      <p className="mt-1 text-sm text-text-light">
+                        Compare the frozen reference, exact amount, and UTR with the clinic bank or merchant UPI application.
+                      </p>
+                      <div className="mt-4 flex flex-wrap gap-2">
+                        <Button variant="accent" size="sm" disabled={!canVerify || Boolean(verificationBusy)} onClick={() => verifyPayment('confirm')}>Confirm paid</Button>
+                        <Button variant="outline" size="sm" disabled={!canVerify || Boolean(verificationBusy)} onClick={() => verifyPayment('request_clarification')}>Request clarification</Button>
+                        <Button variant="outline" size="sm" disabled={!canVerify || Boolean(verificationBusy)} onClick={() => verifyPayment('amount_mismatch')}>Amount mismatch</Button>
+                        <Button variant="outline" size="sm" disabled={!canVerify || Boolean(verificationBusy)} onClick={() => verifyPayment('duplicate')}>Mark duplicate</Button>
+                        <Button variant="outline" size="sm" disabled={!canVerify || Boolean(verificationBusy)} onClick={() => verifyPayment('reject')}>Reject</Button>
+                      </div>
+                      {!canVerify && <p className="mt-3 text-xs text-text-light">Your role has read-only payment access.</p>}
+                    </section>
+                  )}
+
+                {selectedPayment.provider === 'direct_upi' && (detail?.evidence?.length || 0) > 0 && (
+                  <section className="mt-6">
+                    <h3 className="mb-3 text-lg font-bold text-ink">Supporting evidence</h3>
+                    <div className="grid gap-2">
+                      {detail?.evidence?.map((item) => (
+                        <a
+                          key={item.id}
+                          className={`rounded-lg border border-border p-3 text-sm ${canViewEvidence ? 'text-primary hover:bg-bg-alt' : 'pointer-events-none text-text-light'}`}
+                          href={canViewEvidence ? adminPaymentEvidenceUrl(selectedPayment.id, item.id) : undefined}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          {item.original_filename} · {item.status} · {Math.ceil(Number(item.byte_size) / 1024)} KB
+                        </a>
+                      ))}
+                    </div>
+                  </section>
+                )}
 
                 {selectedPayment.status === 'success' && (
                   <section
                     className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-4"
                     aria-labelledby="refund-heading"
                   >
-                    <h3 id="refund-heading" className="font-bold text-navy">
+                    <h3 id="refund-heading" className="font-bold text-ink">
                       Request a refund
                     </h3>
                     <p className="mt-1 text-sm text-text-light">
@@ -817,9 +953,8 @@ function PaymentsInner() {
                         />
                       </label>
                       {!refundPreview ? (
-                        <button
-                          type="button"
-                          className="btn btn-outline"
+                        <Button
+                          variant="outline"
                           disabled={
                             Number(refundAmount) <= 0 ||
                             Number(refundAmount) > Number(selectedPayment.amount) ||
@@ -828,7 +963,7 @@ function PaymentsInner() {
                           onClick={() => setRefundPreview(true)}
                         >
                           Review refund request
-                        </button>
+                        </Button>
                       ) : (
                         <div
                           className="rounded-lg border border-amber-400 bg-white p-3"
@@ -837,21 +972,19 @@ function PaymentsInner() {
                           <p className="font-semibold">Confirm request for {money(refundAmount)}</p>
                           <p className="mt-1 text-sm">Reason: {refundReason}</p>
                           <div className="mt-3 flex gap-2">
-                            <button
-                              type="button"
-                              className="btn btn-accent"
+                            <Button
+                              variant="accent"
                               disabled={refundSubmitting}
                               onClick={submitRefundRequest}
                             >
                               {refundSubmitting ? 'Recording...' : 'Record refund request'}
-                            </button>
-                            <button
-                              type="button"
-                              className="btn btn-outline"
+                            </Button>
+                            <Button
+                              variant="outline"
                               onClick={() => setRefundPreview(false)}
                             >
                               Go back
-                            </button>
+                            </Button>
                           </div>
                         </div>
                       )}
@@ -860,7 +993,7 @@ function PaymentsInner() {
                 )}
 
                 <div className="mt-6">
-                  <h3 className="mb-3 text-lg font-bold text-navy">Timeline</h3>
+                  <h3 className="mb-3 text-lg font-bold text-ink">Timeline</h3>
                   <PaymentTimeline events={detail?.events || []} />
                 </div>
               </>
@@ -880,7 +1013,7 @@ function Detail({ label, value }: { label: string; value: React.ReactNode }) {
   return (
     <div>
       <p className="text-xs font-semibold uppercase text-text-light">{label}</p>
-      <div className="mt-1 break-words text-sm font-medium text-navy">{value}</div>
+      <div className="mt-1 break-words text-sm font-medium text-ink">{value}</div>
     </div>
   );
 }

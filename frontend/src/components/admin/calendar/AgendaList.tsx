@@ -31,7 +31,7 @@ export default function AgendaList({
           >
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-black text-navy">{formatShortDate(day.date)}</p>
+                <p className="font-black text-ink">{formatShortDate(day.date)}</p>
                 <p className="mt-1 text-xs font-bold">{status.label}</p>
               </div>
             </div>

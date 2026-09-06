@@ -42,7 +42,7 @@ export default function TermsOfUsePage() {
       <section className="section">
         <div className="container max-w-[800px]">
           <nav aria-label="Table of contents" className="soft-card mb-10 p-6">
-            <h2 className="text-lg font-bold text-navy mb-4">Contents</h2>
+            <h2 className="text-lg font-bold text-ink mb-4">Contents</h2>
             <ul className="space-y-2">
               {sections.map((s) => (
                 <li key={s.id}>
@@ -56,7 +56,7 @@ export default function TermsOfUsePage() {
 
           <div className="prose max-w-none">
             <section id="scope" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">1. Scope and Definitions</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">1. Scope and Definitions</h2>
               <p className="mb-3">
                 These Terms of Use (&ldquo;Terms&rdquo;) govern your use of the {clinicSettings.name} 
                 website and the services offered through it, including appointment booking, diagnostic 
@@ -72,7 +72,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="appointments" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">2. Appointment Holds and Booking</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">2. Appointment Holds and Booking</h2>
               <p className="mb-3">
                 When you book an appointment through our website, the selected time slot is temporarily 
                 held while payment is being processed. If payment is not completed within the hold 
@@ -90,16 +90,24 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="payments" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">3. Fees and Payment</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">3. Fees and Payment</h2>
               <p className="mb-3">
                 All fees are displayed in Indian Rupees (INR) and include applicable taxes unless 
                 stated otherwise. The consultation fee shown at booking is the applicable fee at 
                 the time of booking.
               </p>
               <p className="mb-3">
-                Payments are processed through PhonePe, a third-party payment gateway. We do not 
-                store your full payment instrument details (card numbers, UPI credentials, or 
-                bank account numbers) on our servers.
+                Depending on the payment option currently offered by the clinic, payments may be
+                processed through PhonePe or made by Direct UPI for manual verification. Returning
+                from a UPI application, submitting a transaction reference, or uploading a
+                screenshot does not by itself confirm payment. Direct UPI payment is complete only
+                after authorised clinic staff verify it against the clinic account.
+              </p>
+              <p className="mb-3">
+                We do not store your full payment instrument details (card numbers, UPI
+                credentials, or bank account numbers) on our servers. Please do not make a second
+                payment while a submitted Direct UPI payment is awaiting review unless the clinic
+                instructs you to do so.
               </p>
               <p className="mb-3">
                 By making a payment, you authorise the clinic to charge the applicable fees 
@@ -113,16 +121,16 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="cancellations" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">4. Rescheduling, Cancellation, and No-Show</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">4. Rescheduling, Cancellation, and No-Show</h2>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Rescheduling</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Rescheduling</h3>
               <p className="mb-3">
                 To reschedule an appointment, please contact the clinic by phone. Rescheduling 
                 is subject to doctor availability. Fees already paid can be applied to the 
                 rescheduled appointment.
               </p>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Cancellation</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Cancellation</h3>
               <p className="mb-3">
                 Appointment cancellations must be made by contacting the clinic directly. 
                 The cancellation cutoff is typically 24 hours before the scheduled time. 
@@ -133,7 +141,7 @@ export default function TermsOfUsePage() {
                 the clinic to request cancellation.
               </p>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">No-Show</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">No-Show</h3>
               <p className="mb-3">
                 If you do not arrive for your scheduled appointment without prior cancellation, 
                 it will be recorded as a no-show. No-show appointments are generally not eligible 
@@ -145,7 +153,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="packages" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">5. Package Booking and Preparation</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">5. Package Booking and Preparation</h2>
               <p className="mb-3">
                 Diagnostic health packages can be purchased through our website. Each package 
                 includes specific tests as described on the package detail page.
@@ -166,9 +174,9 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="refunds" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">6. Refund Eligibility, Process, and Timeline</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">6. Refund Eligibility, Process, and Timeline</h2>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Appointment Fees</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Appointment Fees</h3>
               <p className="mb-3">
                 Consultation fees for appointments cancelled before the cutoff time (24 hours 
                 before scheduled time) may be eligible for a refund or credit toward a future 
@@ -176,7 +184,7 @@ export default function TermsOfUsePage() {
                 refundable.
               </p>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Package Payments</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Package Payments</h3>
               <p className="mb-3">
                 Package payments are generally non-refundable after payment verification. 
                 Certain packages may have specific no-refund terms displayed at the time of 
@@ -184,14 +192,14 @@ export default function TermsOfUsePage() {
                 reasons at the clinic&rsquo;s discretion.
               </p>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Refund Process</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Refund Process</h3>
               <p className="mb-3">
                 All refunds are processed manually by clinic staff. To request a refund, please 
                 contact us with your order or payment reference number. Refunds are processed 
                 back to the original payment method where possible.
               </p>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Refund Timeline</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Refund Timeline</h3>
               <p className="mb-3">
                 Approved refunds are typically processed within 7&ndash;14 business days. The 
                 actual credit to your account depends on your bank or payment provider&rsquo;s 
@@ -204,7 +212,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="payment-failure" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">7. Payment Failure and Duplicate Debit</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">7. Payment Failure and Duplicate Debit</h2>
               <p className="mb-3">
                 If a payment attempt fails but your account shows a debit, the amount is typically 
                 reversed by your bank or payment provider within 3&ndash;5 business days. Please 
@@ -223,7 +231,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="receipts" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">8. Receipts</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">8. Receipts</h2>
               <p className="mb-3">
                 A payment receipt is generated for every completed transaction. Receipts are 
                 issued electronically and can be downloaded from the payment confirmation page 
@@ -241,7 +249,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="medical-disclaimer" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">9. Medical and Emergency Disclaimer</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">9. Medical and Emergency Disclaimer</h2>
               <p className="mb-3">
                 The health-related information published on this website, including articles, 
                 blog posts, package descriptions, and test result explanations, is for general 
@@ -265,7 +273,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="content" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">10. Content Use and Intellectual Property</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">10. Content Use and Intellectual Property</h2>
               <p className="mb-3">
                 All content on this website, including text, images, graphics, logos, videos, 
                 and software, is the property of {clinicSettings.name} or its licensors and is 
@@ -282,7 +290,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="limitations" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">11. Limitation of Liability</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">11. Limitation of Liability</h2>
               <p className="mb-3">
                 To the maximum extent permitted by applicable law, {clinicSettings.name} shall 
                 not be liable for any direct, indirect, incidental, consequential, or special 
@@ -309,7 +317,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="contact" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">12. Contact and Dispute Resolution</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">12. Contact and Dispute Resolution</h2>
               <p className="mb-3">
                 If you have any questions, concerns, or disputes regarding these Terms or your 
                 use of our services, please contact us:
@@ -333,7 +341,7 @@ export default function TermsOfUsePage() {
             </section>
 
             <section id="changes" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">13. Changes to These Terms</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">13. Changes to These Terms</h2>
               <p className="mb-3">
                 We may update these Terms from time to time. The current version is identified 
                 by the version number and effective date at the top of this page.

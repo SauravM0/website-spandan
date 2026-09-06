@@ -50,7 +50,11 @@ export default function DiabetesRiskCalculator() {
         </div>
       </div>
       <div className="mt-5">
-        <ResultPanel result={result} emptyText="Complete all fields to see the IDRS estimate." />
+        <ResultPanel
+          result={result}
+          title="Diabetes risk"
+          emptyText="Complete all fields to see the IDRS estimate."
+        />
       </div>
       <div className="mt-4 flex justify-end">
         <ResetButton

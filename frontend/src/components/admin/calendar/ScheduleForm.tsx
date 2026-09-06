@@ -3,10 +3,11 @@
 import React from 'react';
 import { Clock3, XCircle } from 'lucide-react';
 import { formatShortDate } from './CalendarUtils';
+import Button from '@/components/ui/Button';
 
 function Field({ label, children }: { label: string; children: React.ReactElement<{ className?: string }> }) {
   return (
-    <label className="grid gap-1 text-sm font-bold text-navy">
+    <label className="grid gap-1 text-sm font-bold text-ink">
       {label}
       {React.cloneElement(children, {
         className: 'rounded-md border border-border px-3 py-2 text-sm font-semibold text-text',
@@ -58,7 +59,7 @@ export default function ScheduleForm({
   return (
     <form onSubmit={onSubmit} className="grid gap-4 rounded-lg border border-border p-3">
       <div>
-        <h3 className="text-base font-black text-navy">Set availability</h3>
+        <h3 className="text-base font-black text-ink">Set availability</h3>
         <p className="mt-1 text-xs font-semibold text-text-light">
           {selectedDates.length === 1
             ? formatShortDate(selectedDates[0])
@@ -71,7 +72,7 @@ export default function ScheduleForm({
           type="button"
           onClick={() => onSetAction('custom_hours')}
           className={`rounded-lg border p-3 text-left text-sm font-bold ${
-            action === 'custom_hours' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-border bg-white text-navy'
+            action === 'custom_hours' ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-border bg-white text-ink'
           }`}
         >
           <Clock3 size={18} className="mb-2" /> Open
@@ -80,7 +81,7 @@ export default function ScheduleForm({
           type="button"
           onClick={() => onSetAction('unavailable_whole_day')}
           className={`rounded-lg border p-3 text-left text-sm font-bold ${
-            action === 'unavailable_whole_day' ? 'border-rose-600 bg-rose-600 text-white' : 'border-border bg-white text-navy'
+            action === 'unavailable_whole_day' ? 'border-danger bg-danger text-white' : 'border-border bg-white text-ink'
           }`}
         >
           <XCircle size={18} className="mb-2" /> Closed
@@ -106,7 +107,7 @@ export default function ScheduleForm({
               onChange={(e) => onUpdateForm({ slot_count: Number(e.target.value) })}
             />
           </Field>
-          <p className={`rounded-md p-2 text-xs font-bold ${invalidOpenPlan ? 'bg-rose-50 text-rose-800' : 'bg-emerald-50 text-emerald-800'}`}>
+          <p className={`rounded-md p-2 text-xs font-bold ${invalidOpenPlan ? 'bg-danger/10 text-danger' : 'bg-emerald-50 text-emerald-800'}`}>
             {invalidOpenPlan
               ? 'The hours must divide evenly into the selected number of slots.'
               : `${overrideForm.slot_count} slots · ${slotMinutes} minutes each`}
@@ -114,9 +115,15 @@ export default function ScheduleForm({
         </>
       )}
 
-      <button className={`btn w-full ${action === 'unavailable_whole_day' ? 'bg-rose-600 text-white hover:bg-rose-700' : 'btn-accent'}`} type="submit" disabled={saving || loading || selectedDates.length === 0 || invalidOpenPlan}>
+      <Button
+        fullWidth
+        variant={action === 'unavailable_whole_day' ? 'danger' : 'accent'}
+        type="submit"
+        loading={saving}
+        disabled={loading || selectedDates.length === 0 || invalidOpenPlan}
+      >
         {saving ? 'Saving…' : `Save ${selectedDates.length === 1 ? 'date' : `${selectedDates.length} dates`}`}
-      </button>
+      </Button>
     </form>
   );
 }

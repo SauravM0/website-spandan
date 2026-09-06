@@ -47,6 +47,12 @@ export default tseslint.config(
       'react-hooks/rules-of-hooks': 'error',
       // Existing dependency-array debt is tracked separately; rules-of-hooks is enforced now.
       'react-hooks/exhaustive-deps': 'off',
+      // Frontend is clean of unused symbols; keep it that way so dead code cannot
+      // accumulate again. Prefix with _ to keep an intentionally unused binding.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', caughtErrorsIgnorePattern: '^_' },
+      ],
     },
   },
   {

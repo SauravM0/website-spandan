@@ -1,25 +1,109 @@
 import React from 'react';
+import Link from 'next/link';
+import { Loader2 } from 'lucide-react';
 
-interface ButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
-  variant?: 'primary' | 'accent' | 'outline';
-  size?: 'sm' | 'md';
-  children: React.ReactNode;
+export type ButtonVariant = 'primary' | 'accent' | 'outline' | 'ghost' | 'danger';
+export type ButtonSize = 'sm' | 'md';
+
+const VARIANT_CLASS: Record<ButtonVariant, string> = {
+  primary: 'btn-primary',
+  accent: 'btn-accent',
+  outline: 'btn-outline',
+  ghost: 'btn-ghost',
+  danger: 'btn-danger',
+};
+
+type ButtonBaseProps = {
+  variant?: ButtonVariant;
+  size?: ButtonSize;
+  /** Shows a spinner, sets aria-busy, and blocks interaction. */
+  loading?: boolean;
+  fullWidth?: boolean;
+  className?: string;
+  children?: React.ReactNode;
+};
+
+/**
+ * Class string for the shared button styling, for the rare case where the
+ * element cannot be a <Button> (e.g. a third-party component's own render prop).
+ * Prefer <Button> — it also handles type, disabled and loading state.
+ */
+export function buttonClass({
+  variant = 'primary',
+  size = 'md',
+  fullWidth = false,
+  className = '',
+}: Pick<ButtonBaseProps, 'variant' | 'size' | 'fullWidth' | 'className'> = {}): string {
+  return [
+    'btn',
+    VARIANT_CLASS[variant],
+    size === 'sm' ? 'btn-sm' : '',
+    fullWidth ? 'w-full' : '',
+    className,
+  ]
+    .filter(Boolean)
+    .join(' ');
 }
 
-export default function Button({ variant = 'primary', size = 'md', children, className = '', ...props }: ButtonProps) {
-  const base = 'inline-flex items-center justify-center gap-2 rounded-full font-semibold transition-all duration-300 min-h-[44px] min-w-[44px] hover:-translate-y-0.5';
-  const variants = {
-    primary: 'bg-gradient-to-r from-accent to-primary text-white shadow-[0_10px_24px_rgba(43,138,198,0.14)] hover:shadow-[0_16px_34px_rgba(43,138,198,0.22)]',
-    accent: 'bg-gradient-to-r from-accent to-primary-light text-white shadow-[0_10px_24px_rgba(43,138,198,0.14)] hover:shadow-[0_16px_34px_rgba(43,138,198,0.22)]',
-    outline: 'bg-white text-navy shadow-[0_10px_24px_rgba(43,138,198,0.08)] hover:bg-blue-50 hover:text-accent hover:shadow-[0_14px_30px_rgba(43,138,198,0.14)]',
-  };
-  const sizes = {
-    sm: 'px-4 py-2 text-xs',
-    md: 'px-5 py-3 text-sm',
+type ButtonAsButtonProps = ButtonBaseProps &
+  Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'className' | 'children'> & {
+    href?: undefined;
   };
 
+type ButtonAsLinkProps = ButtonBaseProps &
+  Omit<React.AnchorHTMLAttributes<HTMLAnchorElement>, 'className' | 'children' | 'href'> & {
+    href: string;
+  };
+
+export type ButtonProps = ButtonAsButtonProps | ButtonAsLinkProps;
+
+export default function Button(props: ButtonProps) {
+  const {
+    variant = 'primary',
+    size = 'md',
+    loading = false,
+    fullWidth = false,
+    className,
+    children,
+    ...rest
+  } = props;
+
+  const classes = buttonClass({ variant, size, fullWidth, className });
+  const spinner = loading ? (
+    <Loader2 className="animate-spin" size={size === 'sm' ? 14 : 18} aria-hidden="true" />
+  ) : null;
+
+  if (rest.href !== undefined) {
+    const { href, ...anchorProps } = rest as ButtonAsLinkProps;
+    // Client-side routing only makes sense for in-app paths; everything else
+    // (external sites, tel:, mailto:, in-page anchors) stays a plain anchor.
+    const isRoute = href.startsWith('/') && !href.startsWith('//');
+    if (!isRoute) {
+      return (
+        <a href={href} className={classes} aria-busy={loading || undefined} {...anchorProps}>
+          {spinner}
+          {children}
+        </a>
+      );
+    }
+    return (
+      <Link href={href} className={classes} aria-busy={loading || undefined} {...anchorProps}>
+        {spinner}
+        {children}
+      </Link>
+    );
+  }
+
+  const { type, disabled, ...buttonProps } = rest as ButtonAsButtonProps;
   return (
-    <button className={`${base} ${variants[variant]} ${sizes[size]} ${className}`} {...props}>
+    <button
+      type={type ?? 'button'}
+      className={classes}
+      disabled={disabled || loading}
+      aria-busy={loading || undefined}
+      {...buttonProps}
+    >
+      {spinner}
       {children}
     </button>
   );

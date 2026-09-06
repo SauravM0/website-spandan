@@ -10,6 +10,7 @@ const BOOLEAN_FLAGS = [
   'CLINICAL_OBSERVATIONS_ENABLED',
   'DEVICE_IMPORTS_ENABLED',
   'PHONEPE_PILOT_APPROVED',
+  'DIRECT_UPI_EMERGENCY_DISABLED',
 ] as const;
 
 const enabled = (environment: Environment, name: string) => environment[name] === 'true';
@@ -105,21 +106,16 @@ export function validateSecurityConfiguration(environment: Environment = process
         'SUPABASE_PROJECT_REF',
         'DATA_POLICY',
         'METRICS_BEARER_TOKEN',
-        'MFA_ENCRYPTION_KEY',
-        'MFA_ENCRYPTION_KEY_VERSION',
         'ADMIN_SESSION_COOKIE_MAX_AGE_MS',
         'ADMIN_SESSION_IDLE_TIMEOUT_MS',
-        'ADMIN_STEP_UP_MAX_AGE_MS',
       ],
       errors
     );
     requireStrongSecret(environment, 'JWT_SECRET', errors);
     requireStrongSecret(environment, 'INTAKE_ENCRYPTION_KEY', errors);
     requireStrongSecret(environment, 'METRICS_BEARER_TOKEN', errors);
-    requireStrongSecret(environment, 'MFA_ENCRYPTION_KEY', errors);
     requireKeyVersion(environment, 'JWT_SECRET_VERSION', errors);
     requireKeyVersion(environment, 'INTAKE_ENCRYPTION_KEY_VERSION', errors);
-    requireKeyVersion(environment, 'MFA_ENCRYPTION_KEY_VERSION', errors);
     requireIntegerRange(
       environment,
       'ADMIN_SESSION_COOKIE_MAX_AGE_MS',
@@ -134,7 +130,6 @@ export function validateSecurityConfiguration(environment: Environment = process
       2 * 60 * 60 * 1000,
       errors
     );
-    requireIntegerRange(environment, 'ADMIN_STEP_UP_MAX_AGE_MS', 60 * 1000, 30 * 60 * 1000, errors);
     if (
       Number(environment.ADMIN_SESSION_IDLE_TIMEOUT_MS) >
       Number(environment.ADMIN_SESSION_COOKIE_MAX_AGE_MS)
@@ -155,6 +150,38 @@ export function validateSecurityConfiguration(environment: Environment = process
       errors.push('PAYMENT_MOCK_ENABLED is forbidden outside development/test');
     if (enabled(environment, 'PHONEPE_ENABLED'))
       errors.push('PAYMENT_MOCK_ENABLED and PHONEPE_ENABLED cannot both be true');
+  }
+
+  if (environment.DIRECT_UPI_EMERGENCY_DISABLED === 'false') {
+    requireVariables(
+      environment,
+      [
+        'DIRECT_UPI_UTR_HMAC_SECRET',
+        'DIRECT_UPI_UTR_ENCRYPTION_KEY',
+        'DIRECT_UPI_UTR_ENCRYPTION_KEY_VERSION',
+        'PAYMENT_EVIDENCE_ENCRYPTION_KEY',
+        'PAYMENT_EVIDENCE_ENCRYPTION_KEY_VERSION',
+        'PAYMENT_EVIDENCE_STORAGE_DIR',
+      ],
+      errors
+    );
+    requireStrongSecret(environment, 'DIRECT_UPI_UTR_HMAC_SECRET', errors);
+    requireStrongSecret(environment, 'DIRECT_UPI_UTR_ENCRYPTION_KEY', errors);
+    requireStrongSecret(environment, 'PAYMENT_EVIDENCE_ENCRYPTION_KEY', errors);
+    requireKeyVersion(environment, 'DIRECT_UPI_UTR_ENCRYPTION_KEY_VERSION', errors);
+    requireKeyVersion(environment, 'PAYMENT_EVIDENCE_ENCRYPTION_KEY_VERSION', errors);
+    requireIntegerRange(environment, 'PAYMENT_EVIDENCE_MAX_BYTES', 1024, 5 * 1024 * 1024, errors);
+    requireIntegerRange(environment, 'PAYMENT_EVIDENCE_RETENTION_DAYS', 1, 365, errors);
+    const directUpiSecrets = [
+      environment.DIRECT_UPI_UTR_HMAC_SECRET,
+      environment.DIRECT_UPI_UTR_ENCRYPTION_KEY,
+      environment.PAYMENT_EVIDENCE_ENCRYPTION_KEY,
+      environment.JWT_SECRET,
+      environment.INTAKE_ENCRYPTION_KEY,
+    ].filter(Boolean);
+    if (new Set(directUpiSecrets).size !== directUpiSecrets.length) {
+      errors.push('Direct UPI, JWT, intake, and evidence secrets must all be different');
+    }
   }
 
   if (enabled(environment, 'PHONEPE_ENABLED')) {
@@ -267,7 +294,6 @@ export function validateSecurityConfiguration(environment: Environment = process
       'JWT_SECRET',
       'INTAKE_ENCRYPTION_KEY',
       'METRICS_BEARER_TOKEN',
-      'MFA_ENCRYPTION_KEY',
       ...(enabled(environment, 'MEDICAL_DOCUMENTS_ENABLED') ? ['DOCUMENT_ENCRYPTION_KEY'] : []),
       ...(enabled(environment, 'PHONEPE_ENABLED')
         ? ['PHONEPE_CLIENT_SECRET', 'PHONEPE_WEBHOOK_PASSWORD']
@@ -275,6 +301,13 @@ export function validateSecurityConfiguration(environment: Environment = process
       ...(enabled(environment, 'EMAIL_NOTIFICATIONS_ENABLED') ? ['SMTP_PASS'] : []),
       ...(enabled(environment, 'WHATSAPP_NOTIFICATIONS_ENABLED')
         ? ['WHATSAPP_WEBHOOK_TOKEN', 'WHATSAPP_API_TOKEN', 'WHATSAPP_AUTH_TOKEN']
+        : []),
+      ...(environment.DIRECT_UPI_EMERGENCY_DISABLED === 'false'
+        ? [
+            'DIRECT_UPI_UTR_HMAC_SECRET',
+            'DIRECT_UPI_UTR_ENCRYPTION_KEY',
+            'PAYMENT_EVIDENCE_ENCRYPTION_KEY',
+          ]
         : []),
     ];
     const configuredSecrets = secretNames

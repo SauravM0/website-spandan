@@ -20,7 +20,7 @@ export default function CalculatorCard({
           {icon}
         </div>
         <div>
-          <h2 className="text-xl font-bold text-navy">{title}</h2>
+          <h2 className="text-xl font-bold text-ink">{title}</h2>
           <p className="mt-1 text-sm leading-relaxed text-text-light">{description}</p>
         </div>
       </div>

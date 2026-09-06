@@ -6,6 +6,7 @@ import LeadSummary from '@/components/admin/LeadSummary';
 import LeadTimeline from '@/components/admin/LeadTimeline';
 import LeadMutationForm from '@/components/admin/LeadMutationForm';
 import { useAdminSession } from '@/components/admin/AdminSessionContext';
+import Button from '@/components/ui/Button';
 
 const CONTACT_CAPABILITY = 'admin.leads.view_contact';
 
@@ -75,9 +76,9 @@ export default function LeadDetailClient({ id }: { id: string }) {
         <div className="container max-w-[800px]">
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-6 text-center">
             <p className="text-sm font-semibold text-danger">{error}</p>
-            <button type="button" onClick={loadLead} className="btn btn-outline mt-4">
+            <Button onClick={loadLead} variant="outline" className="mt-4">
               Retry
-            </button>
+            </Button>
           </div>
         </div>
       </section>

@@ -1,9 +1,9 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { ArrowRight, Video } from 'lucide-react';
 import ResourceHub, { type HealthResourceArticle, type ResourceFilters } from '@/components/health-resources/resource-gallery/ResourceHub';
 import { serverApiGet } from '@/lib/serverApi';
+import Button from '@/components/ui/Button';
 
 export const metadata: Metadata = {
   title: 'Health Resources & Articles | Spandan Super Speciality Clinic',
@@ -74,14 +74,14 @@ export default async function HealthResourcesPage({ searchParams }: { searchPara
             </p>
           </div>
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/videos" className="btn btn-accent">
+            <Button href="/videos" variant="accent">
               <Video className="h-4 w-4" aria-hidden="true" />
               Videos
               <ArrowRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
-            <Link href="/contact" className="btn btn-outline">
+            </Button>
+            <Button href="/contact" variant="outline">
               Contact Clinic
-            </Link>
+            </Button>
           </div>
         </div>
       </section>

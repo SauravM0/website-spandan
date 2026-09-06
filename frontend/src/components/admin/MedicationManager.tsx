@@ -95,21 +95,21 @@ export default function MedicationManager({
   }
   return (
     <section className="mt-6" aria-labelledby="medications-heading">
-      <h2 id="medications-heading" className="text-lg font-bold text-navy">
+      <h2 id="medications-heading" className="text-lg font-bold text-ink">
         Medication reconciliation
       </h2>
       <p className="text-sm text-text-light">
         History only. Nothing here creates a prescription or changes treatment.
       </p>
       {message && (
-        <p role="status" className="my-3 rounded-md bg-blue-50 p-3">
+        <p role="status" className="my-3 rounded-md bg-wash-sage p-3">
           {message}
         </p>
       )}
       <div className="mt-3 grid gap-3">
         {current.map((m) => (
           <article key={m.id} className="rounded-md border bg-white p-4">
-            <h3 className="font-bold text-navy">{m.display}</h3>
+            <h3 className="font-bold text-ink">{m.display}</h3>
             <p className="text-sm">
               {m.dose_value ? `${m.dose_value} ${m.dose_unit}` : 'Dose unknown'} ·{' '}
               {m.frequency_text || 'Timing unknown'}
@@ -127,7 +127,7 @@ export default function MedicationManager({
               type="button"
               disabled={!writesEnabled || !encounter || busy}
               onClick={() => setSelected(m)}
-              className="mt-2 min-h-11 rounded border border-navy px-3 font-semibold text-navy disabled:opacity-50"
+              className="mt-2 min-h-11 rounded border border-ink px-3 font-semibold text-ink disabled:opacity-50"
             >
               Reconcile
             </button>
@@ -139,7 +139,7 @@ export default function MedicationManager({
         <div
           role="region"
           aria-labelledby="reconcile-title"
-          className="my-4 rounded border-2 border-navy bg-white p-4"
+          className="my-4 rounded border-2 border-ink bg-white p-4"
         >
           <h3 id="reconcile-title" className="font-bold">
             Reconcile {selected.display} for {patientName}
@@ -174,7 +174,7 @@ export default function MedicationManager({
             <button
               disabled={reason.trim().length < 5 || busy}
               onClick={reconcile}
-              className="min-h-11 rounded bg-navy px-4 text-white disabled:opacity-50"
+              className="min-h-11 rounded bg-ink px-4 text-white disabled:opacity-50"
             >
               Record new version
             </button>
@@ -268,7 +268,7 @@ export default function MedicationManager({
               className="rounded border p-3"
             />
           </label>
-          <button className="min-h-11 rounded bg-navy px-4 font-semibold text-white sm:col-span-2">
+          <button className="min-h-11 rounded bg-ink px-4 font-semibold text-white sm:col-span-2">
             Save unverified report
           </button>
         </fieldset>

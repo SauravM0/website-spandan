@@ -25,7 +25,11 @@ export default function BloodPressureCalculator() {
         <Field id="bp-diastolic" label="Diastolic" suffix="mmHg" value={diastolic} onChange={setDiastolic} min={40} max={160} />
       </div>
       <div className="mt-5">
-        <ResultPanel result={result} emptyText="Enter systolic and diastolic values from a resting reading." />
+        <ResultPanel
+          result={result}
+          title="Blood pressure"
+          emptyText="Enter systolic and diastolic values from a resting reading."
+        />
       </div>
       <div className="mt-4 flex justify-end">
         <ResetButton onClick={() => { setSystolic(''); setDiastolic(''); }} />

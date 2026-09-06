@@ -85,7 +85,7 @@ function decrypt(data: Buffer) {
 function objectPath(storageKey: string) {
   return path.resolve(config.documents.storageDir, `${storageKey}.enc`);
 }
-async function clamScan(data: Buffer): Promise<boolean> {
+export async function scanBufferWithClamAv(data: Buffer): Promise<boolean> {
   return new Promise((resolve, reject) => {
     const socket = net.createConnection({
       host: config.documents.scannerHost,
@@ -334,7 +334,7 @@ export async function processJobs() {
       if (!signatureOk(job.media_type, bytes)) throw new Error('Stored type signature mismatch');
       clean =
         config.documents.scannerMode === 'clamav'
-          ? await clamScan(bytes)
+        ? await scanBufferWithClamAv(bytes)
           : config.documents.scannerMode === 'development';
       if (config.documents.scannerMode === 'disabled') throw new Error('Scanner disabled');
     } catch (e) {

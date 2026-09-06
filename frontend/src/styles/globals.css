@@ -4,40 +4,111 @@
 
 @layer base {
   :root {
-    --color-primary: #4A90E2;
-    --color-primary-light: #7DB3F0;
-    --color-accent: #2B8AC6;
-    --color-accent-light: #4A90E2;
-    --color-pink: #EC4899;
-    --color-pink-soft: #FCE7F3;
-    --color-navy: #173A5E;
-    --color-navy-light: #245A8C;
-    --color-warm: #F59E0B;
-    --color-bg-alt: rgba(248, 250, 252, 0.72);
-    --color-text: #1E293B;
-    --color-text-light: #475569;
-    --color-border: rgba(74, 144, 226, 0.16);
-    --color-border-strong: rgba(43, 138, 198, 0.24);
-    --color-wash-blue: rgba(239, 246, 255, 0.86);
-    --color-wash-pink: rgba(253, 242, 248, 0.74);
-    --color-success: #059669;
-    --color-danger: #dc2626;
-    --radius: 20px;
+    /* ------------------------------------------------------------------
+       Warm premium care palette. Single source of truth for CSS and
+       tailwind.config.js. Solid colours are R G B channels so Tailwind
+       opacity modifiers (bg-danger/10) keep working.
+       ------------------------------------------------------------------ */
+
+    /* Sage — the brand green. `accent` is the action colour and is dark
+       enough for white text at body sizes; `primary` is decorative. */
+    --color-accent: 61 100 79;           /* #3D644F */
+    --color-accent-light: 78 117 97;     /* #4E7561 */
+    --color-primary: 92 138 112;         /* #5C8A70 */
+    --color-primary-light: 141 178 155;  /* #8DB29B */
+
+    /* Blush — the warm secondary. `blush-deep` is the text-safe variant. */
+    --color-blush: 193 117 112;          /* #C17570 */
+    --color-blush-deep: 150 74 70;       /* #964A46 */
+    --color-blush-soft: 246 231 228;     /* #F6E7E4 */
+
+    /* Honey — sparingly, for highlights and offers. */
+    --color-warm: 143 95 38;             /* #8F5F26 - darkened from #B07A3A to clear AA as text */
+
+    /* Warm ink. `ink` replaces the old cool navy for headings. */
+    --color-ink: 43 38 33;               /* #2B2621 */
+    --color-ink-soft: 90 79 68;          /* #5A4F44 */
+    --color-text: 51 45 40;              /* #332D28 */
+    --color-text-light: 106 97 88;       /* #6A6158 */
+
+    --color-success: 47 122 90;          /* #2F7A5A */
+    --color-danger: 176 58 48;           /* #B03A30 */
+
+    /* Composite surfaces — alpha is baked in, no opacity modifiers */
+    --color-sand: rgb(250 247 242);
+    --color-bg-alt: rgba(246, 242, 235, 0.78);
+    --color-border: rgba(120, 108, 94, 0.22);
+    --color-border-strong: rgba(61, 100, 79, 0.26);
+    --color-wash-sage: rgba(238, 244, 239, 0.9);
+    --color-wash-blush: rgba(250, 240, 237, 0.82);
+
+    /* Radius scale */
+    --radius-sm: 10px;
+    --radius-md: 14px;
     --radius-lg: 20px;
-    --shadow: 0 10px 30px rgba(23, 58, 94, 0.06);
-    --shadow-lg: 0 22px 55px rgba(43, 138, 198, 0.14);
+    --radius-xl: 28px;
+    --radius-pill: 999px;
+
+    /* Elevation. Two-part shadows (contact + ambient) with a warm tint so
+       cards sit on the sand background instead of floating over it. */
+    --shadow-xs: 0 1px 2px rgba(43, 38, 33, 0.05);
+    --shadow-sm: 0 2px 6px rgba(43, 38, 33, 0.05), 0 1px 2px rgba(43, 38, 33, 0.04);
+    --shadow-md: 0 8px 20px rgba(43, 38, 33, 0.06), 0 2px 6px rgba(43, 38, 33, 0.04);
+    --shadow-lg: 0 18px 40px rgba(43, 38, 33, 0.08), 0 6px 14px rgba(43, 38, 33, 0.05);
+    --shadow-xl: 0 32px 64px rgba(43, 38, 33, 0.10), 0 10px 24px rgba(43, 38, 33, 0.06);
+
+    /* Fluid type scale (~1.25 ratio, viewport-interpolated) */
+    --step--1: clamp(0.8rem, 0.77rem + 0.14vw, 0.875rem);
+    --step-0: clamp(1rem, 0.96rem + 0.2vw, 1.0625rem);
+    --step-1: clamp(1.125rem, 1.05rem + 0.38vw, 1.3rem);
+    --step-2: clamp(1.35rem, 1.2rem + 0.7vw, 1.6rem);
+    --step-3: clamp(1.6rem, 1.35rem + 1.2vw, 2.05rem);
+    --step-4: clamp(1.95rem, 1.5rem + 2vw, 2.75rem);
+    --step-5: clamp(2.4rem, 1.7rem + 3.4vw, 4rem);
+
+    /* Vertical rhythm */
+    --space-section: clamp(3.5rem, 8vw, 7rem);
+    --space-section-tight: clamp(2.5rem, 5vw, 4.5rem);
+
+    /* Motion primitives - gentle, organic easing for the warm direction */
+    --ease-out: cubic-bezier(0.22, 0.61, 0.36, 1);
+    --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+    --duration-fast: 160ms;
+    --duration-base: 260ms;
+    --duration-slow: 420ms;
+
+    --focus-ring: rgb(var(--color-accent) / 0.7);
+    --focus-ring-width: 3px;
+    --focus-ring-offset: 3px;
   }
 
   html { scroll-behavior: smooth; }
+
+  :where(
+    a[href],
+    area[href],
+    button,
+    summary,
+    input,
+    select,
+    textarea,
+    [role="button"],
+    [role="tab"],
+    [role="menuitem"],
+    [role="link"],
+    [contenteditable="true"],
+    [tabindex]:not([tabindex="-1"])
+  ):focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
   body {
-    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    color: var(--color-text);
-    background-color: #ffffff;
+    font-family: var(--font-sans), var(--font-devanagari), ui-sans-serif, system-ui, sans-serif;
+    color: rgb(var(--color-text));
+    background-color: var(--color-sand);
     background-image:
-      linear-gradient(135deg, rgba(219, 234, 254, 0.76) 0%, rgba(255, 255, 255, 0) 32%),
-      linear-gradient(225deg, rgba(252, 231, 243, 0.71) 0%, rgba(255, 255, 255, 0) 34%),
-      linear-gradient(35deg, rgba(255, 255, 255, 0) 48%, rgba(191, 219, 254, 0.47) 72%, rgba(251, 207, 232, 0.42) 100%);
-    background-attachment: fixed;
+      radial-gradient(120% 70% at 50% -10%, rgba(224, 236, 227, 0.75) 0%, rgba(250, 247, 242, 0) 60%);
+    background-repeat: no-repeat;
     -webkit-font-smoothing: antialiased;
   }
 
@@ -48,158 +119,121 @@
 }
 
 @layer components {
-  .clinical-motifs {
-    position: fixed;
-    inset: 72px 0 0;
-    z-index: 12;
-    pointer-events: none;
-    overflow: hidden;
-    mix-blend-mode: multiply;
-  }
-
-  .clinical-motif {
-    position: absolute;
-    width: clamp(3rem, 6vw, 6.5rem);
-    height: clamp(3rem, 6vw, 6.5rem);
-    stroke-width: 1.55;
-    opacity: 0.135;
-    filter: drop-shadow(0 14px 30px rgba(43, 138, 198, 0.12));
-    animation: clinicalFloat 18s ease-in-out infinite;
-  }
-
-  .clinical-motif-1 {
-    left: 7%;
-    top: 10%;
-    color: #2b8ac6;
-    transform: rotate(-10deg);
-  }
-
-  .clinical-motif-2 {
-    right: 8%;
-    top: 18%;
-    color: #ec4899;
-    transform: rotate(12deg);
-    animation-duration: 21s;
-    animation-delay: -5s;
-  }
-
-  .clinical-motif-3 {
-    left: 3%;
-    top: 48%;
-    color: #4a90e2;
-    transform: rotate(8deg);
-    animation-duration: 24s;
-    animation-delay: -9s;
-  }
-
-  .clinical-motif-4 {
-    right: 14%;
-    top: 58%;
-    color: #2b8ac6;
-    transform: rotate(-8deg);
-    animation-duration: 20s;
-    animation-delay: -7s;
-  }
-
-  .clinical-motif-5 {
-    left: 17%;
-    bottom: 8%;
-    color: #ec4899;
-    transform: rotate(-18deg);
-    animation-duration: 26s;
-    animation-delay: -11s;
-  }
-
-  .clinical-motif-6 {
-    right: 4%;
-    bottom: 10%;
-    color: #4a90e2;
-    transform: rotate(10deg);
-    animation-duration: 23s;
-    animation-delay: -4s;
-  }
-
-  .clinical-motif-7 {
-    left: 48%;
-    top: 32%;
-    width: clamp(2.4rem, 4vw, 4.25rem);
-    height: clamp(2.4rem, 4vw, 4.25rem);
-    color: #ec4899;
-    opacity: 0.105;
-    transform: rotate(8deg);
-    animation-duration: 19s;
-    animation-delay: -8s;
-  }
-
-  .clinical-motif-8 {
-    right: 36%;
-    bottom: 24%;
-    width: clamp(2.4rem, 4vw, 4.25rem);
-    height: clamp(2.4rem, 4vw, 4.25rem);
-    color: #2b8ac6;
-    opacity: 0.11;
-    transform: rotate(-12deg);
-    animation-duration: 22s;
-    animation-delay: -6s;
-  }
-
   .btn {
-    @apply inline-flex items-center justify-center gap-2 px-5 py-3 font-semibold text-sm transition-all duration-300 min-h-[44px] min-w-[44px];
-    border-radius: 999px;
-    box-shadow: 0 10px 24px rgba(43, 138, 198, 0.12);
+    @apply inline-flex items-center justify-center gap-2 px-5 py-3 font-semibold text-sm min-h-[44px] min-w-[44px];
+    border-radius: var(--radius-pill);
+    box-shadow: var(--shadow-sm);
+    transition: transform 200ms var(--ease-out), box-shadow 200ms var(--ease-out),
+      background-color 200ms var(--ease-out), border-color 200ms var(--ease-out),
+      color 200ms var(--ease-out);
   }
-  .btn:hover { transform: translateY(-2px); }
+  .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-md);
+  }
+  .btn:active { transform: translateY(0); }
   .btn-primary {
     color: #ffffff;
-    background: linear-gradient(135deg, var(--color-accent), var(--color-primary-light));
+    background: linear-gradient(135deg, rgb(var(--color-accent)), rgb(var(--color-primary-light)));
   }
-  .btn-primary:hover {
-    box-shadow: 0 16px 34px rgba(43, 138, 198, 0.20);
-  }
+  .btn-primary:hover { box-shadow: var(--shadow-lg); }
   .btn-accent {
     color: #ffffff;
-    background: linear-gradient(135deg, var(--color-accent), var(--color-primary));
+    background: linear-gradient(135deg, rgb(var(--color-accent)), rgb(var(--color-primary)));
   }
-  .btn-accent:hover {
-    box-shadow: 0 16px 34px rgba(43, 138, 198, 0.20);
-  }
+  .btn-accent:hover { box-shadow: var(--shadow-lg); }
   .btn-outline {
-    color: var(--color-navy);
+    color: rgb(var(--color-ink));
     background: #ffffff;
-    border: 1px solid rgba(43, 138, 198, 0.28);
+    border: 1px solid var(--color-border-strong);
   }
   .btn-outline:hover {
-    border-color: rgba(236, 72, 153, 0.28);
-    background: rgba(239, 246, 255, 0.92);
-    color: var(--color-accent);
-    box-shadow: 0 14px 30px rgba(43, 138, 198, 0.14);
+    border-color: rgba(193, 117, 112, 0.28);
+    background: rgba(240, 246, 241, 0.92);
+    color: rgb(var(--color-accent));
+    box-shadow: var(--shadow-md);
   }
   .btn-sm { @apply px-4 py-2 text-xs; }
 
+  .btn-ghost {
+    color: rgb(var(--color-ink));
+    background: transparent;
+    box-shadow: none;
+  }
+  .btn-ghost:hover {
+    color: rgb(var(--color-accent));
+    background: var(--color-wash-sage);
+  }
+
+  .btn-danger {
+    color: #ffffff;
+    background: rgb(var(--color-danger));
+  }
+  .btn-danger:hover { box-shadow: var(--shadow-lg); }
+
+  .btn:disabled,
+  .btn[aria-disabled='true'] {
+    opacity: 0.55;
+    box-shadow: none;
+    cursor: not-allowed;
+  }
+  .btn:disabled:hover,
+  .btn[aria-disabled='true']:hover {
+    transform: none;
+    box-shadow: none;
+  }
+
+  .btn:focus-visible,
+  a.card:focus-visible,
+  button.card:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
+  }
+  .btn-primary:focus-visible,
+  .btn-accent:focus-visible {
+    box-shadow: 0 0 0 2px #ffffff, var(--shadow-lg);
+  }
+
   .card {
-    @apply transition-all duration-300 overflow-hidden;
-    border: 1px solid rgba(43, 138, 198, 0.26);
-    border-radius: 20px;
+    @apply overflow-hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
     background: #ffffff;
-    box-shadow: 0 12px 32px rgba(23, 58, 94, 0.08);
+    box-shadow: var(--shadow-sm);
+    transition: transform 260ms var(--ease-out), box-shadow 260ms var(--ease-out),
+      border-color 260ms var(--ease-out);
   }
   .card:hover {
     border-color: var(--color-border-strong);
-    transform: translateY(-4px);
+    transform: translateY(-3px);
     box-shadow: var(--shadow-lg);
   }
 
-  .section { @apply py-16 md:py-24; }
-  #main-content > .section:nth-of-type(even) {
-    background:
-      linear-gradient(135deg, rgba(248, 250, 252, 0.86), rgba(255, 255, 255, 0.72)),
-      linear-gradient(115deg, rgba(219, 234, 254, 0.55), rgba(252, 231, 243, 0.42));
-  }
+  .section { padding-block: var(--space-section); }
+  .section-tight { padding-block: var(--space-section-tight); }
+  /* Sections alternate ground rather than stacking gradients: the page reads as
+     paper with occasional warm panels, which is what makes it feel calm. */
   .section-alt,
   .section.bg-bg-alt {
-    background:
-      linear-gradient(135deg, rgba(252, 231, 243, 0.45), rgba(219, 234, 254, 0.61)),
-      #f8fafc;
+    background: linear-gradient(180deg, rgba(240, 246, 241, 0.7), rgba(250, 247, 242, 0.95));
+  }
+  .section-paper { background: #ffffff; }
+
+  /* Hairline divider carrying the brand motif between major sections. */
+  .section-divider {
+    position: relative;
+    height: 1px;
+    background: var(--color-border);
+  }
+  .section-divider::after {
+    content: '';
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    width: 68px;
+    height: 8px;
+    transform: translate(-50%, -50%);
+    background: var(--color-sand);
   }
 
   .container {
@@ -207,10 +241,7 @@
     position: relative;
     z-index: 20;
   }
-
-  .grid-2 { @apply grid grid-cols-1 md:grid-cols-2 gap-8; }
   .grid-3 { @apply grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8; }
-  .grid-4 { @apply grid grid-cols-2 md:grid-cols-4 gap-6; }
 
   .badge {
     @apply inline-block px-3 py-1 rounded-full text-xs font-semibold;
@@ -221,10 +252,10 @@
   .soft-page-hero {
     position: relative;
     overflow: hidden;
-    color: var(--color-navy);
+    color: rgb(var(--color-ink));
     background:
-      linear-gradient(145deg, #ffffff 0%, rgba(252, 231, 243, 0.73) 42%, rgba(219, 234, 254, 0.77) 100%),
-      linear-gradient(35deg, rgba(255, 255, 255, 0) 0%, rgba(74, 144, 226, 0.126) 54%, rgba(236, 72, 153, 0.104) 100%);
+      linear-gradient(145deg, #ffffff 0%, rgba(248, 233, 229, 0.73) 42%, rgba(224, 236, 227, 0.77) 100%),
+      linear-gradient(35deg, rgba(255, 255, 255, 0) 0%, rgba(92, 138, 112, 0.126) 54%, rgba(193, 117, 112, 0.104) 100%);
   }
 
   .soft-page-hero::before,
@@ -234,8 +265,8 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(74, 144, 226, 0.055) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(236, 72, 153, 0.05) 1px, transparent 1px);
+      linear-gradient(rgba(92, 138, 112, 0.055) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(193, 117, 112, 0.05) 1px, transparent 1px);
     background-size: 72px 72px;
     mask-image: linear-gradient(120deg, rgba(0, 0, 0, 0.62), transparent 72%);
   }
@@ -248,8 +279,8 @@
     inset: 0;
     opacity: 0.55;
     background:
-      linear-gradient(120deg, transparent 0 32%, rgba(236, 72, 153, 0.086) 32% 33%, transparent 33% 100%),
-      linear-gradient(35deg, transparent 0 66%, rgba(74, 144, 226, 0.086) 66% 67%, transparent 67% 100%);
+      linear-gradient(120deg, transparent 0 32%, rgba(193, 117, 112, 0.086) 32% 33%, transparent 33% 100%),
+      linear-gradient(35deg, transparent 0 66%, rgba(92, 138, 112, 0.086) 66% 67%, transparent 67% 100%);
   }
 
   .section-alt {
@@ -267,17 +298,17 @@
   .soft-cta {
     position: relative;
     overflow: hidden;
-    color: var(--color-navy);
+    color: rgb(var(--color-ink));
     background:
-      linear-gradient(135deg, #ffffff, rgba(219, 234, 254, 0.71)),
-      linear-gradient(45deg, rgba(252, 231, 243, 0.57), #ffffff);
+      linear-gradient(135deg, #ffffff, rgba(224, 236, 227, 0.71)),
+      linear-gradient(45deg, rgba(248, 233, 229, 0.57), #ffffff);
   }
 
   .soft-card {
-    border: 1px solid rgba(43, 138, 198, 0.26);
+    border: 1px solid rgba(61, 100, 79, 0.26);
     border-radius: 20px;
     background: #ffffff;
-    box-shadow: 0 12px 32px rgba(23, 58, 94, 0.08);
+    box-shadow: 0 12px 32px rgba(43, 38, 33, 0.08);
     transition: all 0.3s ease;
   }
 
@@ -290,21 +321,21 @@
   .trust-card {
     background:
       linear-gradient(180deg, #ffffff, #ffffff),
-      linear-gradient(135deg, rgba(239, 246, 255, 0.5), rgba(253, 242, 248, 0.34));
-    border-color: rgba(43, 138, 198, 0.28);
+      linear-gradient(135deg, rgba(240, 246, 241, 0.5), rgba(250, 240, 237, 0.34));
+    border-color: rgba(61, 100, 79, 0.28);
   }
 
   .trust-card:hover {
-    border-color: rgba(236, 72, 153, 0.26);
+    border-color: rgba(193, 117, 112, 0.26);
   }
 
   .home-bento-section {
     position: relative;
     overflow: hidden;
     background:
-      radial-gradient(circle at 9% 13%, rgba(252, 231, 243, 0.82), transparent 28%),
-      radial-gradient(circle at 91% 8%, rgba(219, 234, 254, 0.88), transparent 30%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.86));
+      radial-gradient(circle at 9% 13%, rgba(248, 233, 229, 0.82), transparent 28%),
+      radial-gradient(circle at 91% 8%, rgba(224, 236, 227, 0.88), transparent 30%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 242, 235, 0.86));
   }
 
   .home-bento-heading-link {
@@ -312,7 +343,7 @@
   }
 
   .home-bento-heading-link:hover {
-    color: var(--color-navy);
+    color: rgb(var(--color-ink));
     gap: 0.75rem;
   }
 
@@ -322,21 +353,21 @@
 
   .home-bento-card {
     @apply relative block min-h-[210px] overflow-hidden bg-white transition duration-300;
-    border: 1px solid rgba(43, 138, 198, 0.25);
+    border: 1px solid rgba(61, 100, 79, 0.25);
     border-radius: 22px;
-    box-shadow: 0 12px 34px rgba(23, 58, 94, 0.075);
+    box-shadow: 0 12px 34px rgba(43, 38, 33, 0.075);
   }
 
   .home-bento-card:hover {
-    border-color: rgba(43, 138, 198, 0.48);
+    border-color: rgba(61, 100, 79, 0.48);
     transform: translateY(-4px);
-    box-shadow: 0 22px 48px rgba(43, 138, 198, 0.15);
+    box-shadow: 0 22px 48px rgba(61, 100, 79, 0.15);
   }
 
   .home-bento-card:focus-visible,
   .home-bento-heading-link:focus-visible {
-    outline: 3px solid rgba(43, 138, 198, 0.45);
-    outline-offset: 3px;
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: var(--focus-ring-offset);
   }
 
   .home-bento-label {
@@ -364,7 +395,7 @@
   .home-bento-facilities {
     min-height: 440px;
     background:
-      linear-gradient(145deg, rgba(239, 246, 255, 0.98), rgba(255, 255, 255, 0.96)),
+      linear-gradient(145deg, rgba(240, 246, 241, 0.98), rgba(255, 255, 255, 0.96)),
       #ffffff;
   }
 
@@ -373,29 +404,29 @@
     inset: 38% -12% auto 12%;
     height: 150px;
     opacity: 0.32;
-    background: repeating-radial-gradient(ellipse at 80% 100%, transparent 0 11px, rgba(74, 144, 226, 0.18) 12px 13px);
+    background: repeating-radial-gradient(ellipse at 80% 100%, transparent 0 11px, rgba(92, 138, 112, 0.18) 12px 13px);
     transform: rotate(-6deg);
   }
 
   .home-bento-video {
     min-height: 260px;
-    border-color: rgba(23, 58, 94, 0.4);
+    border-color: rgba(43, 38, 33, 0.4);
   }
 
   .home-bento-video-fallback {
     background:
-      linear-gradient(120deg, rgba(43, 138, 198, 0.42), transparent),
-      radial-gradient(circle at 85% 20%, rgba(236, 72, 153, 0.34), transparent 32%),
-      #173a5e;
+      linear-gradient(120deg, rgba(61, 100, 79, 0.42), transparent),
+      radial-gradient(circle at 85% 20%, rgba(193, 117, 112, 0.34), transparent 32%),
+      rgb(var(--color-ink));
   }
 
   .home-bento-small-machine {
-    background: linear-gradient(145deg, rgba(239, 246, 255, 0.84), #ffffff 58%);
+    background: linear-gradient(145deg, rgba(240, 246, 241, 0.84), #ffffff 58%);
   }
 
   .home-bento-gallery {
     min-height: 230px;
-    background: linear-gradient(120deg, #ffffff 0 47%, rgba(239, 246, 255, 0.85));
+    background: linear-gradient(120deg, #ffffff 0 47%, rgba(240, 246, 241, 0.85));
   }
 
   .home-bento-posters {
@@ -411,103 +442,99 @@
     transform: translateY(-5px);
   }
 
-  .home-bento-poster-blue { background: #dbeafe; color: #173a5e; transform: rotate(-7deg); }
-  .home-bento-poster-pink { background: #fce7f3; color: #be185d; transform: translateY(-8px) rotate(2deg); }
-  .home-bento-poster-navy { background: #4a90e2; color: #ffffff; transform: rotate(8deg); }
+  .home-bento-poster-blue { background: #e4ece6; color: rgb(var(--color-ink)); transform: rotate(-7deg); }
+  .home-bento-poster-pink { background: rgb(var(--color-blush-soft)); color: #964a46; transform: translateY(-8px) rotate(2deg); }
+  .home-bento-poster-navy { background: rgb(var(--color-primary)); color: #ffffff; transform: rotate(8deg); }
 
   .icon-chip {
     @apply inline-flex items-center justify-center text-accent;
     border-radius: 16px;
-    background: linear-gradient(135deg, rgba(252, 231, 243, 0.92), rgba(239, 246, 255, 0.92));
+    background: linear-gradient(135deg, rgba(248, 233, 229, 0.92), rgba(240, 246, 241, 0.92));
   }
 
   .clinical-pill {
     @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold;
-    color: var(--color-accent);
-    background: linear-gradient(135deg, rgba(239, 246, 255, 0.94), rgba(252, 231, 243, 0.82));
-    border: 1px solid rgba(43, 138, 198, 0.16);
+    color: rgb(var(--color-accent));
+    background: linear-gradient(135deg, rgba(240, 246, 241, 0.94), rgba(248, 233, 229, 0.82));
+    border: 1px solid rgba(61, 100, 79, 0.16);
   }
 
   .form-group { @apply mb-5; }
   .form-group label { @apply block font-semibold text-sm mb-1.5; }
   .form-group input, .form-group textarea, .form-group select {
     @apply w-full px-4 py-3 border text-base transition-all duration-300;
-    border-color: rgba(43, 138, 198, 0.14);
+    border-color: rgba(61, 100, 79, 0.14);
     border-radius: 18px;
     background: #ffffff;
-    box-shadow: 0 8px 22px rgba(23, 58, 94, 0.04);
+    box-shadow: 0 8px 22px rgba(43, 38, 33, 0.04);
   }
   .form-group input:focus, .form-group textarea:focus, .form-group select:focus {
     @apply outline-none border-accent ring-4 ring-accent/10;
   }
+
+  .form-group input:focus-visible,
+  .form-group textarea:focus-visible,
+  .form-group select:focus-visible {
+    outline: var(--focus-ring-width) solid var(--focus-ring);
+    outline-offset: 2px;
+  }
   .form-group textarea { @apply min-h-[100px] resize-y; }
-  .form-row { @apply grid grid-cols-1 md:grid-cols-2 gap-4; }
 }
 
 @layer utilities {
+  /* Display type. Fraunces is set soft and slightly wonky, which is what gives the
+     headings their warmth; opsz keeps large sizes from looking spindly. */
   .heading-display {
-    font-size: clamp(1.75rem, 4vw, 2.75rem);
-    font-weight: 800;
-    letter-spacing: 0;
-    line-height: 1.1;
+    font-family: var(--font-display), Georgia, serif;
+    font-size: var(--step-5);
+    font-weight: 600;
+    font-variation-settings: 'SOFT' 40, 'WONK' 1, 'opsz' 96;
+    letter-spacing: -0.015em;
+    line-height: 1.06;
+    text-wrap: balance;
   }
   .heading-section {
-    font-size: clamp(1.5rem, 3vw, 2.25rem);
-    font-weight: 700;
-    letter-spacing: 0;
-    line-height: 1.2;
+    font-family: var(--font-display), Georgia, serif;
+    font-size: var(--step-4);
+    font-weight: 600;
+    font-variation-settings: 'SOFT' 40, 'WONK' 1, 'opsz' 60;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    text-wrap: balance;
   }
-}
-
-@keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes pulseHeartbeat {
-  0%, 100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(214, 51, 108, 0.4); }
-  50% { transform: scale(1.03); box-shadow: 0 0 0 8px rgba(214, 51, 108, 0); }
-}
-
-@keyframes countUp {
-  from { opacity: 0; transform: translateY(8px); }
-  to { opacity: 1; transform: translateY(0); }
-}
-
-@keyframes lineDraw {
-  from { stroke-dashoffset: 100; }
-  to { stroke-dashoffset: 0; }
-}
-
-@keyframes butterflyFloat {
-  0%, 100% { transform: translateY(0) rotate(0deg); opacity: 0.15; }
-  50% { transform: translateY(-6px) rotate(2deg); opacity: 0.25; }
-}
-
-@keyframes slideInUp {
-  from { transform: translateY(100%); opacity: 0; }
-  to { transform: translateY(0); opacity: 1; }
-}
-
-@keyframes clinicalFloat {
-  0%, 100% { translate: 0 0; }
-  50% { translate: 0 -12px; }
-}
-
-@media (max-width: 767px) {
-  .clinical-motif {
-    width: 3rem;
-    height: 3rem;
-    opacity: 0.09;
+  /* Card and block titles stay in the UI face so they do not compete with sections. */
+  .heading-card {
+    font-size: var(--step-2);
+    font-weight: 600;
+    letter-spacing: -0.006em;
+    line-height: 1.25;
+    text-wrap: balance;
   }
-
-  .clinical-motif-4,
-  .clinical-motif-5,
-  .clinical-motif-7,
-  .clinical-motif-8 {
-    display: none;
+  .eyebrow {
+    font-size: var(--step--1);
+    font-weight: 600;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: rgb(var(--color-accent));
   }
+  .lede {
+    font-size: var(--step-1);
+    line-height: 1.6;
+    color: rgb(var(--color-text-light));
+    text-wrap: pretty;
+  }
+  /* Comfortable reading measure for prose columns. */
+  .measure { max-width: 65ch; }
+  .measure-tight { max-width: 52ch; }
 }
+
+
+
+
+
+
+
+
 
 @media (min-width: 1024px) {
   .home-bento-video { min-height: 250px; }
@@ -521,4 +548,97 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   Motion system
+   ---------------------------------------------------------------------------
+   Scroll-driven animations run on the compositor with no JavaScript and no
+   IntersectionObserver. Browsers without `animation-timeline` simply show the
+   content in its final state, and everything is gated behind a
+   reduced-motion check so the fallback is "visible", never "hidden".
+   --------------------------------------------------------------------------- */
+
+@keyframes reveal-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: none; }
+}
+
+@keyframes reveal-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes pulse-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes float-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  @supports (animation-timeline: view()) {
+    .reveal,
+    .reveal-fade {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+      animation-range: entry 8% cover 30%;
+    }
+    .reveal-fade { animation-name: reveal-fade; }
+
+    /* Children enter in sequence by shifting each one's scroll range rather
+       than using time delays, so the order holds at any scroll speed. */
+    .stagger > * {
+      animation: reveal-up linear both;
+      animation-timeline: view();
+    }
+    .stagger > *:nth-child(1) { animation-range: entry 6% cover 26%; }
+    .stagger > *:nth-child(2) { animation-range: entry 10% cover 30%; }
+    .stagger > *:nth-child(3) { animation-range: entry 14% cover 34%; }
+    .stagger > *:nth-child(4) { animation-range: entry 18% cover 38%; }
+    .stagger > *:nth-child(5) { animation-range: entry 22% cover 42%; }
+    .stagger > *:nth-child(6) { animation-range: entry 26% cover 46%; }
+
+    /* The signature line draws itself as the section scrolls past. */
+    .pulse-draw path {
+      stroke-dasharray: 1;
+      stroke-dashoffset: 1;
+      animation: pulse-draw linear both;
+      animation-timeline: view();
+      animation-range: entry 0% cover 40%;
+    }
+  }
+
+  .float-soft { animation: float-soft 6s var(--ease-out) infinite; }
+}
+
+/* Hover micro-interactions: small, physical, and only on devices that hover. */
+@media (hover: hover) and (prefers-reduced-motion: no-preference) {
+  .btn svg { transition: transform var(--duration-fast) var(--ease-out); }
+  .btn:hover svg:last-child { transform: translateX(2px); }
+
+  .link-underline {
+    background-image: linear-gradient(currentColor, currentColor);
+    background-size: 0% 1.5px;
+    background-position: 0 100%;
+    background-repeat: no-repeat;
+    transition: background-size var(--duration-base) var(--ease-out);
+  }
+  .link-underline:hover,
+  .link-underline:focus-visible { background-size: 100% 1.5px; }
+}
+
+@keyframes slide-up-in {
+  from { transform: translateY(100%); opacity: 0; }
+  to { transform: none; opacity: 1; }
+}
+
+/* Mobile action bar: upward shadow, and it slides in rather than popping. */
+.sticky-bar { box-shadow: 0 -10px 30px rgba(43, 38, 33, 0.10); }
+
+@media (prefers-reduced-motion: no-preference) {
+  .sticky-bar { animation: slide-up-in var(--duration-base) var(--ease-out) both; }
 }

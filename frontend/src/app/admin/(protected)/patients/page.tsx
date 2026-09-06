@@ -3,6 +3,7 @@
 import Link from 'next/link';
 import { FormEvent, useEffect, useState } from 'react';
 import { searchAdminPatients } from '../../../../lib/api';
+import Button from '@/components/ui/Button';
 
 export default function PatientsPage() {
   const [query, setQuery] = useState('');
@@ -39,14 +40,14 @@ export default function PatientsPage() {
     <div className="mx-auto max-w-6xl p-4 sm:p-6">
       <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-navy">Patient records</h1>
+          <h1 className="text-2xl font-bold text-ink">Patient records</h1>
           <p className="mt-1 text-sm text-text-light">
             Search by name, last four phone digits, or an authorized identifier.
           </p>
         </div>
-        <Link className="btn btn-outline" href="/admin/patients/identity-reviews">
+        <Button variant="outline" href="/admin/patients/identity-reviews">
           Duplicate review queue
-        </Link>
+        </Button>
       </div>
       <form onSubmit={submit} role="search" className="mb-5 flex flex-col gap-2 sm:flex-row">
         <label className="sr-only" htmlFor="patient-search">
@@ -60,7 +61,7 @@ export default function PatientsPage() {
           className="min-h-[44px] flex-1 rounded-md border border-border px-3"
           placeholder="Name or last 4 phone digits"
         />
-        <button className="min-h-[44px] rounded-md bg-navy px-5 font-semibold text-white">
+        <button className="min-h-[44px] rounded-md bg-ink px-5 font-semibold text-white">
           Search
         </button>
       </form>
@@ -87,11 +88,11 @@ export default function PatientsPage() {
             <li key={patient.id}>
               <Link
                 href={`/admin/patients/${patient.id}`}
-                className="block rounded-md border border-border bg-white p-4 shadow-sm hover:border-navy focus:outline-none focus:ring-2 focus:ring-accent"
+                className="block rounded-md border border-border bg-white p-4 shadow-sm hover:border-ink focus:outline-none focus:ring-2 focus:ring-accent"
               >
                 <div className="flex flex-wrap items-start justify-between gap-2">
                   <div>
-                    <p className="font-bold text-navy">{patient.full_name}</p>
+                    <p className="font-bold text-ink">{patient.full_name}</p>
                     <p className="text-sm text-text-light">
                       DOB: {patient.date_of_birth || 'Not recorded'} - Phone ending{' '}
                       {patient.phone_last4 || 'not available'}
@@ -103,7 +104,7 @@ export default function PatientsPage() {
                     </span>
                   )}
                   {!patient.duplicate_warning && patient.identity_linked && (
-                    <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-900">
+                    <span className="rounded-full bg-primary/15 px-3 py-1 text-xs font-bold text-accent">
                       Identity linked
                     </span>
                   )}

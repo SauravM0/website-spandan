@@ -1,7 +1,7 @@
 import React from 'react';
-import Link from 'next/link';
-import { CalendarCheck, MapPin, Phone } from 'lucide-react';
+import { MapPin, MessageCircle, Phone } from 'lucide-react';
 import type { ClinicSettings } from '@/lib/settings';
+import Button from '@/components/ui/Button';
 
 export default function LocationCTA({ settings }: { settings: ClinicSettings }) {
   return (
@@ -16,18 +16,18 @@ export default function LocationCTA({ settings }: { settings: ClinicSettings }) 
         </div>
 
         <div className="grid gap-3 min-[420px]:grid-cols-3 md:grid-cols-1 lg:grid-cols-3">
-          <Link href="/book-appointment" className="btn btn-accent">
-            <CalendarCheck size={18} aria-hidden="true" />
-            Book
-          </Link>
-          <a href={`tel:${settings.phone}`} className="btn btn-outline">
+          <Button href={settings.social.whatsapp} target="_blank" rel="noopener noreferrer" variant="accent">
+            <MessageCircle size={18} aria-hidden="true" />
+            WhatsApp
+          </Button>
+          <Button href={`tel:${settings.phone}`} variant="outline">
             <Phone size={18} aria-hidden="true" />
             Call
-          </a>
-          <a href={settings.googleMapsUrl} target="_blank" rel="noopener noreferrer" className="btn btn-outline">
+          </Button>
+          <Button href={settings.googleMapsUrl} target="_blank" rel="noopener noreferrer" variant="outline">
             <MapPin size={18} aria-hidden="true" />
             Map
-          </a>
+          </Button>
         </div>
       </div>
     </section>

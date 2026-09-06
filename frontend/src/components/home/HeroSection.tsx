@@ -1,9 +1,10 @@
 import React from 'react';
-import Link from 'next/link';
-import { Activity, CalendarCheck, HeartPulse, Microscope, Phone, Stethoscope, Syringe, UsersRound } from 'lucide-react';
-import type { ClinicSettings } from '@/lib/settings';
+import { Activity, HeartPulse, MessageCircle, Microscope, Phone, Stethoscope, Syringe, UsersRound } from 'lucide-react';
+import { whatsappLink, type ClinicSettings } from '@/lib/settings';
+import PulseLine from '@/components/brand/PulseLine';
 import type { PublicDoctorSummary } from '@/lib/home';
 import HeroVideo from './HeroVideo';
+import Button from '@/components/ui/Button';
 
 type HeroSectionProps = {
   settings: ClinicSettings;
@@ -20,21 +21,27 @@ export default function HeroSection({ settings, doctors }: HeroSectionProps) {
   });
 
   return (
-    <section className="soft-page-hero text-navy">
-      <div className="container grid min-h-[620px] items-center gap-10 py-12 sm:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:py-20">
+    <section className="soft-page-hero relative text-ink">
+      {/* Signature motif: the cardiac trace runs along the base of the hero. */}
+      <PulseLine
+        variant="cardiac"
+        animate
+        className="pointer-events-none absolute inset-x-0 bottom-0 h-20 w-full text-accent/20"
+      />
+      <div className="container relative grid min-h-[620px] items-center gap-10 py-12 sm:py-16 lg:grid-cols-[1.02fr_0.98fr] lg:py-20">
         <div className="max-w-3xl">
-          <p className="soft-card trust-card mb-4 inline-flex items-center gap-2 px-4 py-2 text-sm font-semibold text-accent">
-            <Stethoscope size={16} aria-hidden="true" />
-            Cardiology, endocrinology, diabetes, thyroid, and diagnostics
+          <p className="mb-5 inline-flex items-center gap-2 rounded-pill border border-border bg-white/70 px-4 py-2 shadow-xs backdrop-blur-sm">
+            <Stethoscope size={15} className="text-accent" aria-hidden="true" />
+            <span className="eyebrow">Cardiology · Endocrinology · Diagnostics</span>
           </p>
 
-          <h1 className="heading-display mb-5 max-w-[720px] text-navy">
-            Find the right specialist path at Spandan Clinic
+          <h1 className="heading-display mb-5 max-w-[720px] text-ink">
+            Specialist heart and diabetes care, centred around you
           </h1>
 
-          <p className="mb-7 max-w-[620px] text-base leading-relaxed text-text-light sm:text-lg">
-            Book a consultation, compare health packages, or call the clinic with clear location,
-            timings, and payment steps before you visit.
+          <p className="lede measure mb-8">
+            Personalised cardiology, diabetes, thyroid, and diagnostic care from experienced
+            specialists in a calm, modern clinic setting.
           </p>
 
           <div className="mb-7 flex flex-wrap gap-2">
@@ -57,34 +64,39 @@ export default function HeroSection({ settings, doctors }: HeroSectionProps) {
           </div>
 
           <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:flex-wrap">
-            <Link href="/book-appointment" className="btn btn-accent">
-              <CalendarCheck size={18} aria-hidden="true" />
-              Book Appointment
-            </Link>
-            <Link href="/doctors" className="btn btn-outline">
-              <UsersRound size={18} aria-hidden="true" />
-              View Doctors
-            </Link>
-            <a href={`tel:${settings.phone}`} className="btn btn-outline">
+            <Button href={`tel:${settings.phone}`} variant="accent">
               <Phone size={18} aria-hidden="true" />
-              Call Clinic
-            </a>
+              Call {settings.phone}
+            </Button>
+            <Button
+              href={whatsappLink()}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="outline"
+            >
+              <MessageCircle size={18} aria-hidden="true" />
+              WhatsApp
+            </Button>
+            <Button href="/doctors" variant="ghost">
+              <UsersRound size={18} aria-hidden="true" />
+              Meet the doctors
+            </Button>
           </div>
 
-          <div className="mt-8 grid gap-3 text-sm text-text-light sm:grid-cols-3">
-            <p className="soft-card trust-card p-4">
-              <span className="block font-semibold text-navy">Location</span>
-              {settings.city}
-            </p>
-            <p className="soft-card trust-card p-4">
-              <span className="block font-semibold text-navy">Timings</span>
-              {settings.timings}
-            </p>
-            <p className="soft-card trust-card p-4">
-              <span className="block font-semibold text-navy">Emergency note</span>
-              {settings.emergencyNote}
-            </p>
-          </div>
+          <dl className="mt-10 grid gap-x-8 gap-y-4 border-t border-border pt-6 text-sm sm:grid-cols-3">
+            <div>
+              <dt className="eyebrow">Location</dt>
+              <dd className="mt-1 font-semibold text-ink">{settings.city}</dd>
+            </div>
+            <div>
+              <dt className="eyebrow">Timings</dt>
+              <dd className="mt-1 font-semibold text-ink">{settings.timings}</dd>
+            </div>
+            <div>
+              <dt className="eyebrow">In an emergency</dt>
+              <dd className="mt-1 text-text-light">{settings.emergencyNote}</dd>
+            </div>
+          </dl>
         </div>
 
         <div>
@@ -92,13 +104,16 @@ export default function HeroSection({ settings, doctors }: HeroSectionProps) {
             <div className="aspect-[4/3] overflow-hidden rounded-2xl bg-bg-alt">
               <HeroVideo />
             </div>
-            <div className="grid gap-3 p-5 text-navy sm:grid-cols-2">
+            <div className="grid gap-3 p-5 pt-6 text-ink sm:grid-cols-2">
               {heroDoctors.length ? heroDoctors.map((doctor) => (
-                <p key={doctor.slug} className="flex min-h-14 items-center p-4">
-                  <span className="text-sm font-bold">{doctor.name}</span>
-                </p>
+                <div key={doctor.slug} className="border-t border-border pt-3">
+                  <p className="text-sm font-semibold text-ink">{doctor.name}</p>
+                  {doctor.speciality ? (
+                    <p className="mt-0.5 text-xs text-text-light">{doctor.speciality}</p>
+                  ) : null}
+                </div>
               )) : (
-                <div className="rounded-2xl border border-primary/10 bg-blue-50/70 p-3 shadow-[0_8px_22px_rgba(43,138,198,0.07)] sm:col-span-2">
+                <div className="rounded-2xl border border-primary/10 bg-wash-sage/70 p-3 shadow-md sm:col-span-2">
                   <span className="block text-sm font-bold">{settings.name}</span>
                   <span className="mt-1 block text-xs text-text-light">{settings.address}</span>
                 </div>

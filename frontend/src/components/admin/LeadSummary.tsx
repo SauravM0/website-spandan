@@ -61,7 +61,7 @@ export default function LeadSummary({
       <div className="border-b border-border p-4 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-navy sm:text-2xl">{lead.patient_name}</h1>
+            <h1 className="truncate text-xl font-bold text-ink sm:text-2xl">{lead.patient_name}</h1>
             <p className="mt-1 text-sm text-text-light">
               {leadType(lead)} &middot; {lead.source_language || 'en'}
               &middot; Created {new Date(lead.created_at).toLocaleDateString()}

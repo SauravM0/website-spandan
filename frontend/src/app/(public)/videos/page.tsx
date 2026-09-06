@@ -1,6 +1,5 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { FileText } from 'lucide-react';
 import VideoCard from '@/components/videos/VideoCard';
 import VideoFilters from '@/components/videos/VideoFilters';
@@ -8,6 +7,7 @@ import VideoPagination from '@/components/videos/VideoPagination';
 import { serverApiGet } from '@/lib/serverApi';
 import { filterVideos, paginateVideos, extractTopics, extractLanguages } from '@/lib/videos';
 import type { Video, VideosResponse } from '@/lib/videos';
+import Button from '@/components/ui/Button';
 
 function YoutubeIcon({ size, className }: { size?: number; className?: string }) {
   return (
@@ -129,7 +129,7 @@ export default async function VideosPage({ searchParams }: { searchParams?: Prom
           ) : (
             <div className="soft-card p-10 text-center">
               <YoutubeIcon size={48} className="mx-auto mb-4 text-text-light" />
-              <h2 className="mb-2 text-xl font-bold text-navy">
+              <h2 className="mb-2 text-xl font-bold text-ink">
                 {allVideos.length === 0 ? 'Videos being updated' : 'No videos match these filters'}
               </h2>
               <p className="mx-auto mb-6 max-w-[520px] text-text-light">
@@ -139,40 +139,42 @@ export default async function VideosPage({ searchParams }: { searchParams?: Prom
               </p>
               <div className="flex flex-wrap justify-center gap-3">
                 {allVideos.length > 0 && (
-                  <Link href="/videos" className="btn btn-outline">
+                  <Button href="/videos" variant="outline">
                     Clear filters
-                  </Link>
+                  </Button>
                 )}
                 {channel && (
-                  <a
+                  <Button
                     href={channel.channelUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="btn btn-accent inline-flex items-center gap-2"
+                    variant="accent"
+                    className="inline-flex items-center gap-2"
                   >
                     <YoutubeIcon size={20} />
                     Visit YouTube Channel
-                  </a>
+                  </Button>
                 )}
-                <Link href="/health-resources" className="btn btn-outline inline-flex items-center gap-2">
+                <Button href="/health-resources" variant="outline" className="inline-flex items-center gap-2">
                   <FileText className="h-4 w-4" aria-hidden="true" />
                   Browse articles
-                </Link>
+                </Button>
               </div>
             </div>
           )}
 
           {pagedVideos.length > 0 && channel && (
             <div className="mt-12 text-center">
-              <a
+              <Button
                 href={channel.channelUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="btn btn-accent inline-flex items-center gap-2"
+                variant="accent"
+                className="inline-flex items-center gap-2"
               >
                 <YoutubeIcon size={20} />
                 Subscribe on YouTube
-              </a>
+              </Button>
             </div>
           )}
         </div>

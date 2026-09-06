@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { authenticate, requireRecentStepUp } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/authorize';
 import { validateZod } from '../middleware/validate';
 import { asyncHandler } from '../middleware/asyncHandler';
@@ -112,7 +112,6 @@ router.get(
 router.post(
   '/identity-reviews/:reviewId/resolution',
   requirePermission(PERMISSIONS.PATIENT_IDENTITY_REVIEW),
-  requireRecentStepUp,
   validateZod({ params: identityReviewId, body: identityReviewResolution }),
   asyncHandler(async (req: any, res) => {
     const idempotencyKey = req.header('idempotency-key');

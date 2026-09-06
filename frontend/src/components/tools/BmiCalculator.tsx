@@ -25,7 +25,7 @@ export default function BmiCalculator() {
         <Field id="bmi-weight" label="Weight" suffix="kg" value={weight} onChange={setWeight} min={20} max={250} />
       </div>
       <div className="mt-5">
-        <ResultPanel result={result} emptyText="Enter height and weight to calculate BMI." />
+        <ResultPanel result={result} title="BMI" emptyText="Enter height and weight to calculate BMI." />
       </div>
       <div className="mt-4 flex justify-end">
         <ResetButton onClick={() => { setHeight(''); setWeight(''); }} />

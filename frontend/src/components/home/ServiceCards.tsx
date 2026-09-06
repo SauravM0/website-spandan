@@ -12,11 +12,6 @@ import {
   Sparkles,
   type LucideIcon,
 } from 'lucide-react';
-import type { PublicDoctorSummary } from '@/lib/home';
-
-type ServiceCardsProps = {
-  doctors: PublicDoctorSummary[];
-};
 
 type CarePath = {
   title: string;
@@ -81,43 +76,22 @@ const supportingCare: CarePath[] = [
   },
 ];
 
-function doctorMatchesSpeciality(doctor: PublicDoctorSummary, speciality: CarePath['speciality']) {
-  if (!speciality) return false;
-  const source = `${doctor.slug} ${doctor.name} ${doctor.speciality} ${doctor.bio || ''}`.toLowerCase();
-  return speciality === 'cardiology'
-    ? source.includes('cardio') || source.includes('heart')
-    : source.includes('endocr') || source.includes('diabetes') || source.includes('hormone');
-}
-
-export function buildCareBookingHref(doctors: PublicDoctorSummary[], care: CarePath) {
-  const doctor = doctors.find((item) => doctorMatchesSpeciality(item, care.speciality));
-  const params = new URLSearchParams({ reason: care.shortTitle || care.title });
-  const fallbackDoctorSlug = care.speciality === 'endocrinology'
-    ? 'dr-pratibha-aute'
-    : care.speciality === 'cardiology'
-      ? 'dr-tukaram-aute'
-      : null;
-  const doctorReference = doctor ? doctor.id || doctor.slug : fallbackDoctorSlug;
-  if (doctorReference) params.set('doctor', doctorReference);
-  return `/book-appointment?${params.toString()}`;
-}
-
 function DiabetesVisual() {
   return (
     <div className="pointer-events-none absolute bottom-[16%] left-[43%] right-5 h-[50%] opacity-95" aria-hidden="true">
       <svg viewBox="0 0 360 180" className="h-full w-full overflow-visible">
         <defs>
           <linearGradient id="diabetes-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#60A5FA" stopOpacity=".24" />
-            <stop offset="1" stopColor="#DBEAFE" stopOpacity="0" />
+            <stop offset="0" stopColor="#8DB29B" stopOpacity=".24" />
+            <stop offset="1" stopColor="#E4ECE6" stopOpacity="0" />
           </linearGradient>
         </defs>
         <path d="M10 145 L50 100 L82 116 L122 40 L158 126 L202 26 L247 119 L297 78 L348 90 L348 170 L10 170 Z" fill="url(#diabetes-area)" />
-        <path d="M10 145 L50 100 L82 116 L122 40 L158 126 L202 26 L247 119 L297 78 L348 90" fill="none" stroke="#2B8AC6" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 145 L50 100 L82 116 L122 40 L158 126 L202 26 L247 119 L297 78 L348 90" fill="none" stroke="#3D644F" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
         {[['10','140'],['50','100'],['82','115'],['122','42'],['156','124'],['202','28'],['248','118'],['298','82']].map(([cx, cy]) => (
-          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="5" fill="#fff" stroke="#2B8AC6" strokeWidth="3" />
+          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="5" fill="#fff" stroke="#3D644F" strokeWidth="3" />
         ))}
-        <path d="M10 165 H350 M10 120 H350 M10 75 H350" stroke="#BFDBFE" strokeWidth="1" strokeDasharray="4 6" />
+        <path d="M10 165 H350 M10 120 H350 M10 75 H350" stroke="#CDE0D2" strokeWidth="1" strokeDasharray="4 6" />
       </svg>
     </div>
   );
@@ -129,9 +103,9 @@ function HeartVisual() {
       <svg viewBox="0 0 430 170" className="h-full w-full overflow-visible">
         <defs>
           <linearGradient id="heart-line" x1="0" x2="1">
-            <stop offset="0" stopColor="#2B8AC6" stopOpacity=".3" />
-            <stop offset=".48" stopColor="#60A5FA" />
-            <stop offset="1" stopColor="#F9A8D4" />
+            <stop offset="0" stopColor="#3D644F" stopOpacity=".3" />
+            <stop offset=".48" stopColor="#8DB29B" />
+            <stop offset="1" stopColor="#C17570" />
           </linearGradient>
           <filter id="heart-glow" x="-30%" y="-30%" width="160%" height="160%">
             <feGaussianBlur stdDeviation="3" result="blur" />
@@ -139,23 +113,23 @@ function HeartVisual() {
           </filter>
         </defs>
         <path d="M0 105 H42 L58 76 L72 135 L89 28 L105 122 L122 105 H195 L210 82 L226 127 L242 50 L257 105 H285" fill="none" stroke="url(#heart-line)" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
-        <path d="M301 100 C273 73 290 42 315 47 C330 49 339 61 344 72 C349 61 358 49 373 47 C400 43 416 74 388 101 L344 142 Z" fill="none" stroke="#F9A8D4" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" filter="url(#heart-glow)" />
+        <path d="M301 100 C273 73 290 42 315 47 C330 49 339 61 344 72 C349 61 358 49 373 47 C400 43 416 74 388 101 L344 142 Z" fill="none" stroke="#C17570" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" filter="url(#heart-glow)" />
       </svg>
     </div>
   );
 }
 
-export default function ServiceCards({ doctors }: ServiceCardsProps) {
+export default function ServiceCards() {
   return (
-    <section className="section bg-white" aria-labelledby="care-paths-title">
+    <section className="section" aria-labelledby="care-paths-title">
       <div className="container">
-        <div className="mb-9 flex flex-col justify-between gap-4 md:flex-row md:items-end">
+        <div className="reveal mb-9 flex flex-col justify-between gap-4 md:flex-row md:items-end">
           <div className="max-w-3xl">
-            <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.14em] text-pink-600">Find the right care</p>
-            <h2 id="care-paths-title" className="heading-section text-navy">What brings you in today?</h2>
+            <p className="mb-3 text-xs font-extrabold uppercase tracking-[0.14em] text-blush-deep">Find the right care</p>
+            <h2 id="care-paths-title" className="heading-section text-ink">What brings you in today?</h2>
             <p className="mt-3 max-w-2xl leading-relaxed text-text-light">
               Choose what you need help with and we’ll guide you to the right specialist,
-              facility, or booking step.
+              facility, or next step for care.
             </p>
           </div>
           <Link href="/contact" className="inline-flex min-h-[44px] items-center gap-2 self-start text-sm font-semibold text-accent transition hover:gap-3 md:self-auto">
@@ -164,30 +138,30 @@ export default function ServiceCards({ doctors }: ServiceCardsProps) {
           </Link>
         </div>
 
-        <div className="grid gap-5 md:grid-cols-2">
+        <div className="stagger grid gap-5 md:grid-cols-2">
           {featuredCare.map((care, index) => {
             const Icon = care.icon;
             const dark = index === 1;
             return (
               <Link
                 key={care.title}
-                href={buildCareBookingHref(doctors, care)}
+                href="/doctors"
                 className={`group relative flex min-h-[330px] flex-col overflow-hidden rounded-[28px] border p-7 transition duration-300 hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent lg:p-8 ${
                   dark
-                    ? 'border-navy bg-[#0d365e] text-white shadow-[0_18px_46px_rgba(13,54,94,0.2)]'
-                    : 'border-primary/30 bg-gradient-to-br from-white via-blue-50/70 to-white text-navy shadow-[0_18px_46px_rgba(43,138,198,0.12)]'
+                    ? 'border-ink bg-ink text-white shadow-xl'
+                    : 'border-primary/30 bg-gradient-to-br from-white via-wash-sage/70 to-white text-ink shadow-xl'
                 }`}
-                aria-label={`Book ${care.title}; the recommended consultant will be preselected and can be changed`}
+                aria-label={`Learn about ${care.title} and meet our specialists`}
               >
                 <div className="relative z-10">
-                  <span className={`inline-flex items-center gap-3 text-xs font-extrabold uppercase tracking-[0.08em] ${dark ? 'text-pink-300' : 'text-accent'}`}>
-                    <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${dark ? 'border border-white/20 bg-white/5' : 'bg-blue-100/80'}`}>
+                  <span className={`inline-flex items-center gap-3 text-xs font-extrabold uppercase tracking-[0.08em] ${dark ? 'text-blush' : 'text-accent'}`}>
+                    <span className={`flex h-12 w-12 items-center justify-center rounded-2xl ${dark ? 'border border-white/20 bg-white/5' : 'bg-primary/15/80'}`}>
                       <Icon size={23} aria-hidden="true" />
                     </span>
                     {care.speciality}
                   </span>
                   <h3 className="mt-5 text-3xl font-extrabold tracking-tight">{care.title}</h3>
-                  <p className={`mt-3 max-w-[260px] text-base leading-relaxed ${dark ? 'text-blue-50' : 'text-text-light'}`}>
+                  <p className={`mt-3 max-w-[260px] text-base leading-relaxed ${dark ? 'text-sand' : 'text-text-light'}`}>
                     {care.text}
                   </p>
                 </div>
@@ -195,13 +169,13 @@ export default function ServiceCards({ doctors }: ServiceCardsProps) {
                 {dark ? <HeartVisual /> : <DiabetesVisual />}
 
                 {!dark && (
-                  <span className="pointer-events-none absolute right-7 top-7 flex h-[88px] w-[88px] items-center justify-center rounded-full border border-primary/15 bg-white/90 shadow-[0_12px_30px_rgba(23,58,94,0.14)]" aria-hidden="true">
-                    <span className="relative h-12 w-12 rounded-full border-[7px] border-slate-100 bg-white shadow-inner after:absolute after:left-1/2 after:top-1/2 after:h-2 after:w-2 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-slate-400" />
+                  <span className="pointer-events-none absolute right-7 top-7 flex h-[88px] w-[88px] items-center justify-center rounded-full border border-primary/15 bg-white/90 shadow-lg" aria-hidden="true">
+                    <span className="relative h-12 w-12 rounded-full border-[7px] border-border bg-white shadow-inner after:absolute after:left-1/2 after:top-1/2 after:h-2 after:w-2 after:-translate-x-1/2 after:-translate-y-1/2 after:rounded-full after:bg-text-light" />
                   </span>
                 )}
 
                 <span className={`relative z-10 mt-auto inline-flex items-center gap-2 text-sm font-extrabold transition-all group-hover:gap-3 ${dark ? 'text-white' : 'text-accent'}`}>
-                  Book {care.shortTitle?.toLowerCase()} care
+                  Meet our specialists
                   <ArrowRight size={18} aria-hidden="true" />
                 </span>
               </Link>
@@ -215,18 +189,18 @@ export default function ServiceCards({ doctors }: ServiceCardsProps) {
             return (
               <Link
                 key={care.title}
-                href={buildCareBookingHref(doctors, care)}
-                className="group relative flex min-h-[230px] flex-col overflow-hidden rounded-[22px] border border-primary/25 bg-white p-6 shadow-[0_10px_28px_rgba(23,58,94,0.06)] transition duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-[0_18px_38px_rgba(43,138,198,0.13)] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent sm:aspect-square sm:min-h-0"
+                href="/facilities"
+                className="group relative flex min-h-[230px] flex-col overflow-hidden rounded-[22px] border border-primary/25 bg-white p-6 shadow-lg transition duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent sm:aspect-square sm:min-h-0"
                 aria-label={`${care.title}: ${care.text}`}
               >
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-accent transition group-hover:bg-blue-100">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-wash-sage text-accent transition group-hover:bg-primary/15">
                   <Icon size={24} aria-hidden="true" />
                 </span>
                 <span className="mt-4 min-w-0 pr-6">
-                  <strong className="block text-lg font-extrabold leading-snug text-navy">{care.title}</strong>
+                  <strong className="block text-lg font-extrabold leading-snug text-ink">{care.title}</strong>
                   <span className="mt-2 block text-sm leading-relaxed text-text-light">{care.text}</span>
                 </span>
-                <span className="absolute bottom-4 right-4 flex h-8 w-8 items-center justify-center rounded-full border border-primary/25 text-accent transition group-hover:border-accent group-hover:bg-blue-50" aria-hidden="true">
+                <span className="absolute bottom-4 right-4 flex h-8 w-8 items-center justify-center rounded-full border border-primary/25 text-accent transition group-hover:border-accent group-hover:bg-wash-sage" aria-hidden="true">
                   <ArrowRight size={15} />
                 </span>
               </Link>

@@ -3,6 +3,7 @@
 import React from 'react';
 import { useEffect } from 'react';
 import FocusTrap from '../ui/FocusTrap';
+import Button from '@/components/ui/Button';
 
 export function AdminPageHeader({
   title,
@@ -16,7 +17,7 @@ export function AdminPageHeader({
   return (
     <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
       <div className="min-w-0">
-        <h1 className="truncate text-2xl font-bold text-navy">{title}</h1>
+        <h1 className="truncate text-2xl font-bold text-ink">{title}</h1>
         {description && <p className="mt-1 text-sm text-text-light">{description}</p>}
       </div>
       {action && <div className="shrink-0">{action}</div>}
@@ -44,7 +45,7 @@ export function StatusBadge({
     success: 'bg-success/10 text-success',
     warning: 'bg-amber-100 text-amber-800',
     danger: 'bg-danger/10 text-danger',
-    info: 'bg-blue-100 text-blue-800',
+    info: 'bg-primary/15 text-accent',
   };
 
   return (
@@ -75,26 +76,26 @@ export function CursorPagination({
 }) {
   return (
     <nav className="mt-4 flex items-center justify-between gap-3" aria-label={`${itemLabel} pages`}>
-      <button
-        type="button"
-        className="btn btn-outline min-h-[44px]"
+      <Button
+        variant="outline"
+        className="min-h-[44px]"
         disabled={!canPrevious}
         onClick={onPrevious}
       >
         Previous
-      </button>
+      </Button>
       <p className="text-xs text-text-light" aria-live="polite">
         Page {page}
         {itemCount === undefined ? '' : ` · ${itemCount} ${itemLabel}`}
       </p>
-      <button
-        type="button"
-        className="btn btn-outline min-h-[44px]"
+      <Button
+        variant="outline"
+        className="min-h-[44px]"
         disabled={!canNext}
         onClick={onNext}
       >
         Next
-      </button>
+      </Button>
     </nav>
   );
 }
@@ -105,7 +106,7 @@ export function AdminFeedback({ message, error = false }: { message?: string; er
     <div
       role={error ? 'alert' : 'status'}
       aria-live={error ? 'assertive' : 'polite'}
-      className={`rounded-md p-3 text-sm ${error ? 'bg-red-50 text-red-900' : 'bg-blue-50 text-navy'}`}
+      className={`rounded-md p-3 text-sm ${error ? 'bg-red-50 text-red-900' : 'bg-wash-sage text-ink'}`}
     >
       {message}
     </div>
@@ -165,25 +166,25 @@ export function Pagination({
 }) {
   return (
     <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-      <button
-        type="button"
-        className="btn btn-outline min-h-11 px-3 py-2"
+      <Button
+        variant="outline"
+        className="min-h-11 px-3 py-2"
         disabled={page <= 1}
         onClick={() => onPageChange(page - 1)}
       >
         Previous
-      </button>
+      </Button>
       <span className="text-text-light">
         Page {page} of {Math.max(totalPages, 1)}
       </span>
-      <button
-        type="button"
-        className="btn btn-outline min-h-11 px-3 py-2"
+      <Button
+        variant="outline"
+        className="min-h-11 px-3 py-2"
         disabled={page >= totalPages}
         onClick={() => onPageChange(page + 1)}
       >
         Next
-      </button>
+      </Button>
     </div>
   );
 }

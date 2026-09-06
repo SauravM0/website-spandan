@@ -3,7 +3,7 @@ export type PublicService = {
   name: string;
   summary: string;
   href: string;
-  appointmentPath: string;
+  contactPath: string;
 };
 
 export type PublicTrustStatement = {
@@ -23,7 +23,7 @@ export function validatePublicContent(content: PublicContent): PublicContent {
 
   content.services.forEach((service) => {
     if (!service.name.trim() || !service.summary.trim()) throw new Error(`Service ${service.id} is incomplete`);
-    if (!service.href.startsWith('/') || !service.appointmentPath.startsWith('/')) {
+    if (!service.href.startsWith('/') || !service.contactPath.startsWith('/')) {
       throw new Error(`Service ${service.id} must use an internal recovery path`);
     }
   });
@@ -35,9 +35,9 @@ export function validatePublicContent(content: PublicContent): PublicContent {
 // approve new care claims before they are added to this source.
 export const publicContent = validatePublicContent({
   services: [
-    { id: 'cardiology', name: 'Cardiology', summary: 'Consultation and cardiac review.', href: '/doctors', appointmentPath: '/book-appointment' },
-    { id: 'endocrinology', name: 'Endocrinology', summary: 'Diabetes and thyroid consultation.', href: '/doctors', appointmentPath: '/book-appointment' },
-    { id: 'diagnostics', name: 'Diagnostics', summary: 'Clinic laboratory equipment, diagnostic facilities, and preparation information.', href: '/explore#equipment', appointmentPath: '/contact' },
+    { id: 'cardiology', name: 'Cardiology', summary: 'Consultation and cardiac review.', href: '/doctors', contactPath: '/contact' },
+    { id: 'endocrinology', name: 'Endocrinology', summary: 'Diabetes and thyroid consultation.', href: '/doctors', contactPath: '/contact' },
+    { id: 'diagnostics', name: 'Diagnostics', summary: 'Clinic laboratory equipment, diagnostic facilities, and preparation information.', href: '/explore#equipment', contactPath: '/contact' },
   ],
   trustStatements: [
     { id: 'published-profiles', text: 'Doctor qualifications are shown on published profiles.', evidence: 'published-doctor-profile' },

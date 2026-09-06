@@ -37,3 +37,12 @@ export const clinicLinks = {
   whatsapp: clinicSettings.social.whatsapp,
   directions: clinicSettings.googleMapsUrl,
 } as const;
+
+/**
+ * WhatsApp deep link for the clinic, optionally pre-filling the message so the
+ * enquiry arrives with context (package name, service, doctor).
+ */
+export function whatsappLink(message?: string): string {
+  const base = `https://wa.me/${clinicSettings.whatsapp}`;
+  return message ? `${base}?text=${encodeURIComponent(message)}` : base;
+}

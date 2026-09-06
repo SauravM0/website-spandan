@@ -126,6 +126,9 @@ export interface AdminAppointment extends Appointment {
   reschedule_count?: number;
   last_rescheduled_at?: string | null;
   fee_amount?: number;
+  linked_payment_id?: string | null;
+  linked_payment_reference?: string | null;
+  linked_payment_status?: string | null;
 }
 
 export interface AdminPayment {
@@ -134,8 +137,12 @@ export interface AdminPayment {
   appointment_id?: string | null;
   provider: string;
   merchant_transaction_id: string;
+  public_order_reference?: string | null;
   amount: number;
+  amount_paisa?: number;
+  currency?: string;
   status: string;
+  status_version?: number;
   payment_method?: string | null;
   provider_reference?: string | null;
   provider_order_id?: string | null;
@@ -148,6 +155,15 @@ export interface AdminPayment {
   receipt_number?: string | null;
   pdf_url?: string | null;
   notification_status?: string | null;
+  utr_submitted_at?: string | null;
+  clarification_requested_at?: string | null;
+  verification_reserved_until?: string | null;
+  observed_amount_paisa?: number | null;
+  duplicate_of_payment_id?: string | null;
+  patient_name?: string | null;
+  patient_phone_masked?: string | null;
+  doctor_name?: string | null;
+  service_name?: string | null;
 }
 
 export interface AdminWorkflowTask {

@@ -28,7 +28,7 @@ export default function HorizontalRail({
         <button
           type="button"
           onClick={() => move(-1)}
-          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-primary/15 bg-white text-navy shadow-sm transition hover:-translate-y-0.5 hover:border-accent hover:text-accent"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-primary/15 bg-white text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-accent hover:text-accent"
           aria-label={`Show previous ${label}`}
         >
           <ChevronLeft size={20} aria-hidden="true" />
@@ -36,7 +36,7 @@ export default function HorizontalRail({
         <button
           type="button"
           onClick={() => move(1)}
-          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-primary/15 bg-white text-navy shadow-sm transition hover:-translate-y-0.5 hover:border-accent hover:text-accent"
+          className="inline-flex min-h-[44px] min-w-[44px] items-center justify-center rounded-full border border-primary/15 bg-white text-ink shadow-sm transition hover:-translate-y-0.5 hover:border-accent hover:text-accent"
           aria-label={`Show more ${label}`}
         >
           <ChevronRight size={20} aria-hidden="true" />

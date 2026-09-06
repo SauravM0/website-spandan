@@ -1,17 +1,10 @@
 import type {
   Doctor,
   PackageSummary,
-  PackageDetail,
-  PackageTestSummary,
   DashboardData,
-  AppointmentHold,
-  Appointment,
   AdminAppointment,
   AdminPayment,
   AdminSearchResult,
-  LeadEnquiry,
-  LeadDetail,
-  Notification,
   AdminUser,
 } from './types';
 import { BROWSER_API_BASE, browserApiUrl } from './apiUrl';
@@ -78,19 +71,6 @@ export function idempotencyKey(): string {
   return crypto.randomUUID();
 }
 
-async function safeRetry<T>(fn: () => Promise<T>, retries = 2, delay = 500): Promise<T> {
-  for (let attempt = 0; attempt <= retries; attempt++) {
-    try {
-      return await fn();
-    } catch (err) {
-      if (attempt === retries) throw err;
-      if (err instanceof ApiError && err.status < 500) throw err;
-      await new Promise((resolve) => setTimeout(resolve, delay * 2 ** attempt));
-    }
-  }
-  throw new Error('Unreachable');
-}
-
 function handleAuthFailure(endpoint: string, status: number) {
   if (typeof window === 'undefined') return;
   if (status !== 401) return;
@@ -102,6 +82,7 @@ function handleAuthFailure(endpoint: string, status: number) {
 // Cache the CSRF token
 let csrfTokenPromise: Promise<string> | null = null;
 const getCache = new Map<string, { expiresAt: number; promise: Promise<unknown> }>();
+const inFlightGets = new Map<string, Promise<unknown>>();
 
 async function fetchCsrfToken(): Promise<string> {
   const res = await fetch(`${API_URL}/csrf-token`, {
@@ -122,30 +103,9 @@ function getCsrfToken(): Promise<string> {
   return csrfTokenPromise;
 }
 
-function waitForStepUp(): Promise<void> {
-  if (typeof window === 'undefined')
-    return Promise.reject(new Error('Step-up requires a browser.'));
-  return new Promise((resolve, reject) => {
-    const timeout = window.setTimeout(() => finish(new Error('Step-up timed out.')), 120_000);
-    const completed = () => finish();
-    const cancelled = () => finish(new Error('Step-up was cancelled.'));
-    const finish = (error?: Error) => {
-      window.clearTimeout(timeout);
-      window.removeEventListener('admin-step-up-complete', completed);
-      window.removeEventListener('admin-step-up-cancelled', cancelled);
-      if (error) reject(error);
-      else resolve();
-    };
-    window.addEventListener('admin-step-up-complete', completed, { once: true });
-    window.addEventListener('admin-step-up-cancelled', cancelled, { once: true });
-    window.dispatchEvent(new Event('admin-step-up-required'));
-  });
-}
-
 async function fetchAPI<T>(
   endpoint: string,
-  options?: RequestInit & { signal?: AbortSignal },
-  allowStepUpRetry = true
+  options?: RequestInit & { signal?: AbortSignal }
 ): Promise<T> {
   const { headers, ...restOptions } = options || {};
   const method = String(restOptions.method || 'GET').toUpperCase();
@@ -158,35 +118,40 @@ async function fetchAPI<T>(
   if (cached && cached.expiresAt > Date.now()) {
     return cached.promise as Promise<T>;
   }
-
-  const res = await fetch(`${API_URL}${endpoint}`, {
-    credentials: 'include',
-    ...restOptions,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
-      ...headers,
-    },
-  });
+  const inFlightKey =
+    method === 'GET' && !restOptions.signal
+      ? `${endpoint}|${JSON.stringify(headers || {})}`
+      : '';
+  const existingRequest = inFlightKey ? inFlightGets.get(inFlightKey) : undefined;
+  if (existingRequest) return existingRequest as Promise<T>;
 
   const promise = (async () => {
+    const res = await fetch(`${API_URL}${endpoint}`, {
+      credentials: 'include',
+      ...restOptions,
+      headers: {
+        'Content-Type': 'application/json',
+        ...(csrfToken ? { 'x-csrf-token': csrfToken } : {}),
+        ...headers,
+      },
+    });
+
     if (!res.ok) {
       const error = await res.json().catch(() => ({ error: 'Request failed' }));
-      if (
-        allowStepUpRetry &&
-        endpoint !== '/auth/step-up' &&
-        res.status === 403 &&
-        error?.error?.code === 'STEP_UP_REQUIRED'
-      ) {
-        await waitForStepUp();
-        return fetchAPI<T>(endpoint, options, false);
-      }
       handleAuthFailure(endpoint, res.status);
       throw new ApiError(apiErrorMessage(error, res.status), res.status, error);
     }
 
     return res.json();
   })();
+
+  if (inFlightKey) {
+    inFlightGets.set(inFlightKey, promise);
+    promise.then(
+      () => inFlightGets.delete(inFlightKey),
+      () => inFlightGets.delete(inFlightKey)
+    );
+  }
 
   if (cacheKey) {
     getCache.set(cacheKey, {
@@ -217,16 +182,8 @@ export async function getDoctors(activeOnly = true) {
   return fetchAPI<{ doctors: Doctor[] }>(`/doctors${activeOnly ? '' : '?all=true'}`);
 }
 
-export async function getDoctorBySlug(slug: string) {
-  return fetchAPI<{ doctor: Doctor }>(`/doctors/${slug}`);
-}
-
 export async function getPackages(_activeOnly = true) {
   return fetchAPI<{ packages: PackageSummary[] }>('/packages');
-}
-
-export async function getPackageCommerceCatalog() {
-  return fetchAPI<{ packages: PackageSummary[] }>('/package-orders/catalog');
 }
 
 export type DiagnosticTest = {
@@ -243,48 +200,6 @@ export type DiagnosticTest = {
   report_turnaround: string | null;
   requires_clinic_confirmation: boolean;
 };
-
-export async function getDiagnosticTests(filters: { search?: string; category?: string } = {}) {
-  return fetchAPI<{ tests: DiagnosticTest[]; categories: string[]; total: number }>(
-    `/diagnostic-tests${toQuery(filters)}`
-  );
-}
-
-export async function createCustomTestOrder(data: {
-  purchaser_name: string;
-  phone: string;
-  email?: string;
-  preferred_date?: string;
-  clinical_notes?: string;
-  source_language?: 'en' | 'hi' | 'mr';
-  consent: true;
-  test_ids: string[];
-  patient: {
-    full_name: string;
-    phone: string;
-    email?: string;
-    age_years?: number;
-    gender?: string;
-  };
-}) {
-  clearApiCache('/admin/operations/package-orders');
-  return fetchAPI<{
-    order: {
-      id: string;
-      order_number: string;
-      status: string;
-      price_status: 'pending' | 'confirmed';
-      total_amount: number;
-      test_count: number;
-      payment_required: boolean;
-    };
-    message: string;
-  }>('/custom-test-orders', {
-    method: 'POST',
-    headers: { 'Idempotency-Key': idempotencyKey() },
-    body: JSON.stringify(data),
-  });
-}
 
 export type AdminDiagnosticTest = DiagnosticTest & {
   is_active: boolean;
@@ -320,20 +235,8 @@ export async function updateAdminDiagnosticTest(
   );
 }
 
-export async function getFeaturedPackages() {
-  return fetchAPI<{ packages: PackageSummary[] }>('/packages/featured');
-}
-
-export async function getPackageBySlug(slug: string) {
-  return fetchAPI<{ package: PackageDetail; tests: PackageTestSummary[] }>(`/packages/${slug}`);
-}
-
 export async function getArticles(publishedOnly = true) {
   return fetchAPI<{ articles: any[] }>(`/articles${publishedOnly ? '' : '?all=true'}`);
-}
-
-export async function getArticleBySlug(slug: string) {
-  return fetchAPI<{ article: any }>(`/articles/${slug}`);
 }
 
 export async function submitEnquiry(data: {
@@ -381,12 +284,6 @@ export async function submitPrivacyRightsRequest(data: {
   );
 }
 
-export async function getAdminPackages(token = '') {
-  return fetchAPI<{ packages: any[] }>('/admin/packages', {
-    headers: authHeaders(token),
-  });
-}
-
 export async function getAdminPackagesFiltered(
   token: string | undefined,
   filters: {
@@ -430,35 +327,9 @@ export async function updateAdminPackage(
 }
 
 export async function login(email: string, password: string) {
-  return fetchAPI<{
-    mfa: {
-      required: true;
-      challenge_id: string;
-      expires_at: string;
-      enrollment_required: boolean;
-      secret?: string;
-      otpauth_uri?: string;
-    };
-  }>('/auth/login', {
+  return fetchAPI<{ user: AdminUser }>('/auth/login', {
     method: 'POST',
     body: JSON.stringify({ email, password }),
-  });
-}
-
-export async function verifyAdminMfa(
-  challengeId: string,
-  input: { code?: string; recovery_code?: string }
-) {
-  return fetchAPI<{ user: AdminUser; recovery_codes?: string[] }>('/auth/mfa/verify', {
-    method: 'POST',
-    body: JSON.stringify({ challenge_id: challengeId, ...input }),
-  });
-}
-
-export async function stepUpAdmin(input: { code?: string; recovery_code?: string }) {
-  return fetchAPI<{ success: boolean; valid_for_seconds: number }>('/auth/step-up', {
-    method: 'POST',
-    body: JSON.stringify(input),
   });
 }
 
@@ -581,124 +452,6 @@ export async function getAppointmentSlots(doctorId: string, date: string) {
   );
 }
 
-export async function getDoctorAvailability(doctorId: string, from: string, to: string) {
-  return fetchAPI<{
-    availability: Record<string, any[]>;
-    days: Record<
-      string,
-      {
-        date: string;
-        status: 'open' | 'closed' | 'fully_booked' | 'past' | 'booking_not_open' | 'booking_closed';
-        total_slots: number;
-        available_slots: number;
-        opening_time: string | null;
-        closing_time: string | null;
-      }
-    >;
-    timezone: string;
-  }>(
-    `/public/doctors/${encodeURIComponent(doctorId)}/availability?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`
-  );
-}
-
-export type PublicAppointmentConfig = {
-  clinic_timezone: string;
-  clinic_date: string;
-  fee: number;
-  currency: 'INR';
-  service: { id: string; code: string; name: string; version: number };
-  policy_version: string;
-  consent_version: string;
-  minimum_booking_notice_minutes: number;
-  maximum_booking_horizon_days: number;
-  hold_duration_minutes: number;
-  arrival_buffer_instructions: string;
-};
-
-export async function getPublicAppointmentConfig(doctorId?: string, appointmentType?: string) {
-  return fetchAPI<{ config: PublicAppointmentConfig }>(
-    `/public/appointments/config${toQuery({ doctor_id: doctorId, appointment_type: appointmentType })}`
-  );
-}
-
-export async function createAppointmentHold(data: {
-  doctor_id: string;
-  appointment_date: string;
-  start_time: string;
-  patient_phone: string;
-  appointment_type?: 'new' | 'follow_up';
-}) {
-  clearApiCache('/appointments');
-  return fetchAPI<{ hold: AppointmentHold }>('/appointments/holds', {
-    method: 'POST',
-    headers: { 'Idempotency-Key': idempotencyKey() },
-    body: JSON.stringify(data),
-  });
-}
-
-export async function bookAppointment(data: any) {
-  clearApiCache('/admin/operations');
-  clearApiCache('/appointments');
-  return fetchAPI<{ appointment: Appointment }>('/appointments', {
-    method: 'POST',
-    headers: { 'Idempotency-Key': idempotencyKey() },
-    body: JSON.stringify(data),
-  });
-}
-
-export async function createPackageOrder(data: any) {
-  clearApiCache('/admin/operations');
-  return fetchAPI<{ order: any }>('/package-orders', {
-    method: 'POST',
-    headers: { 'Idempotency-Key': idempotencyKey() },
-    body: JSON.stringify(data),
-  });
-}
-
-export async function quotePackageOrder(data: {
-  preferred_date?: string;
-  items: Array<{ package_id: string; quantity?: number; preferred_date?: string }>;
-}) {
-  return fetchAPI<{ quote: any }>('/package-orders/quote', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function createPayment(data: { order_id?: string; appointment_id?: string }) {
-  clearApiCache('/admin/operations/payments');
-  return fetchAPI<{ payment: any }>('/payments/create', {
-    method: 'POST',
-    headers: { 'Idempotency-Key': idempotencyKey() },
-    body: JSON.stringify(data),
-  });
-}
-
-export async function getPaymentStatus(capability: string) {
-  return fetchAPI<{ payment: any }>(`/public/payments/status/${encodeURIComponent(capability)}`);
-}
-
-export async function recoverAppointment(reference: string, phone: string) {
-  return fetchAPI<{
-    booking: {
-      reference: string;
-      state: string;
-      expires_at: string;
-      appointment_number: string | null;
-      payment_status: string | null;
-    };
-  }>('/public/appointments/recover', {
-    method: 'POST',
-    body: JSON.stringify({ reference, phone }),
-  });
-}
-
-export async function emailReceipt(capability: string) {
-  return fetchAPI<{ receipt: any }>(`/public/receipts/${encodeURIComponent(capability)}/email`, {
-    method: 'POST',
-  });
-}
-
 export function getBackendAssetUrl(path?: string | null) {
   if (!path) return '';
   return browserApiUrl(path);
@@ -735,15 +488,6 @@ export type AppointmentSettings = {
   cancellation_cutoff_hours: number;
   arrival_buffer_instructions: string;
 };
-
-export async function getAdminAppointmentSettings(token = '') {
-  return fetchAPI<{ settings: AppointmentSettings; warnings: string[] }>(
-    '/admin/operations/appointment-settings',
-    {
-      headers: authHeaders(token),
-    }
-  );
-}
 
 export async function updateAdminAppointmentSettings(
   token: string | undefined,
@@ -793,12 +537,6 @@ export async function getAdminAppointments(
   });
 }
 
-export async function getAdminAvailabilityRules(token = '', filters: { doctor_id?: string } = {}) {
-  return fetchAPI<{ rules: any[] }>(`/admin/operations/availability-rules${toQuery(filters)}`, {
-    headers: authHeaders(token),
-  });
-}
-
 export async function createAdminAvailabilityRule(token: string | undefined, data: any) {
   clearApiCache('/admin/operations/availability-rules');
   clearApiCache('/public/doctors');
@@ -810,32 +548,12 @@ export async function createAdminAvailabilityRule(token: string | undefined, dat
   });
 }
 
-export async function getAdminCalendarOverrides(
-  token = '',
-  filters: { doctor_id?: string; from?: string; to?: string } = {}
-) {
-  return fetchAPI<{ overrides: any[] }>(`/admin/operations/calendar-overrides${toQuery(filters)}`, {
-    headers: authHeaders(token),
-  });
-}
-
 export async function getAdminCalendarView(
   token = '',
   filters: { doctor_id: string; from: string; to: string }
 ) {
   return fetchAPI<{ calendar: any }>(`/admin/operations/calendar-view${toQuery(filters)}`, {
     headers: authHeaders(token),
-  });
-}
-
-export async function createAdminCalendarOverride(token: string | undefined, data: any) {
-  clearApiCache('/admin/operations/calendar-overrides');
-  clearApiCache('/public/doctors');
-  clearApiCache('/appointments/slots');
-  return fetchAPI<{ override: any }>('/admin/operations/calendar-overrides', {
-    method: 'POST',
-    headers: authHeaders(token),
-    body: JSON.stringify(data),
   });
 }
 
@@ -1173,6 +891,65 @@ export async function requestAdminPaymentRefund(
   );
 }
 
+export type PaymentConfigurationInput = {
+  payment_mode: 'disabled' | 'direct_upi' | 'phonepe';
+  direct_upi_enabled: boolean;
+  gateway_enabled: boolean;
+  active_provider: 'disabled' | 'direct_upi' | 'phonepe';
+  merchant_upi_vpa?: string | null;
+  merchant_display_name?: string | null;
+  merchant_payment_contact?: string | null;
+  merchant_category?: string | null;
+  upi_transaction_note_template?: string | null;
+  payment_order_expiry_minutes: number;
+  verification_reservation_minutes: number;
+  utr_required: true;
+  screenshot_enabled: boolean;
+  screenshot_required: boolean;
+  pay_at_clinic_enabled: boolean;
+  effective_from: string;
+  change_reason: string;
+};
+
+export async function getAdminPaymentSettings() {
+  return fetchAPI<{ active: any; configurations: any[] }>('/admin/operations/payment-settings');
+}
+
+export async function createAdminPaymentSettings(input: PaymentConfigurationInput) {
+  clearApiCache('/admin/operations/payment-settings');
+  return fetchAPI<{ configuration: any }>('/admin/operations/payment-settings', {
+    method: 'POST',
+    body: JSON.stringify(input),
+  });
+}
+
+export async function verifyAdminDirectUpiPayment(
+  id: string,
+  input: {
+    action: 'confirm' | 'reject' | 'amount_mismatch' | 'duplicate' | 'request_clarification';
+    expected_version: number;
+    reason: string;
+    observed_amount_paisa?: number;
+    duplicate_of_payment_id?: string;
+  }
+) {
+  clearApiCache('/admin/operations/payments');
+  return fetchAPI<{ payment: any; finalization?: any; idempotent: boolean }>(
+    `/admin/operations/payments/${encodeURIComponent(id)}/verification`,
+    {
+      method: 'POST',
+      headers: { 'Idempotency-Key': idempotencyKey() },
+      body: JSON.stringify(input),
+    }
+  );
+}
+
+export function adminPaymentEvidenceUrl(paymentId: string, evidenceId: string) {
+  return browserApiUrl(
+    `/api/admin/operations/payments/${encodeURIComponent(paymentId)}/evidence/${encodeURIComponent(evidenceId)}`
+  );
+}
+
 export async function downloadAdminExport(
   token: string | undefined,
   kind: 'appointments' | 'payments',
@@ -1281,49 +1058,6 @@ export async function deadLetterAdminNotification(
   );
 }
 
-export async function getIntakeInvitation(token: string) {
-  return fetchAPI<{ invitation: any }>(`/intake/${encodeURIComponent(token)}`);
-}
-export async function startIntakeVerification(token: string) {
-  return fetchAPI<{ verification: any }>(`/intake/${encodeURIComponent(token)}/verification`, {
-    method: 'POST',
-    body: '{}',
-  });
-}
-export async function confirmIntakeVerification(
-  token: string,
-  verification_id: string,
-  code: string
-) {
-  return fetchAPI<{ session: any }>(`/intake/${encodeURIComponent(token)}/verification/confirm`, {
-    method: 'POST',
-    body: JSON.stringify({ verification_id, code }),
-  });
-}
-export async function getIntakeDraft(token: string, session: string) {
-  return fetchAPI<{ draft: any }>(`/intake/${encodeURIComponent(token)}/draft`, {
-    headers: { Authorization: `Bearer ${session}` },
-  });
-}
-export async function saveIntakeDraft(
-  token: string,
-  session: string,
-  expected_version: number,
-  data: Record<string, unknown>
-) {
-  return fetchAPI<{ draft: any }>(`/intake/${encodeURIComponent(token)}/draft`, {
-    method: 'PUT',
-    headers: { Authorization: `Bearer ${session}` },
-    body: JSON.stringify({ expected_version, data }),
-  });
-}
-export async function submitIntake(token: string, session: string, expected_version: number) {
-  return fetchAPI<{ submission: any }>(`/intake/${encodeURIComponent(token)}/submit`, {
-    method: 'POST',
-    headers: { Authorization: `Bearer ${session}` },
-    body: JSON.stringify({ expected_version }),
-  });
-}
 export async function createIntakeInvitation(data: Record<string, unknown>) {
   return fetchAPI<{ invitation: any }>('/admin/intake/invitations', {
     method: 'POST',
@@ -1334,9 +1068,6 @@ export async function getIntakeReviews(status?: string) {
   return fetchAPI<{ data: any[]; pagination: any }>(
     `/admin/intake/reviews${status ? `?status=${encodeURIComponent(status)}` : ''}`
   );
-}
-export async function getIntakeReview(id: string) {
-  return fetchAPI<{ review: any }>(`/admin/intake/reviews/${encodeURIComponent(id)}`);
 }
 export async function updateIntakeReview(id: string, data: Record<string, unknown>) {
   clearApiCache('/admin/intake');
@@ -1388,18 +1119,6 @@ export async function getAdminPatient(id: string, signal?: AbortSignal) {
 export async function getAdminPatientAppointments(id: string, cursor?: string) {
   return fetchAPI<{ appointments: any[]; appointmentsCursor: string | null }>(
     `/admin/patients/${encodeURIComponent(id)}/appointments${toQuery({ cursor, page_size: 25 })}`
-  );
-}
-export async function openPatientEncounter(patientId: string, data: Record<string, unknown>) {
-  return fetchAPI<{ encounter: any }>(
-    `/admin/patients/${encodeURIComponent(patientId)}/encounters`,
-    { method: 'POST', body: JSON.stringify(data) }
-  );
-}
-export async function closePatientEncounter(id: string, expected_version: number) {
-  return fetchAPI<{ encounter: any }>(
-    `/admin/patients/encounters/${encodeURIComponent(id)}/close`,
-    { method: 'POST', body: JSON.stringify({ expected_version }) }
   );
 }
 export async function createClinicalResource(patientId: string, data: Record<string, unknown>) {

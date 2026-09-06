@@ -21,7 +21,7 @@ export default function TestListCard({ tests }: TestListCardProps) {
   if (!tests || tests.length === 0) {
     return (
       <div className="soft-card p-6">
-        <h3 className="text-lg font-bold text-navy">What&apos;s included</h3>
+        <h3 className="text-lg font-bold text-ink">What&apos;s included</h3>
         <p className="mt-2 text-sm leading-relaxed text-text-light">
           Included tests are confirmed by the clinic before booking.
         </p>
@@ -39,17 +39,17 @@ export default function TestListCard({ tests }: TestListCardProps) {
 
   return (
     <div className="soft-card p-6">
-      <h3 className="text-lg font-bold text-navy">What&apos;s included</h3>
+      <h3 className="text-lg font-bold text-ink">What&apos;s included</h3>
       <div className="mt-5 grid gap-5">
         {groups.map(([category, items]) => (
           <section key={category}>
             <h4 className="text-sm font-bold uppercase capitalize text-text-light">{category}</h4>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2">
               {items.map((test) => (
-                <li key={test.id || test.test_name} className="flex items-start gap-2 rounded-2xl bg-blue-50/70 px-3 py-2 text-sm text-text-light">
+                <li key={test.id || test.test_name} className="flex items-start gap-2 rounded-2xl bg-wash-sage/70 px-3 py-2 text-sm text-text-light">
                   <CheckCircle2 className="mt-0.5 shrink-0 text-accent" size={16} aria-hidden="true" />
                   <span>
-                    <span className="font-semibold text-navy">{test.test_name}</span>
+                    <span className="font-semibold text-ink">{test.test_name}</span>
                     {test.description && <span className="mt-1 block text-xs">{test.description}</span>}
                   </span>
                 </li>

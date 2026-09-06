@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Button from '@/components/ui/Button';
 
 function label(status: string): string {
   return status.replace(/_/g, ' ');
@@ -49,7 +50,7 @@ export default function LeadMutationForm({
 
   return (
     <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
-      <h2 className="mb-4 text-lg font-bold text-navy">Update status</h2>
+      <h2 className="mb-4 text-lg font-bold text-ink">Update status</h2>
 
       <div className="mb-4">
         <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-text-light">
@@ -63,7 +64,7 @@ export default function LeadMutationForm({
               type="button"
               onClick={() => setSelectedStatus(action)}
               className={`btn btn-sm capitalize ${
-                selectedStatus === action ? 'bg-navy text-white' : 'btn-outline'
+                selectedStatus === action ? 'bg-ink text-white' : 'btn-outline'
               }`}
             >
               {label(action)}
@@ -95,14 +96,14 @@ export default function LeadMutationForm({
         </p>
       )}
 
-      <button
-        type="button"
+      <Button
         onClick={handleSubmit}
         disabled={!selectedStatus || submitting}
-        className="btn btn-primary min-h-11 w-full sm:w-auto"
+        variant="primary"
+        className="min-h-11 w-full sm:w-auto"
       >
         {submitting ? 'Updating...' : `Mark as ${selectedStatus ? label(selectedStatus) : '...'}`}
-      </button>
+      </Button>
     </div>
   );
 }

@@ -28,7 +28,28 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     init.duplex = 'half';
   }
 
-  const upstream = await fetch(upstreamUrl, init);
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, init);
+  } catch (error) {
+    console.error('API upstream unavailable', {
+      method: request.method,
+      path: request.nextUrl.pathname,
+      cause: error instanceof Error ? error.message : 'Unknown connection error',
+    });
+    return new Response(
+      JSON.stringify({
+        error: {
+          code: 'UPSTREAM_UNAVAILABLE',
+          message: 'The backend service is temporarily unavailable. Please try again shortly.',
+        },
+      }),
+      {
+        status: 503,
+        headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' },
+      }
+    );
+  }
   const responseHeaders = new Headers(upstream.headers);
   RESPONSE_HEADERS_TO_REMOVE.forEach((header) => responseHeaders.delete(header));
   responseHeaders.set('Cache-Control', 'no-store');

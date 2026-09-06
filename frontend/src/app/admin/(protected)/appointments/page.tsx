@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { Download, RefreshCw, Search } from 'lucide-react';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import {
@@ -24,6 +25,7 @@ import {
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 import { promptAdminAction } from '@/lib/adminDialogs';
 import type { AdminAppointment } from '@/lib/types';
+import Button from '@/components/ui/Button';
 
 const statuses = [
   '',
@@ -419,22 +421,24 @@ export default function AdminAppointmentsPage() {
           description="Search, filter, follow up, and update patient visit status."
           action={
             <div className="flex flex-wrap gap-2">
-              <button
-                className="btn btn-outline inline-flex items-center gap-2"
+              <Button
+                variant="outline"
+                className="inline-flex items-center gap-2"
                 onClick={() => load('refresh')}
                 disabled={refreshing}
               >
                 <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
                 Refresh
-              </button>
-              <button
-                className="btn btn-outline inline-flex items-center gap-2"
+              </Button>
+              <Button
+                variant="outline"
+                className="inline-flex items-center gap-2"
                 onClick={exportCsv}
                 disabled={exporting}
               >
                 <Download size={16} />
                 {exporting ? 'Exporting...' : 'Export CSV'}
-              </button>
+              </Button>
             </div>
           }
         />
@@ -446,14 +450,14 @@ export default function AdminAppointmentsPage() {
             ['week', 'Week'],
             ['all', 'All'],
           ].map(([value, label]) => (
-            <button
+            <Button
               key={value}
-              type="button"
-              className="btn btn-outline btn-sm"
+              variant="outline"
+              size="sm"
               onClick={() => setRange(value as any)}
             >
               {label}
-            </button>
+            </Button>
           ))}
         </div>
 
@@ -607,7 +611,7 @@ export default function AdminAppointmentsPage() {
                           <td className="p-3">
                             <button
                               type="button"
-                              className="font-semibold text-navy hover:text-accent"
+                              className="font-semibold text-ink hover:text-accent"
                               onClick={() => setSelected(row)}
                             >
                               {row.patient_name}
@@ -686,29 +690,30 @@ function RowActions({
   return (
     <div className="flex flex-wrap gap-2">
       {['awaiting_payment', 'payment_pending', 'confirmed'].includes(row.status) && (
-        <button
-          type="button"
-          className="btn btn-outline btn-sm"
+        <Button
+          variant="outline"
+          size="sm"
           disabled={updatingId === row.id}
           onClick={() => onReschedule(row)}
         >
           Reschedule
-        </button>
+        </Button>
       )}
       {row.phone && (
-        <a className="btn btn-outline btn-sm" href={`tel:${row.phone}`}>
+        <Button variant="outline" size="sm" href={`tel:${row.phone}`}>
           Call
-        </a>
+        </Button>
       )}
       {row.phone && (
-        <a
-          className="btn btn-sm bg-[#25D366] text-white hover:bg-[#1fb357]"
+        <Button
+          size="sm"
+          className="bg-[#25D366] text-white hover:bg-[#1fb357]"
           href={whatsAppLink(row.phone)}
           target="_blank"
           rel="noopener noreferrer"
         >
           WhatsApp
-        </a>
+        </Button>
       )}
       <select
         className="rounded-md border border-border px-2 py-2 text-xs"
@@ -747,7 +752,7 @@ function AppointmentCard({
       <button type="button" className="w-full text-left" onClick={onSelect}>
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="font-bold text-navy">{row.patient_name}</p>
+            <p className="font-bold text-ink">{row.patient_name}</p>
             <p className="text-xs text-text-light">{row.doctor_name}</p>
           </div>
           <StatusBadge tone={statusTone(row.status)}>
@@ -802,12 +807,12 @@ function AppointmentDetailDrawer({
     <AdminDrawer label="Appointment detail" onClose={onClose} widthClass="max-w-[440px]">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-navy">{row.patient_name}</h2>
+          <h2 className="text-xl font-bold text-ink">{row.patient_name}</h2>
           <p className="text-sm text-text-light">{row.appointment_number || row.id}</p>
         </div>
-        <button className="btn btn-outline btn-sm" type="button" onClick={onClose}>
+        <Button variant="outline" size="sm" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
       <div className="grid gap-4 text-sm">
         <Detail label="Doctor" value={row.doctor_name} />
@@ -825,7 +830,15 @@ function AppointmentDetailDrawer({
         )}
         <Detail
           label="Payment"
-          value={String(row.payment_status || 'not linked').replace(/_/g, ' ')}
+          value={
+            row.linked_payment_id ? (
+              <Link className="font-semibold text-primary underline" href={`/admin/payments?search=${encodeURIComponent(row.linked_payment_reference || row.linked_payment_id)}`}>
+                {String(row.linked_payment_status || row.payment_status || 'linked').replace(/_/g, ' ')}
+              </Link>
+            ) : (
+              String(row.payment_status || 'not linked').replace(/_/g, ' ')
+            )
+          }
         />
         <Detail label="Source" value={row.source || '-'} />
         {row.reason && <Detail label="Reason" value={row.reason} />}

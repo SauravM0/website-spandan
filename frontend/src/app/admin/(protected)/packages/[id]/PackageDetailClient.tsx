@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { getAdminPackageDetail, updateAdminPackage } from '@/lib/api';
+import Button from '@/components/ui/Button';
 
 type PackageForm = {
   name: string;
@@ -301,9 +302,9 @@ export default function PackageDetailClient({ id }: { id: string }) {
         <div className="container max-w-[900px]">
           <div className="rounded-xl border border-danger/30 bg-danger/5 p-6 text-center">
             <p className="text-sm font-semibold text-danger">{error}</p>
-            <button type="button" onClick={load} className="btn btn-outline mt-4">
+            <Button onClick={load} variant="outline" className="mt-4">
               Retry
-            </button>
+            </Button>
           </div>
         </div>
       </section>
@@ -327,7 +328,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
       <div className="container max-w-[900px]">
         <div className="mb-6 flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
-            <h1 className="truncate text-xl font-bold text-navy sm:text-2xl">{pkg.name}</h1>
+            <h1 className="truncate text-xl font-bold text-ink sm:text-2xl">{pkg.name}</h1>
             <p className="text-sm text-text-light">
               v{pkg.version} &middot; {pkg.category} &middot;{' '}
               {pkg.is_active ? 'Active' : 'Inactive'}
@@ -339,22 +340,24 @@ export default function PackageDetailClient({ id }: { id: string }) {
                 Unsaved changes
               </span>
             )}
-            <a
+            <Button
               href={`/packages/${pkg.slug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-outline btn-sm"
+              variant="outline"
+              size="sm"
             >
               Preview
-            </a>
-            <button
-              type="button"
+            </Button>
+            <Button
               onClick={handleSave}
               disabled={saving || !dirty}
-              className="btn btn-primary btn-sm min-h-11"
+              variant="primary"
+              size="sm"
+              className="min-h-11"
             >
               {saving ? 'Saving...' : 'Save'}
-            </button>
+            </Button>
           </div>
         </div>
 
@@ -372,7 +375,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
         <div className="space-y-6">
           {/* Identity */}
           <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
-            <h2 className="mb-4 text-lg font-bold text-navy">Identity</h2>
+            <h2 className="mb-4 text-lg font-bold text-ink">Identity</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="form-group">
                 <label>Name *</label>
@@ -432,10 +435,10 @@ export default function PackageDetailClient({ id }: { id: string }) {
           {/* Tests */}
           <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
             <div className="mb-4 flex items-center justify-between">
-              <h2 className="text-lg font-bold text-navy">Tests</h2>
-              <button type="button" onClick={handleAddTest} className="btn btn-outline btn-sm">
+              <h2 className="text-lg font-bold text-ink">Tests</h2>
+              <Button onClick={handleAddTest} variant="outline" size="sm">
                 + Add test
-              </button>
+              </Button>
             </div>
             {tests.length === 0 ? (
               <p className="text-sm text-text-light">No tests added yet.</p>
@@ -447,24 +450,26 @@ export default function PackageDetailClient({ id }: { id: string }) {
                     className="flex flex-wrap items-start gap-2 rounded-lg border border-border p-3"
                   >
                     <div className="flex items-center gap-1 pt-1">
-                      <button
-                        type="button"
+                      <Button
                         onClick={() => handleTestMove(index, index - 1)}
                         disabled={index === 0}
-                        className="btn btn-outline btn-sm min-h-[28px] min-w-[28px] p-0"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[28px] min-w-[28px] p-0"
                         aria-label="Move up"
                       >
                         &uarr;
-                      </button>
-                      <button
-                        type="button"
+                      </Button>
+                      <Button
                         onClick={() => handleTestMove(index, index + 1)}
                         disabled={index === tests.length - 1}
-                        className="btn btn-outline btn-sm min-h-[28px] min-w-[28px] p-0"
+                        variant="outline"
+                        size="sm"
+                        className="min-h-[28px] min-w-[28px] p-0"
                         aria-label="Move down"
                       >
                         &darr;
-                      </button>
+                      </Button>
                     </div>
                     <div className="flex-1 grid gap-2 sm:grid-cols-3">
                       <div className="form-group mb-0">
@@ -493,13 +498,14 @@ export default function PackageDetailClient({ id }: { id: string }) {
                         />
                       </div>
                     </div>
-                    <button
-                      type="button"
+                    <Button
                       onClick={() => handleRemoveTest(index)}
-                      className="btn btn-outline btn-sm text-danger"
+                      variant="outline"
+                      size="sm"
+                      className="text-danger"
                     >
                       Remove
-                    </button>
+                    </Button>
                   </div>
                 ))}
               </div>
@@ -508,7 +514,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
 
           {/* Pricing */}
           <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
-            <h2 className="mb-4 text-lg font-bold text-navy">Pricing</h2>
+            <h2 className="mb-4 text-lg font-bold text-ink">Pricing</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="form-group">
                 <label>Base Price *</label>
@@ -616,7 +622,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
 
           {/* Validity */}
           <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
-            <h2 className="mb-4 text-lg font-bold text-navy">Validity</h2>
+            <h2 className="mb-4 text-lg font-bold text-ink">Validity</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="form-group">
                 <label>Effective From</label>
@@ -679,7 +685,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
 
           {/* Preparation */}
           <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
-            <h2 className="mb-4 text-lg font-bold text-navy">Preparation & Suitability</h2>
+            <h2 className="mb-4 text-lg font-bold text-ink">Preparation & Suitability</h2>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="form-group sm:col-span-2">
                 <label>Prep Instructions</label>
@@ -771,7 +777,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
 
           {/* Publish */}
           <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
-            <h2 className="mb-4 text-lg font-bold text-navy">Publish</h2>
+            <h2 className="mb-4 text-lg font-bold text-ink">Publish</h2>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="form-group">
                 <label>Publication Status</label>
@@ -835,7 +841,7 @@ export default function PackageDetailClient({ id }: { id: string }) {
 
           {/* Terms */}
           <div className="rounded-xl border border-border bg-white p-4 sm:p-6">
-            <h2 className="mb-4 text-lg font-bold text-navy">Terms & Policies</h2>
+            <h2 className="mb-4 text-lg font-bold text-ink">Terms & Policies</h2>
             <div className="grid gap-4">
               <div className="form-group">
                 <label>Terms Text</label>
@@ -868,14 +874,14 @@ export default function PackageDetailClient({ id }: { id: string }) {
                   <span>All changes saved</span>
                 )}
               </div>
-              <button
-                type="button"
+              <Button
                 onClick={handleSave}
                 disabled={saving || !dirty}
-                className="btn btn-primary min-h-11"
+                variant="primary"
+                className="min-h-11"
               >
                 {saving ? 'Saving...' : 'Save package'}
-              </button>
+              </Button>
             </div>
           </div>
         </div>

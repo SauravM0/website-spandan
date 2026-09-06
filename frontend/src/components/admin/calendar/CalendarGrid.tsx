@@ -2,7 +2,8 @@
 
 import React from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
-import { weekdays, monthStart, monthCells, dayStatus, slotsForDay, statusClasses, addMonths, todayKey } from './CalendarUtils';
+import { weekdays, monthStart, dayStatus, slotsForDay, statusClasses, addMonths, todayKey } from './CalendarUtils';
+import Button from '@/components/ui/Button';
 
 type SlotSummary = { available: boolean; start_time?: string; end_time?: string };
 
@@ -12,7 +13,6 @@ export default function CalendarGrid({
   availability,
   appointmentsByDate,
   overridesByDate,
-  selectedDate,
   selectedDates,
   saving,
   onSelectDate,
@@ -37,7 +37,7 @@ export default function CalendarGrid({
     <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
       <div className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
         <div>
-          <h2 className="flex items-center gap-2 text-xl font-black text-navy">
+          <h2 className="flex items-center gap-2 text-xl font-black text-ink">
             <CalendarDays size={22} />{' '}
             {new Intl.DateTimeFormat('en-IN', {
               month: 'long',
@@ -49,23 +49,23 @@ export default function CalendarGrid({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <button className="btn btn-outline btn-sm" type="button" onClick={prevMonth}>
+          <Button variant="outline" size="sm" onClick={prevMonth}>
             <ChevronLeft size={16} /> Previous
-          </button>
-          <button className="btn btn-accent btn-sm" type="button" onClick={goToday}>
+          </Button>
+          <Button variant="accent" size="sm" onClick={goToday}>
             Today
-          </button>
-          <button className="btn btn-outline btn-sm" type="button" onClick={nextMonth}>
+          </Button>
+          <Button variant="outline" size="sm" onClick={nextMonth}>
             Next <ChevronRight size={16} />
-          </button>
+          </Button>
         </div>
       </div>
 
       <div className="mb-4 grid gap-2 rounded-lg border border-border bg-bg-alt p-3 text-xs font-bold text-text-light sm:grid-cols-4">
         <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-emerald-500" /> Available</span>
-        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-sky-500" /> Has bookings</span>
+        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-primary" /> Has bookings</span>
         <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-amber-500" /> Partial</span>
-        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Closed</span>
+        <span className="inline-flex items-center gap-2"><span className="h-2.5 w-2.5 rounded-full bg-danger" /> Closed</span>
       </div>
 
       <div className="hidden overflow-x-auto pb-2 md:block">

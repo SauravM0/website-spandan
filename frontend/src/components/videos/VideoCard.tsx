@@ -27,7 +27,7 @@ export default function VideoCard({ video }: { video: Video }) {
 
   return (
     <article className="card overflow-hidden flex flex-col">
-      <div className="relative aspect-video bg-blue-50">
+      <div className="relative aspect-video bg-wash-sage">
         {!loaded ? (
           <button
             onClick={() => setLoaded(true)}
@@ -42,7 +42,7 @@ export default function VideoCard({ video }: { video: Video }) {
                 loading="lazy"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-blue-50">
+              <div className="flex h-full w-full items-center justify-center bg-wash-sage">
                 <span className="text-sm text-text-light">No thumbnail</span>
               </div>
             )}
@@ -79,7 +79,7 @@ export default function VideoCard({ video }: { video: Video }) {
             {video.topic}
           </span>
         )}
-        <h3 className="mb-2 text-sm font-bold leading-snug text-navy line-clamp-2">
+        <h3 className="mb-2 text-sm font-bold leading-snug text-ink line-clamp-2">
           {video.title}
         </h3>
         <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-text-light">

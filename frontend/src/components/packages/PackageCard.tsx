@@ -1,5 +1,6 @@
-import Link from 'next/link';
-import { BadgePercent, CalendarCheck, CheckCircle2, HeartPulse } from 'lucide-react';
+import { BadgePercent, CheckCircle2, HeartPulse, MessageCircle } from 'lucide-react';
+import Button from '@/components/ui/Button';
+import { whatsappLink } from '@/lib/settings';
 
 export type PublicPackageSummary = {
   id: string;
@@ -71,13 +72,13 @@ export default function PackageCard({ pkg, variant = 'list' }: PackageCardProps)
     <article className="card trust-card flex h-full flex-col overflow-hidden p-5 sm:p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-accent">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-wash-sage text-accent">
             <HeartPulse size={22} aria-hidden="true" />
           </span>
           <span className="badge badge-featured capitalize">{packageCategoryLabel(pkg)}</span>
         </div>
         {hasDiscount && (
-          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-pink-100 px-2.5 py-1 text-xs font-bold text-pink-800">
+          <span className="inline-flex shrink-0 items-center gap-1 rounded-full bg-blush/15 px-2.5 py-1 text-xs font-bold text-blush-deep">
             <BadgePercent size={14} aria-hidden="true" />
             {pkg.discount_label || 'Offer'}
           </span>
@@ -85,7 +86,7 @@ export default function PackageCard({ pkg, variant = 'list' }: PackageCardProps)
       </div>
 
       <h2
-        className={`${variant === 'home' ? 'text-lg' : 'text-xl'} min-h-[3.5rem] font-extrabold leading-snug text-navy`}
+        className={`${variant === 'home' ? 'text-lg' : 'text-xl'} min-h-[3.5rem] font-extrabold leading-snug text-ink`}
       >
         {pkg.name}
       </h2>
@@ -107,7 +108,7 @@ export default function PackageCard({ pkg, variant = 'list' }: PackageCardProps)
       </div>
 
       <div className="mt-5">
-        <p className="text-sm font-bold text-navy">Package highlights</p>
+        <p className="text-sm font-bold text-ink">Package highlights</p>
         {previewInclusions.length ? (
           <ul className="mt-3 grid gap-2.5 text-sm text-text-light">
             {previewInclusions.map((item) => (
@@ -127,16 +128,23 @@ export default function PackageCard({ pkg, variant = 'list' }: PackageCardProps)
 
       <div className="mt-auto pt-6">
         <div className="flex flex-col gap-2 min-[420px]:flex-row">
-          <Link href={`/packages/${pkg.slug}`} className="btn btn-outline btn-sm flex-1">
+          <Button href={`/packages/${pkg.slug}`} variant="outline" size="sm" className="flex-1">
             View details
-          </Link>
+          </Button>
           {bookable ? (
-            <Link href={`/book-package?package=${pkg.id}`} className="btn btn-accent btn-sm flex-1">
-              <CalendarCheck size={16} aria-hidden="true" />
-              Book package
-            </Link>
+            <Button
+              href={whatsappLink(`Hello, I would like to know more about the ${pkg.name}.`)}
+              target="_blank"
+              rel="noopener noreferrer"
+              variant="accent"
+              size="sm"
+              className="flex-1"
+            >
+              <MessageCircle size={16} aria-hidden="true" />
+              Enquire on WhatsApp
+            </Button>
           ) : (
-            <span className="btn btn-sm flex-1 cursor-not-allowed bg-blue-50 text-text-light shadow-none">
+            <span className="btn btn-sm flex-1 cursor-not-allowed bg-wash-sage text-text-light shadow-none">
               Unavailable
             </span>
           )}

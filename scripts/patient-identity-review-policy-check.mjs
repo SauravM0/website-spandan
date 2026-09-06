@@ -30,8 +30,8 @@ for (const required of [
   'patient_redirects',
 ])
   if (!service.includes(required)) errors.push(`Identity service is missing ${required}.`);
-if (!routes.includes('PATIENT_IDENTITY_REVIEW') || !routes.includes('requireRecentStepUp'))
-  errors.push('Identity review routes lack dedicated permission or step-up authentication.');
+if (!routes.includes('PATIENT_IDENTITY_REVIEW'))
+  errors.push('Identity review routes lack their dedicated permission.');
 if (!journey.includes('identity_group') || !journey.includes('packageOrders'))
   errors.push('Linked patient journey is incomplete.');
 if (!ui.includes('Duplicate patient review') || !ui.includes('minimum two'))

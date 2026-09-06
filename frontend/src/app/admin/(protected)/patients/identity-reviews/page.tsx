@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from 'react';
 import { getPatientIdentityReviews, resolvePatientIdentityReview } from '../../../../../lib/api';
+import Button from '@/components/ui/Button';
 
 const factorLabels: Record<string, string> = {
   name: 'Name',
@@ -74,7 +75,7 @@ export default function IdentityReviewQueuePage() {
   return (
     <div className="mx-auto max-w-7xl p-4 sm:p-6">
       <div className="mb-5">
-        <h1 className="text-2xl font-bold text-navy">Duplicate patient review</h1>
+        <h1 className="text-2xl font-bold text-ink">Duplicate patient review</h1>
         <p className="mt-1 text-sm text-text-light">
           Records are linked only after human verification. Source records are never deleted or
           moved.
@@ -129,7 +130,7 @@ export default function IdentityReviewQueuePage() {
             )}
           </div>
           <form onSubmit={submit} className="rounded-md border border-border bg-white p-5">
-            <h2 className="font-bold text-navy">Review decision</h2>
+            <h2 className="font-bold text-ink">Review decision</h2>
             {!selected ? (
               <p className="mt-3 text-sm text-text-light">Select a candidate pair to review.</p>
             ) : (
@@ -202,12 +203,12 @@ export default function IdentityReviewQueuePage() {
                     required
                   />
                 </label>
-                <button
-                  className="btn btn-primary"
+                <Button
+                  variant="primary"
                   disabled={busy || (outcome === 'same_person' && factors.length < 2)}
                 >
                   {busy ? 'Saving...' : 'Record decision'}
-                </button>
+                </Button>
               </fieldset>
             )}
           </form>
@@ -221,7 +222,7 @@ function PatientCandidate({ label, patient }: { label: string; patient: any }) {
   return (
     <div>
       <p className="text-xs font-bold uppercase text-text-light">{label}</p>
-      <p className="font-bold text-navy">{patient.full_name}</p>
+      <p className="font-bold text-ink">{patient.full_name}</p>
       <p className="text-sm">DOB: {patient.date_of_birth || 'Not recorded'}</p>
       <p className="text-sm">Phone: {patient.phone_masked || 'Not recorded'}</p>
       <p className="text-xs text-text-light">

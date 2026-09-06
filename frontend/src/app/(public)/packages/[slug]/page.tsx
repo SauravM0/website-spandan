@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { notFound } from 'next/navigation';
-import { ArrowLeft, BadgePercent, CalendarCheck, HelpCircle } from 'lucide-react';
+import { ArrowLeft, BadgePercent, HelpCircle, MessageCircle, Phone } from 'lucide-react';
 import PackageDetailSection, {
   orderPackagesSelectedFirst,
   packageInclusionCount,
@@ -12,8 +12,9 @@ import {
   packageCategoryLabel,
   type PublicPackageSummary,
 } from '@/components/packages/PackageCard';
-import { clinicSettings } from '@/lib/settings';
+import { clinicSettings, whatsappLink } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
+import Button from '@/components/ui/Button';
 
 async function getPackage(slug: string) {
   return serverApiGet<{ package: PublicPackageDetail | null }>(
@@ -67,7 +68,7 @@ function packageJsonLd(pkg: PublicPackageDetail) {
       priceCurrency: 'INR',
       price: Number(pkg.current_price ?? pkg.base_price ?? 0),
       availability: pkg.bookable === false ? 'https://schema.org/OutOfStock' : 'https://schema.org/InStock',
-      url: `/book-package?package=${pkg.id}`,
+      url: `/packages/${pkg.slug}`,
       seller: { '@type': 'MedicalClinic', name: clinicSettings.name },
     },
   };
@@ -112,10 +113,10 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
 
           <div className="mt-7 grid gap-7 lg:grid-cols-[1fr_420px] lg:items-center">
             <div>
-              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-pink-700">
+              <p className="mb-3 text-sm font-bold uppercase tracking-wide text-blush-deep">
                 {packageCategoryLabel(selected)} package
               </p>
-              <h1 className="heading-display text-navy">{selected.name}</h1>
+              <h1 className="heading-display text-ink">{selected.name}</h1>
               <p className="mt-4 text-base font-medium text-text-light sm:text-lg">
                 Review all {selectedCount} included tests and services, then continue down the page to compare every other package.
               </p>
@@ -123,7 +124,7 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
 
             <aside className="soft-card p-5 sm:p-6">
               <div className="flex flex-wrap items-end gap-3">
-                <p className="text-4xl font-extrabold text-navy">{formatPackageMoney(currentPrice)}</p>
+                <p className="text-4xl font-extrabold text-ink">{formatPackageMoney(currentPrice)}</p>
                 {hasOffer && (
                   <p className="pb-1 text-sm text-text-light line-through">
                     {formatPackageMoney(selected.original_price)}
@@ -132,33 +133,43 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
               </div>
               <div className="mt-3 flex flex-wrap items-center gap-3">
                 {hasOffer && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-pink-100 px-3 py-1 text-sm font-bold text-pink-800">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-blush/15 px-3 py-1 text-sm font-bold text-blush-deep">
                     <BadgePercent size={15} aria-hidden="true" />
                     {selected.discount_label || 'Offer'}
                   </span>
                 )}
                 <span className="text-sm font-semibold text-text-light">{selectedCount} inclusions</span>
               </div>
-              <Link href={`/book-package?package=${selected.id}`} className="btn btn-accent mt-5 w-full">
-                <CalendarCheck size={18} aria-hidden="true" />
-                Book package
-              </Link>
+              <Button
+                href={whatsappLink(`Hello, I would like to know more about the ${selected.name}.`)}
+                target="_blank"
+                rel="noopener noreferrer"
+                variant="accent"
+                className="mt-5 w-full"
+              >
+                <MessageCircle size={18} aria-hidden="true" />
+                Enquire on WhatsApp
+              </Button>
+              <Button href={`tel:${clinicSettings.phone}`} variant="outline" className="mt-3 w-full">
+                <Phone size={18} aria-hidden="true" />
+                Call {clinicSettings.phone}
+              </Button>
             </aside>
           </div>
         </div>
       </section>
 
-      <nav className="sticky top-20 z-30 border-y border-primary/10 bg-white/95 py-3 shadow-[0_8px_24px_rgba(23,58,94,0.08)] backdrop-blur" aria-label="Jump to package">
+      <nav className="sticky top-20 z-30 border-y border-primary/10 bg-white/95 py-3 shadow-md backdrop-blur" aria-label="Jump to package">
         <div className="container flex items-center gap-3 overflow-x-auto pb-1">
-          <span className="shrink-0 text-sm font-extrabold text-navy">Jump to package</span>
+          <span className="shrink-0 text-sm font-extrabold text-ink">Jump to package</span>
           {orderedPackages.map((pkg) => (
             <Link
               key={pkg.slug}
               href={`#package-${pkg.slug}`}
               className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition hover:border-accent hover:text-accent ${
                 pkg.slug === selected.slug
-                  ? 'border-accent bg-blue-50 text-accent'
-                  : 'border-primary/20 bg-white text-navy'
+                  ? 'border-accent bg-wash-sage text-accent'
+                  : 'border-primary/20 bg-white text-ink'
               }`}
             >
               {shortJumpLabel(pkg.name)}
@@ -175,7 +186,7 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
                 {index === 1 && (
                   <div className="mb-8 flex items-center gap-4" aria-hidden="true">
                     <span className="h-px flex-1 bg-primary/20" />
-                    <span className="text-center text-lg font-extrabold text-navy">Continue comparing all packages</span>
+                    <span className="text-center text-lg font-extrabold text-ink">Continue comparing all packages</span>
                     <span className="h-px flex-1 bg-primary/20" />
                   </div>
                 )}
@@ -186,11 +197,11 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
 
           <div className="soft-card mx-auto mt-10 max-w-3xl p-6 text-center">
             <HelpCircle className="mx-auto text-accent" size={28} aria-hidden="true" />
-            <h2 className="mt-3 text-xl font-extrabold text-navy">Need help choosing a package?</h2>
+            <h2 className="mt-3 text-xl font-extrabold text-ink">Need help choosing a package?</h2>
             <p className="mt-2 text-sm leading-relaxed text-text-light">
               Ask the clinic team for guidance before booking if you are unsure which package matches your needs.
             </p>
-            <Link href="/contact" className="btn btn-outline mt-5">Ask the clinic</Link>
+            <Button href="/contact" variant="outline" className="mt-5">Ask the clinic</Button>
           </div>
         </div>
       </section>

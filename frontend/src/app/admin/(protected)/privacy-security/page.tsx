@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { ApiError, getPrivacyRightsRequests, updatePrivacyRightsRequest } from '@/lib/api';
 import { useAdminSession } from '@/components/admin/AdminSessionContext';
 import { confirmAdminAction, promptAdminAction } from '@/lib/adminDialogs';
+import Button from '@/components/ui/Button';
 
 export default function PrivacySecurityPage() {
   const { hasCapability } = useAdminSession();
@@ -62,7 +63,7 @@ export default function PrivacySecurityPage() {
   return (
     <section className="p-4 sm:p-6">
       <div className="mx-auto max-w-6xl">
-        <h1 className="text-2xl font-bold text-navy">Privacy request queue</h1>
+        <h1 className="text-2xl font-bold text-ink">Privacy request queue</h1>
         <p className="mt-2 text-sm text-text-light">
           Verify identity outside this system before processing. This queue never changes or deletes
           patient records automatically.
@@ -104,7 +105,7 @@ export default function PrivacySecurityPage() {
               <article key={item.id} className="soft-card p-4">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
-                    <h2 className="font-bold text-navy">{item.reference_number}</h2>
+                    <h2 className="font-bold text-ink">{item.reference_number}</h2>
                     <p className="text-sm">
                       {item.request_type.replaceAll('_', ' ')} · {item.requester_name} ·{' '}
                       {item.relationship.replaceAll('_', ' ')}
@@ -124,41 +125,41 @@ export default function PrivacySecurityPage() {
                 {canManage && (
                   <div className="mt-4 flex flex-wrap gap-2">
                     {item.status === 'pending_identity_verification' && (
-                      <button
-                        className="btn border border-border"
+                      <Button
+                        className="border border-border"
                         onClick={() => transition(item, 'identity_verified')}
                       >
                         Record identity verified
-                      </button>
+                      </Button>
                     )}
                     {item.status === 'identity_verified' && (
-                      <button
-                        className="btn border border-border"
+                      <Button
+                        className="border border-border"
                         onClick={() => transition(item, 'in_review')}
                       >
                         Start review
-                      </button>
+                      </Button>
                     )}
                     {item.status === 'in_review' && (
                       <>
-                        <button
-                          className="btn border border-border"
+                        <Button
+                          className="border border-border"
                           onClick={() => transition(item, 'restricted')}
                         >
                           Record restriction
-                        </button>
-                        <button
-                          className="btn bg-accent text-white"
+                        </Button>
+                        <Button
+                          className="bg-accent text-white"
                           onClick={() => transition(item, 'completed')}
                         >
                           Complete review
-                        </button>
-                        <button
-                          className="btn border border-danger text-danger"
+                        </Button>
+                        <Button
+                          className="border border-danger text-danger"
                           onClick={() => transition(item, 'rejected')}
                         >
                           Reject with reason
-                        </button>
+                        </Button>
                       </>
                     )}
                   </div>

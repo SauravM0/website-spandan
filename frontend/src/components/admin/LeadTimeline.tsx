@@ -58,14 +58,14 @@ export default function LeadTimeline({
   return (
     <div className="rounded-xl border border-border bg-white">
       <div className="border-b border-border px-4 py-3 sm:px-6">
-        <h2 className="text-lg font-bold text-navy">Activity timeline</h2>
+        <h2 className="text-lg font-bold text-ink">Activity timeline</h2>
       </div>
       <div className="divide-y divide-border">
         {entries.map((entry) => (
           <div key={`${entry._type}-${entry.id}`} className="px-4 py-3 sm:px-6">
             {isHistory(entry) ? (
               <div className="flex items-start gap-3">
-                <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-blue-500" />
+                <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm">
                     <span className="font-medium capitalize">{entry.old_status || 'new'}</span>

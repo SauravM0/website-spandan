@@ -11,6 +11,7 @@ import {
 } from '@/lib/api';
 import { promptAdminAction } from '@/lib/adminDialogs';
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
+import Button from '@/components/ui/Button';
 
 const statuses = [
   '',
@@ -266,7 +267,7 @@ export default function AdminPackageOrdersPage() {
     <section className="py-8">
       <div className="container">
         <div className="mb-6">
-          <h1 className="text-2xl font-bold text-navy">Package Orders</h1>
+          <h1 className="text-2xl font-bold text-ink">Package Orders</h1>
           <p className="text-sm text-text-light">
             Owned, due-dated payment and fulfilment workflow.
           </p>
@@ -330,7 +331,7 @@ export default function AdminPackageOrdersPage() {
                     <tr key={order.id} className="border-b border-border align-top">
                       <td className="p-3">
                         <button
-                          className="font-semibold text-navy underline"
+                          className="font-semibold text-ink underline"
                           onClick={() => openDetail(order.id)}
                         >
                           {order.order_number}
@@ -367,9 +368,9 @@ export default function AdminPackageOrdersPage() {
             </div>
             {cursor && (
               <div className="mt-4 text-center">
-                <button className="btn btn-outline" disabled={loadingMore} onClick={loadMore}>
+                <Button variant="outline" disabled={loadingMore} onClick={loadMore}>
                   {loadingMore ? 'Loading…' : 'Load more'}
-                </button>
+                </Button>
               </div>
             )}
           </>
@@ -382,14 +383,14 @@ export default function AdminPackageOrdersPage() {
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div>
-                <h2 className="text-xl font-bold text-navy">{selected.order.order_number}</h2>
+                <h2 className="text-xl font-bold text-ink">{selected.order.order_number}</h2>
                 <p className="text-sm">
                   {label(selected.order.status)} · version {selected.order.version}
                 </p>
               </div>
-              <button className="btn btn-outline btn-sm" onClick={() => setSelected(null)}>
+              <Button variant="outline" size="sm" onClick={() => setSelected(null)}>
                 Close
-              </button>
+              </Button>
             </div>
             <div className="mt-4 grid gap-3 text-sm sm:grid-cols-2 lg:grid-cols-4">
               <p>
@@ -418,26 +419,26 @@ export default function AdminPackageOrdersPage() {
               </p>
             </div>
             <div className="mt-4 flex flex-wrap gap-2">
-              <button className="btn btn-outline" disabled={busy} onClick={assignToMe}>
+              <Button variant="outline" disabled={busy} onClick={assignToMe}>
                 Assign to me / set due
-              </button>
+              </Button>
               {selected.order.price_status === 'pending' && (
-                <button className="btn btn-accent" disabled={busy} onClick={confirmPrices}>
+                <Button variant="accent" disabled={busy} onClick={confirmPrices}>
                   Confirm prices
-                </button>
+                </Button>
               )}
               {(selected.order.allowed_actions || []).map((action: string) => (
-                <button
+                <Button
                   key={action}
-                  className="btn btn-outline"
+                  variant="outline"
                   disabled={busy}
                   onClick={() => transition(action)}
                 >
                   {label(action)}
-                </button>
+                </Button>
               ))}
             </div>
-            <h3 className="mt-6 font-bold text-navy">Items</h3>
+            <h3 className="mt-6 font-bold text-ink">Items</h3>
             <div className="mt-2 grid gap-2">
               {selected.items.map((item: any) => (
                 <div key={item.id} className="rounded-md bg-bg-alt p-3 text-sm">
@@ -446,7 +447,7 @@ export default function AdminPackageOrdersPage() {
                 </div>
               ))}
             </div>
-            <h3 className="mt-6 font-bold text-navy">Timeline</h3>
+            <h3 className="mt-6 font-bold text-ink">Timeline</h3>
             <ol className="mt-2 grid gap-2">
               {selected.timeline.map((event: any) => (
                 <li key={event.id} className="rounded-md border border-border p-3 text-sm">

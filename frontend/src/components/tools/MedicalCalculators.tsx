@@ -63,30 +63,30 @@ export default function MedicalCalculators() {
           <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
             <Link
               href="/packages/diabetes-management-package"
-              className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
               <span className="badge badge-featured mb-3">Diabetes</span>
-              <h2 className="text-lg font-bold text-navy">Diabetes Management Package</h2>
+              <h2 className="text-lg font-bold text-ink">Diabetes Management Package</h2>
               <p className="mt-2 text-sm leading-relaxed text-text-light">
                 Review blood sugar, HbA1c, lipids, kidney health, and related diabetes markers.
               </p>
             </Link>
             <Link
               href="/facilities"
-              className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
               <span className="badge badge-new mb-3">Monitoring</span>
-              <h2 className="text-lg font-bold text-navy">CGMS and ABPM Facilities</h2>
+              <h2 className="text-lg font-bold text-ink">CGMS and ABPM Facilities</h2>
               <p className="mt-2 text-sm leading-relaxed text-text-light">
                 Learn about continuous glucose monitoring and 24-hour blood pressure monitoring at Spandan.
               </p>
             </Link>
             <Link
               href="/contact"
-              className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy"
+              className="card p-6 block hover:shadow-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink"
             >
               <span className="badge badge-featured mb-3">Appointments</span>
-              <h2 className="text-lg font-bold text-navy">Talk to Spandan</h2>
+              <h2 className="text-lg font-bold text-ink">Talk to Spandan</h2>
               <p className="mt-2 text-sm leading-relaxed text-text-light">
                 Book a clinician review if your scores are elevated or symptoms need attention.
               </p>

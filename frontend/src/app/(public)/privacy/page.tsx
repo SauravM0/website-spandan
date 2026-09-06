@@ -28,8 +28,6 @@ const sections = [
 ] as const;
 
 export default function PrivacyPolicyPage() {
-  const currYear = new Date().getFullYear();
-
   return (
     <>
       <section className="soft-page-hero py-16">
@@ -42,7 +40,7 @@ export default function PrivacyPolicyPage() {
       <section className="section">
         <div className="container max-w-[800px]">
           <nav aria-label="Table of contents" className="soft-card mb-10 p-6">
-            <h2 className="text-lg font-bold text-navy mb-4">Contents</h2>
+            <h2 className="text-lg font-bold text-ink mb-4">Contents</h2>
             <ul className="space-y-2">
               {sections.map((s) => (
                 <li key={s.id}>
@@ -56,7 +54,7 @@ export default function PrivacyPolicyPage() {
 
           <div className="prose max-w-none">
             <section id="who-we-are" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">1. Who We Are (Controller Identity)</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">1. Who We Are (Controller Identity)</h2>
               <p className="mb-3">
                 {clinicSettings.name} is the data controller responsible for the personal data collected 
                 through this website.
@@ -70,13 +68,13 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="data-we-collect" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">2. Data We Collect by Workflow</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">2. Data We Collect by Workflow</h2>
               <p className="mb-3">
                 The data we collect depends on how you interact with our website. Below is a complete 
                 inventory of personal data collected in each workflow.
               </p>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Enquiry Form</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Enquiry Form</h3>
               <p className="text-sm text-text-light mb-2">When you submit an enquiry through our contact, doctor, or package enquiry forms:</p>
               <ul className="list-disc pl-6 space-y-1 text-sm">
                 <li>Full name (required)</li>
@@ -91,7 +89,7 @@ export default function PrivacyPolicyPage() {
                 <li>Consent timestamp</li>
               </ul>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Appointment Booking</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Appointment Booking</h3>
               <p className="text-sm text-text-light mb-2">When you book an appointment online:</p>
               <ul className="list-disc pl-6 space-y-1 text-sm">
                 <li>Full name</li>
@@ -108,17 +106,25 @@ export default function PrivacyPolicyPage() {
                 <li>Consent version and timestamp</li>
               </ul>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Package Order</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Package Order</h3>
               <p className="text-sm text-text-light mb-2">When you purchase a health package:</p>
               <ul className="list-disc pl-6 space-y-1 text-sm">
                 <li>Purchaser name, phone, email</li>
                 <li>Patient name (if different from purchaser)</li>
                 <li>Package selection and quantity</li>
-                <li>Payment information (processed through PhonePe &mdash; we do not store full card or UPI credentials)</li>
+                <li>
+                  Payment information, including a transaction reference (UTR) for Direct UPI
+                  manual verification
+                </li>
+                <li>
+                  An optional payment screenshot when that evidence feature is enabled; screenshots
+                  are stored privately and are not treated as proof of payment by themselves
+                </li>
+                <li>We do not store full card, UPI credential, or bank-account details</li>
                 <li>Policy version reference</li>
               </ul>
 
-              <h3 className="text-lg font-semibold text-navy mt-6 mb-2">Clinic Visit (Offline)</h3>
+              <h3 className="text-lg font-semibold text-ink mt-6 mb-2">Clinic Visit (Offline)</h3>
               <p className="text-sm text-text-light mb-1">When you visit the clinic, additional records are created by staff:</p>
               <ul className="list-disc pl-6 space-y-1 text-sm">
                 <li>Appointment records linked to your profile</li>
@@ -128,7 +134,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="purpose-and-basis" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">3. Purpose and Legal Basis</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">3. Purpose and Legal Basis</h2>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm border-collapse">
                   <thead>
@@ -175,7 +181,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="mandatory-vs-optional" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">4. Mandatory vs Optional Information</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">4. Mandatory vs Optional Information</h2>
               <p className="mb-3">
                 We clearly mark required fields on all forms. If mandatory information is not provided, 
                 we cannot process the corresponding request (e.g., we cannot contact you without your 
@@ -193,7 +199,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="processors" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">5. Third-Party Processors</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">5. Third-Party Processors</h2>
               <p className="mb-3">
                 We engage the following third-party service providers who process personal data on our 
                 behalf. All processors are contractually bound to process data only for our specified 
@@ -218,8 +224,16 @@ export default function PrivacyPolicyPage() {
                     </tr>
                     <tr className="border-b border-border">
                       <td className="py-2 pr-4">PhonePe Private Limited</td>
-                      <td className="py-2 pr-4">Payment processing for appointments and packages</td>
+                      <td className="py-2 pr-4">Gateway payment processing when PhonePe is selected</td>
                       <td className="py-2 pr-4">Name, phone, payment amount, transaction reference</td>
+                      <td className="py-2">India</td>
+                    </tr>
+                    <tr className="border-b border-border">
+                      <td className="py-2 pr-4">Clinic bank or merchant UPI service</td>
+                      <td className="py-2 pr-4">Manual verification of Direct UPI payments</td>
+                      <td className="py-2 pr-4">
+                        Payment reference, amount, UTR, and optional supporting screenshot
+                      </td>
                       <td className="py-2">India</td>
                     </tr>
                     <tr className="border-b border-border">
@@ -244,7 +258,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="retention" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">6. Data Retention</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">6. Data Retention</h2>
               <p className="mb-3">
                 We retain personal data only as long as necessary to fulfil the purposes for which it 
                 was collected, or as required by law.
@@ -277,7 +291,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="security" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">7. Data Security</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">7. Data Security</h2>
               <p className="mb-3">
                 We implement reasonable technical and organisational measures appropriate to the 
                 nature of the personal data we process. These include:
@@ -298,7 +312,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="cookies" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">8. Cookies and Browser Storage</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">8. Cookies and Browser Storage</h2>
               <p className="mb-3">
                 We use minimal browser storage. No tracking cookies, third-party analytics, or 
                 advertising technologies are used on this website.
@@ -348,7 +362,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="your-rights" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">9. Your Rights Under DPDPA 2023</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">9. Your Rights Under DPDPA 2023</h2>
               <p className="mb-3">
                 Under the Digital Personal Data Protection Act (DPDPA) 2023, you have the following 
                 rights regarding your personal data:
@@ -383,7 +397,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="children" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">10. Children and Guardian Consent</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">10. Children and Guardian Consent</h2>
               <p className="mb-3">
                 Our services are intended for persons who are 18 years of age or older. We do not 
                 knowingly collect personal data of children without verifiable parental or guardian 
@@ -401,7 +415,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="cross-border" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">11. Cross-Border Data Transfer</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">11. Cross-Border Data Transfer</h2>
               <p className="mb-3">
                 Your personal data is primarily stored and processed on servers located in India. 
                 Where third-party processors operate globally (e.g., WhatsApp notifications), 
@@ -415,7 +429,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="complaints" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">12. Grievance Redressal and Contact</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">12. Grievance Redressal and Contact</h2>
               <p className="mb-3">
                 If you have any questions, concerns, or complaints about this Privacy Policy or our 
                 data practices, please contact us:
@@ -438,7 +452,7 @@ export default function PrivacyPolicyPage() {
             </section>
 
             <section id="changes" className="mb-10 scroll-mt-24">
-              <h2 className="text-xl font-bold text-navy mb-4">13. Changes to This Policy</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">13. Changes to This Policy</h2>
               <p className="mb-3">
                 We may update this Privacy Policy from time to time. The current version is 
                 identified by the version number and effective date at the top of this page.

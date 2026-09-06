@@ -1,12 +1,12 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { CalendarCheck, MapPin, Phone } from 'lucide-react';
+import { MessageCircle, Phone } from 'lucide-react';
 import { clinicLinks } from '@/lib/settings';
+import Button from '@/components/ui/Button';
 
-const HIDE_PATHS = ['/book-appointment', '/book-package', '/payment/', '/admin'];
+const HIDE_PATHS = ['/admin'];
 
 export default function StickyCTA() {
   const pathname = usePathname();
@@ -28,26 +28,23 @@ export default function StickyCTA() {
 
   return (
     <div
-      className="fixed bottom-0 left-0 right-0 z-40 bg-white p-3 shadow-[0_-10px_30px_rgba(23,58,94,0.10)] transition-transform duration-300 supports-[padding-bottom:env(safe-area-inset-bottom)]:pb-[env(safe-area-inset-bottom)] md:hidden"
+      className="sticky-bar fixed bottom-0 left-0 right-0 z-40 border-t border-border bg-white p-3 supports-[padding-bottom:env(safe-area-inset-bottom)]:pb-[env(safe-area-inset-bottom)] md:hidden"
     >
-      <div className="grid grid-cols-3 gap-2">
-        <Link href="/book-appointment" className="btn btn-accent min-h-[44px] justify-center text-xs">
-          <CalendarCheck size={16} />
-          Book
-        </Link>
-        <a href={clinicLinks.phone} className="btn btn-outline min-h-[44px] justify-center text-xs">
+      <div className="grid grid-cols-2 gap-2">
+        <Button href={clinicLinks.phone} variant="accent" className="min-h-[44px] justify-center text-xs">
           <Phone size={16} />
           Call
-        </a>
-        <a
-          href={clinicLinks.directions}
+        </Button>
+        <Button
+          href={clinicLinks.whatsapp}
           target="_blank"
           rel="noopener noreferrer"
-          className="btn btn-outline min-h-[44px] justify-center text-xs"
+          variant="outline"
+          className="min-h-[44px] justify-center text-xs"
         >
-          <MapPin size={16} />
-          Directions
-        </a>
+          <MessageCircle size={16} />
+          WhatsApp
+        </Button>
       </div>
     </div>
   );

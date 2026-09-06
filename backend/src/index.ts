@@ -5,20 +5,11 @@ import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
 import { config } from './config';
 import { errorHandler } from './middleware/errorHandler';
-import packagesRoutes from './routes/packages';
-import publicPackagesRoutes from './routes/publicPackages';
 import doctorsRoutes from './routes/doctors';
 import publicDoctorsRoutes from './routes/publicDoctors';
 import publicArticlesRoutes from './routes/publicArticles';
-import publicEnquiriesRoutes from './routes/publicEnquiries';
 import youtubeRoutes from './routes/youtube';
 import adminAuthRoutes from './routes/adminAuth';
-import adminLeadsRoutes from './routes/adminLeads';
-import adminPackagesRoutes from './routes/adminPackages';
-import operationsRoutes from './routes/operations';
-import adminOperationsRoutes from './routes/adminOperations';
-import remoteIntakeRoutes from './routes/remoteIntake';
-import adminIntakeRoutes from './routes/adminIntake';
 import adminPatientRecordRoutes from './routes/adminPatientRecords';
 import adminMedicationRoutes from './routes/adminMedications';
 import adminMedicalDocumentRoutes from './routes/adminMedicalDocuments';
@@ -30,8 +21,6 @@ import { requestTelemetry } from './middleware/requestTelemetry';
 import { pool, query } from './config/database';
 import { logger } from './utils/logger';
 import { publicPrivacyRouter, adminPrivacyRouter } from './routes/privacySecurity';
-import diagnosticTestsRoutes from './routes/diagnosticTests';
-import adminDiagnosticTestsRoutes from './routes/adminDiagnosticTests';
 import telemetryRoutes from './routes/telemetry';
 import adminEventsRoutes from './routes/adminEvents';
 import { stopAdminEventStreams } from './services/adminEventStream';
@@ -135,34 +124,22 @@ app.get('/api/csrf-token', getCsrfToken);
 
 // === Public Routes (no auth required) ===
 // Mounted at both /api/public/* and /api/* for frontend compatibility
-app.use('/api/public/packages', publicGetLimiter, publicPackagesRoutes);
-app.use('/api/packages', publicGetLimiter, packagesRoutes);
 app.use('/api/public/doctors', publicGetLimiter, publicDoctorsRoutes);
 app.use('/api/doctors', publicGetLimiter, doctorsRoutes);
 app.use('/api/public/articles', publicGetLimiter, publicArticlesRoutes);
 app.use('/api/articles', publicGetLimiter, publicArticlesRoutes);
-app.use('/api/public/enquiries', publicEnquiriesRoutes);
-app.use('/api/enquiries', publicEnquiriesRoutes);
 app.use('/api/youtube', publicGetLimiter, youtubeRoutes);
-app.use('/api', operationsRoutes);
-app.use('/api', diagnosticTestsRoutes);
-app.use('/api/intake', remoteIntakeRoutes);
 app.use('/api/privacy', publicPrivacyRouter);
 
 // === Admin Routes (auth required) ===
 app.use('/api/admin', adminAuthRoutes);
 app.use('/api/admin/events', adminEventsRoutes);
 app.use('/api/auth', adminAuthRoutes);
-app.use('/api/admin/leads', adminLeadsRoutes);
-app.use('/api/admin/packages', adminPackagesRoutes);
-app.use('/api/admin/operations', adminOperationsRoutes);
-app.use('/api/admin/intake', adminIntakeRoutes);
 app.use('/api/admin/patients', adminPatientRecordRoutes);
 app.use('/api/admin/medications', adminMedicationRoutes);
 app.use('/api/admin/documents', adminMedicalDocumentRoutes);
 app.use('/api/admin/observations', adminObservationRoutes);
 app.use('/api/admin/device-integrations', adminDeviceIntegrationRoutes);
-app.use('/api/admin/diagnostic-tests', adminDiagnosticTestsRoutes);
 app.use('/api/admin/privacy-security', adminPrivacyRouter);
 
 // Error handler

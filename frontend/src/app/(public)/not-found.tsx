@@ -1,7 +1,7 @@
 import React from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { clinicSettings } from '@/lib/settings';
+import Button from '@/components/ui/Button';
 
 export const metadata: Metadata = {
   title: 'Page Not Found',
@@ -13,7 +13,7 @@ export default function NotFound() {
     <section className="section text-center py-24" aria-labelledby="not-found-heading">
       <div className="container max-w-[600px]">
         <p className="text-8xl font-extrabold text-accent/20 mb-2 leading-none">404</p>
-        <h1 id="not-found-heading" className="text-3xl font-bold text-navy mb-3">
+        <h1 id="not-found-heading" className="text-3xl font-bold text-ink mb-3">
           Page not found
         </h1>
         <p className="text-text-light mb-2">
@@ -28,57 +28,57 @@ export default function NotFound() {
             Try these pages instead
           </p>
           <div className="flex flex-wrap justify-center gap-3">
-            <Link
+            <Button
               href="/"
-              className="btn btn-accent"
+              variant="accent"
             >
               Home
-            </Link>
-            <Link
-              href="/book-appointment"
-              className="btn btn-accent"
+            </Button>
+            <Button
+              href={`tel:${clinicSettings.phone}`}
+              variant="accent"
             >
-              Book Appointment
-            </Link>
-            <Link
+              Call the Clinic
+            </Button>
+            <Button
               href="/doctors"
-              className="btn btn-outline"
+              variant="outline"
             >
               Our Doctors
-            </Link>
-            <Link
+            </Button>
+            <Button
               href="/packages"
-              className="btn btn-outline"
+              variant="outline"
             >
               Health Packages
-            </Link>
-            <Link
+            </Button>
+            <Button
               href="/contact"
-              className="btn btn-outline"
+              variant="outline"
             >
               Contact Us
-            </Link>
+            </Button>
           </div>
         </div>
 
         <div className="soft-card p-5">
-          <p className="text-sm font-semibold text-navy mb-2">Need immediate help?</p>
+          <p className="text-sm font-semibold text-ink mb-2">Need immediate help?</p>
           <div className="flex flex-wrap justify-center gap-3">
-            <a
+            <Button
               href={`tel:${clinicSettings.phone}`}
-              className="btn btn-accent"
+              variant="accent"
               aria-label={`Call ${clinicSettings.name}`}
             >
               Call {clinicSettings.phone}
-            </a>
-            <a
+            </Button>
+            <Button
               href={clinicSettings.social.whatsapp}
               target="_blank"
               rel="noopener noreferrer"
-              className="btn btn-outline"
+              variant="outline"
             >
               WhatsApp us
-            </a>
+            </Button>
           </div>
         </div>
       </div>

@@ -32,7 +32,7 @@ function ExternalLink({ href, children }: { href?: string; children: React.React
 }
 
 const components: Components = {
-  a: ({ href, children, ...props }) => (
+  a: ({ href, children }) => (
     <ExternalLink href={href}>{children}</ExternalLink>
   ),
   table: ({ children }) => (
@@ -41,7 +41,7 @@ const components: Components = {
     </div>
   ),
   th: ({ children }) => (
-    <th className="border border-border bg-bg-alt px-4 py-2 text-left font-semibold text-navy">{children}</th>
+    <th className="border border-border bg-bg-alt px-4 py-2 text-left font-semibold text-ink">{children}</th>
   ),
   td: ({ children }) => (
     <td className="border border-border px-4 py-2 text-text-light">{children}</td>

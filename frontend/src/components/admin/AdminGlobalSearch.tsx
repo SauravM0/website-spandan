@@ -66,7 +66,7 @@ export default function AdminGlobalSearch() {
               <span className="block text-xs font-bold uppercase text-text-light">
                 {String(result.type).replace(/_/g, ' ')}
               </span>
-              <span className="block font-semibold text-navy">{result.label}</span>
+              <span className="block font-semibold text-ink">{result.label}</span>
               <span className="block truncate text-xs text-text-light">{result.context}</span>
             </button>
           ))}

@@ -1,4 +1,18 @@
-import type { ToolResult, FieldDefinition, ToolMeta } from './types';
+import type { ToolResult, FieldDefinition, ToolMeta, ResultBand, ResultScale } from './types';
+
+// The gauge plots systolic, which is the number that drives the category in
+// most adult readings; the diastolic value stays in the headline figure.
+export const BP_BANDS: ResultBand[] = [
+  { upTo: 120, label: 'Normal', tone: 'green' },
+  { upTo: 130, label: 'Elevated', tone: 'amber' },
+  { upTo: 140, label: 'Stage 1', tone: 'amber' },
+  { upTo: 180, label: 'Stage 2', tone: 'red' },
+  { upTo: 200, label: 'Crisis', tone: 'red' },
+];
+
+function bpScale(systolic: number): ResultScale {
+  return { value: systolic, min: 90, max: 200, bands: BP_BANDS, caption: 'systolic (mmHg)' };
+}
 
 export function classifyBloodPressure(
   systolic: number,
@@ -13,6 +27,7 @@ export function classifyBloodPressure(
       detail:
         'Seek urgent medical advice, especially with chest pain, breathlessness, weakness, severe headache, or vision changes.',
       tone: 'red',
+      scale: bpScale(systolic),
     };
   }
   if (systolic >= 140 || diastolic >= 90) {
@@ -22,6 +37,7 @@ export function classifyBloodPressure(
       detail:
         'Book a clinician review and confirm with repeated readings or ambulatory monitoring.',
       tone: 'red',
+      scale: bpScale(systolic),
     };
   }
   if (systolic >= 130 || diastolic >= 80) {
@@ -31,6 +47,7 @@ export function classifyBloodPressure(
       detail:
         'Lifestyle changes and risk assessment are important, particularly with diabetes or heart risk factors.',
       tone: 'amber',
+      scale: bpScale(systolic),
     };
   }
   if (systolic >= 120 && diastolic < 80) {
@@ -40,6 +57,7 @@ export function classifyBloodPressure(
       detail:
         'Track home readings and focus on salt intake, sleep, exercise, and weight management.',
       tone: 'amber',
+      scale: bpScale(systolic),
     };
   }
   return {
@@ -47,6 +65,7 @@ export function classifyBloodPressure(
     label: 'Normal adult range',
     detail: 'Continue periodic checks. One reading does not replace regular monitoring.',
     tone: 'green',
+    scale: bpScale(systolic),
   };
 }
 

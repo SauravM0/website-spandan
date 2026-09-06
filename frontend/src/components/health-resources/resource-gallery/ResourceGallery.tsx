@@ -14,7 +14,7 @@ export default function ResourceGallery() {
             />
           </div>
           <div className="p-5">
-            <h3 className="text-lg font-bold text-navy">{item.title}</h3>
+            <h3 className="text-lg font-bold text-ink">{item.title}</h3>
             <p className="mt-2 text-sm leading-relaxed text-text-light">{item.caption}</p>
           </div>
         </article>

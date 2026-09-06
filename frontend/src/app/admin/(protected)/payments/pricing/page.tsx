@@ -14,6 +14,7 @@ import {
   getDoctors,
   updateAdminServicePrice,
 } from '@/lib/api';
+import Button from '@/components/ui/Button';
 
 const today = () =>
   new Intl.DateTimeFormat('en-CA', { timeZone: 'Asia/Kolkata' }).format(new Date());
@@ -147,10 +148,10 @@ export default function ServicePricingPage() {
           description="Set prices for future bookings. Existing holds, appointments, payments, and receipts are never repriced."
           action={
             canWrite ? (
-              <button type="button" className="btn btn-accent" onClick={beginCreate}>
+              <Button variant="accent" onClick={beginCreate}>
                 <Plus size={16} />
                 Add Service
-              </button>
+              </Button>
             ) : undefined
           }
         />
@@ -171,7 +172,7 @@ export default function ServicePricingPage() {
           </p>
         )}
         {!canWrite && (
-          <p className="mb-4 rounded-lg bg-blue-50 p-3 text-sm text-navy">
+          <p className="mb-4 rounded-lg bg-wash-sage p-3 text-sm text-ink">
             You have read-only access. An administrator or manager must publish price changes.
           </p>
         )}
@@ -186,7 +187,7 @@ export default function ServicePricingPage() {
           <div className="grid gap-6">
             {Object.entries(grouped).map(([category, items]) => (
               <section key={category}>
-                <h2 className="mb-3 text-lg font-bold capitalize text-navy">{category}</h2>
+                <h2 className="mb-3 text-lg font-bold capitalize text-ink">{category}</h2>
                 <div className="grid gap-3 lg:grid-cols-2">
                   {items.map((service) => (
                     <article
@@ -196,7 +197,7 @@ export default function ServicePricingPage() {
                       <div className="flex items-start justify-between gap-4">
                         <div>
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-bold text-navy">{service.name}</h3>
+                            <h3 className="font-bold text-ink">{service.name}</h3>
                             <StatusBadge tone={service.is_active ? 'success' : 'neutral'}>
                               {service.is_active ? 'Active' : 'Inactive'}
                             </StatusBadge>
@@ -205,32 +206,32 @@ export default function ServicePricingPage() {
                             {service.description || 'No description'}
                           </p>
                         </div>
-                        <p className="shrink-0 text-xl font-bold text-navy">
+                        <p className="shrink-0 text-xl font-bold text-ink">
                           {money(service.price)}
                         </p>
                       </div>
                       <dl className="mt-4 grid grid-cols-2 gap-3 text-sm">
                         <div>
                           <dt className="text-text-light">Applies to</dt>
-                          <dd className="font-semibold text-navy">
+                          <dd className="font-semibold text-ink">
                             {service.doctor_name || 'All doctors'}
                           </dd>
                         </div>
                         <div>
                           <dt className="text-text-light">Visit type</dt>
-                          <dd className="font-semibold capitalize text-navy">
+                          <dd className="font-semibold capitalize text-ink">
                             {service.appointment_type?.replace('_', ' ') || 'All types'}
                           </dd>
                         </div>
                         <div>
                           <dt className="text-text-light">Effective</dt>
-                          <dd className="font-semibold text-navy">
+                          <dd className="font-semibold text-ink">
                             {String(service.effective_from).slice(0, 10)}
                           </dd>
                         </div>
                         <div>
                           <dt className="text-text-light">Version</dt>
-                          <dd className="font-semibold text-navy">{service.version}</dd>
+                          <dd className="font-semibold text-ink">{service.version}</dd>
                         </div>
                       </dl>
                       <div className="mt-4 flex items-center justify-between border-t border-border pt-3">
@@ -242,14 +243,14 @@ export default function ServicePricingPage() {
                             : ''}
                         </span>
                         {canWrite && (
-                          <button
-                            type="button"
-                            className="btn btn-outline btn-sm"
+                          <Button
+                            variant="outline"
+                            size="sm"
                             onClick={() => beginEdit(service)}
                           >
                             <Pencil size={14} />
                             Edit
-                          </button>
+                          </Button>
                         )}
                       </div>
                     </article>
@@ -271,21 +272,21 @@ export default function ServicePricingPage() {
               <div className="mx-auto my-6 max-w-2xl rounded-xl bg-white p-5 shadow-xl sm:p-6">
                 <div className="flex items-start justify-between gap-3">
                   <div>
-                    <h2 id="pricing-form-title" className="text-xl font-bold text-navy">
+                    <h2 id="pricing-form-title" className="text-xl font-bold text-ink">
                       {editing ? 'Edit service' : 'Add service'}
                     </h2>
                     <p className="mt-1 text-sm text-text-light">
                       Changes apply to new slot holds only.
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    className="btn btn-outline btn-sm"
+                  <Button
+                    variant="outline"
+                    size="sm"
                     onClick={() => setOpen(false)}
                   >
                     <X size={16} />
                     Close
-                  </button>
+                  </Button>
                 </div>
                 {error && (
                   <p role="alert" className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-danger">
@@ -403,7 +404,7 @@ export default function ServicePricingPage() {
                       checked={form.is_active}
                       onChange={(e) => setForm({ ...form, is_active: e.target.checked })}
                     />
-                    <span className="text-sm font-semibold text-navy">
+                    <span className="text-sm font-semibold text-ink">
                       Available for new charges
                     </span>
                   </label>
@@ -413,23 +414,22 @@ export default function ServicePricingPage() {
                       checked={form.is_public}
                       onChange={(e) => setForm({ ...form, is_public: e.target.checked })}
                     />
-                    <span className="text-sm font-semibold text-navy">Visible to patients</span>
+                    <span className="text-sm font-semibold text-ink">Visible to patients</span>
                   </label>
-                  <div className="sm:col-span-2 rounded-lg bg-blue-50 p-3 text-sm text-navy">
+                  <div className="sm:col-span-2 rounded-lg bg-wash-sage p-3 text-sm text-ink">
                     Saving creates a new audited version. It does not change an existing booking or
                     transaction.
                   </div>
                   <div className="flex gap-2 sm:col-span-2">
-                    <button type="submit" className="btn btn-accent" disabled={saving}>
+                    <Button type="submit" variant="accent" disabled={saving}>
                       {saving ? 'Saving...' : 'Save price'}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-outline"
+                    </Button>
+                    <Button
+                      variant="outline"
                       onClick={() => setOpen(false)}
                     >
                       Cancel
-                    </button>
+                    </Button>
                   </div>
                 </form>
               </div>

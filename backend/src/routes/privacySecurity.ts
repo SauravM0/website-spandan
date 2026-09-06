@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import { asyncHandler } from '../middleware/asyncHandler';
-import { authenticate, requireRecentStepUp } from '../middleware/auth';
+import { authenticate } from '../middleware/auth';
 import { requirePermission } from '../middleware/authorize';
 import { validateZod } from '../middleware/validate';
 import { PERMISSIONS } from '../security/permissions';
@@ -83,7 +83,6 @@ adminPrivacyRouter.get(
 adminPrivacyRouter.patch(
   '/rights-requests/:id',
   requirePermission(PERMISSIONS.PRIVACY_REQUESTS_MANAGE),
-  requireRecentStepUp,
   validateZod({
     params: z.object({ id: z.string().uuid() }),
     body: z.object({
@@ -112,7 +111,6 @@ adminPrivacyRouter.patch(
 adminPrivacyRouter.post(
   '/sessions/:id/revoke',
   requirePermission(PERMISSIONS.SECURITY_ADMIN),
-  requireRecentStepUp,
   validateZod({
     params: z.object({ id: z.string().uuid() }),
     body: z.object({ reason: z.string().trim().min(5).max(500) }),

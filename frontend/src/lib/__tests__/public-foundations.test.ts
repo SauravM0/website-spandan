@@ -28,6 +28,6 @@ describe('public website foundations', () => {
 
   it('rejects incomplete or external service recovery paths', () => {
     expect(validatePublicContent(publicContent)).toBe(publicContent);
-    expect(() => validatePublicContent({ services: [{ id: 'unsafe', name: '', summary: '', href: 'https://example.com', appointmentPath: '' }], trustStatements: [] })).toThrow();
+    expect(() => validatePublicContent({ services: [{ id: 'unsafe', name: '', summary: '', href: 'https://example.com', contactPath: '' }], trustStatements: [] })).toThrow();
   });
 });

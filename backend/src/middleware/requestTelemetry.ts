@@ -7,7 +7,14 @@ export function requestTelemetry(req: Request, res: Response, next: NextFunction
   res.setHeader('x-app-version', process.env.APP_VERSION || 'development');
   res.once('finish', () => {
     const durationMs = Number(process.hrtime.bigint() - startedAt) / 1_000_000;
-    const route = normalizeMetricRoute(req.method, req.baseUrl, req.route?.path);
+    const matched = res.locals.metricRoute as
+      | { baseUrl?: string; path?: unknown }
+      | undefined;
+    const route = normalizeMetricRoute(
+      req.method,
+      matched?.baseUrl ?? req.baseUrl,
+      matched?.path ?? req.route?.path
+    );
     observeHttp({ method: req.method, route, status: res.statusCode, durationMs });
     if (route.includes('/api/admin/') || res.statusCode >= 500 || durationMs >= 1_000) {
       logger.info('http.request.completed', {

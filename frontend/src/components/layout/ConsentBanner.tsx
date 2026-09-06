@@ -19,7 +19,7 @@ export default function ConsentBanner() {
   if (!visible) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-navy p-3 text-white shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-ink p-3 text-white shadow-lg">
       <div className="container flex items-center justify-between gap-3">
         <p className="text-xs leading-relaxed md:text-sm">
           This site uses only essential storage for session and preferences. No tracking cookies are used.

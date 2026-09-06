@@ -1,6 +1,5 @@
 import { clinicSettings } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
-import type { PublicPackageSummary } from '@/components/packages/PackageCard';
 
 export type PublicDoctorSummary = {
   id?: string;
@@ -35,20 +34,15 @@ export type PublicArticleSummary = {
 export type HomePayload = {
   settings: typeof clinicSettings;
   doctors: PublicDoctorSummary[];
-  featuredPackages: PublicPackageSummary[];
   featuredArticle: PublicArticleSummary | null;
   featuredVideo: PublicArticleSummary | null;
 };
 
 export async function getHomePayload(): Promise<HomePayload> {
-  const [doctorData, featuredPackageData, packageData, articleData] = await Promise.all([
+  const [doctorData, articleData] = await Promise.all([
     serverApiGet<{ doctors: PublicDoctorSummary[] }>('/doctors', { doctors: [] }, { next: { revalidate: 3600, tags: ['public-doctors'] } }),
-    serverApiGet<{ packages: PublicPackageSummary[] }>('/packages/featured', { packages: [] }, { cache: 'no-store' }),
-    serverApiGet<{ packages: PublicPackageSummary[] }>('/packages', { packages: [] }, { cache: 'no-store' }),
     serverApiGet<{ articles: PublicArticleSummary[] }>('/articles', { articles: [] }, { next: { revalidate: 3600, tags: ['public-articles'] } }),
   ]);
-
-  const featuredPackages = (featuredPackageData.packages?.length ? featuredPackageData.packages : packageData.packages || []).slice(0, 3);
   const articles = articleData.articles || [];
   const featuredVideo = articles.find((article) => Boolean(article.youtube_video_url)) || null;
   const featuredArticle = articles.find((article) => article.slug !== featuredVideo?.slug) || articles[0] || null;
@@ -56,7 +50,6 @@ export async function getHomePayload(): Promise<HomePayload> {
   return {
     settings: clinicSettings,
     doctors: (doctorData.doctors || []).slice(0, 2),
-    featuredPackages,
     featuredArticle,
     featuredVideo,
   };

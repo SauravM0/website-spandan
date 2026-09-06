@@ -1,11 +1,11 @@
 import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
-import Link from 'next/link';
 import { HelpCircle, ShieldCheck } from 'lucide-react';
 import PackageCatalog from '@/components/packages/PackageCatalog';
 import { formatPackageMoney, type PublicPackageSummary } from '@/components/packages/PackageCard';
 import { serverApiGet } from '@/lib/serverApi';
 import { clinicSettings } from '@/lib/settings';
+import Button from '@/components/ui/Button';
 
 export const metadata: Metadata = {
   title: 'Health Checkup Packages | Spandan Super Speciality Clinic',
@@ -74,7 +74,7 @@ export default async function PackagesPage() {
       <section className="soft-page-hero">
         <div className="container py-14 md:py-16">
           <div className="max-w-3xl">
-            <p className="mb-3 text-sm font-semibold uppercase text-pink-700">
+            <p className="mb-3 text-sm font-semibold uppercase text-blush-deep">
               Diagnostic packages
             </p>
             <h1 className="heading-display">Health Packages</h1>
@@ -84,15 +84,15 @@ export default async function PackagesPage() {
             </p>
             <div className="mt-7 grid gap-3 text-sm sm:grid-cols-3">
               <p className="soft-card p-3">
-                <span className="block font-semibold text-navy">Published packages</span>
+                <span className="block font-semibold text-ink">Published packages</span>
                 {packages.length || 'Currently unavailable'}
               </p>
               <p className="soft-card p-3">
-                <span className="block font-semibold text-navy">Starting price</span>
+                <span className="block font-semibold text-ink">Starting price</span>
                 {lowestPrice ? formatPackageMoney(lowestPrice) : 'Shown when published'}
               </p>
               <p className="soft-card p-3">
-                <span className="block font-semibold text-navy">Booking</span>
+                <span className="block font-semibold text-ink">Availability</span>
                 Active packages only
               </p>
             </div>
@@ -115,18 +115,18 @@ export default async function PackagesPage() {
               <div className="flex items-start gap-3">
                 <HelpCircle className="mt-1 shrink-0 text-accent" size={22} aria-hidden="true" />
                 <div>
-                  <h2 className="text-xl font-bold text-navy">Need help choosing?</h2>
+                  <h2 className="text-xl font-bold text-ink">Need help choosing?</h2>
                   <p className="mt-2 text-text-light">
                     Share your reason for testing, age group, medicines, and any doctor advice. The
                     clinic team can guide you toward a suitable package or suggest an appointment first.
                   </p>
                   <div className="mt-5 flex flex-col gap-2 min-[420px]:flex-row">
-                    <Link href="/contact" className="btn btn-accent">
+                    <Button href="/contact" variant="accent">
                       Contact Clinic
-                    </Link>
-                    <Link href="/book-appointment" className="btn btn-outline">
-                      Book Appointment
-                    </Link>
+                    </Button>
+                    <Button href={`tel:${clinicSettings.phone}`} variant="outline">
+                      Call {clinicSettings.phone}
+                    </Button>
                   </div>
                 </div>
               </div>
@@ -136,18 +136,18 @@ export default async function PackagesPage() {
               <div className="flex items-start gap-3">
                 <ShieldCheck className="mt-1 shrink-0 text-accent" size={22} aria-hidden="true" />
                 <div>
-                  <h2 className="text-xl font-bold text-navy">Policies and limits</h2>
+                  <h2 className="text-xl font-bold text-ink">Policies and limits</h2>
                   <p className="mt-2 text-text-light">
                     Package prices may exclude external charges unless listed. Preparation, refund, and
                     rescheduling policies are confirmed before payment.
                   </p>
                   <div className="mt-5 flex flex-wrap gap-2">
-                    <Link href="/terms" className="btn btn-outline btn-sm">
+                    <Button href="/terms" variant="outline" size="sm">
                       Terms
-                    </Link>
-                    <Link href="/privacy" className="btn btn-outline btn-sm">
+                    </Button>
+                    <Button href="/privacy" variant="outline" size="sm">
                       Privacy
-                    </Link>
+                    </Button>
                   </div>
                 </div>
               </div>

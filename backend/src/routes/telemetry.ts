@@ -8,12 +8,15 @@ import { asyncHandler } from '../middleware/asyncHandler';
 const router = Router();
 const vitalNames = new Set<WebVitalName>(['CLS', 'FCP', 'INP', 'LCP', 'TTFB']);
 const ratings = new Set<WebVitalRating>(['good', 'needs-improvement', 'poor']);
+// Must stay in step with routeGroup() in the frontend WebVitalsReporter:
+// a group missing here is rejected as invalid and the sample is lost.
 const routeGroups = new Set([
   'admin',
-  'booking-appointment',
-  'booking-package',
   'packages',
   'doctors',
+  'facilities',
+  'tools',
+  'health-resources',
   'other-public',
 ]);
 

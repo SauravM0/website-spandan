@@ -3,6 +3,7 @@
 import { useEffect, useId, useState } from 'react';
 import FocusTrap from '../ui/FocusTrap';
 import { ADMIN_DIALOG_REQUEST, type DialogRequest } from '@/lib/adminDialogs';
+import Button from '@/components/ui/Button';
 
 export default function AdminActionDialog() {
   const [request, setRequest] = useState<DialogRequest | null>(null);
@@ -59,7 +60,7 @@ export default function AdminActionDialog() {
           aria-describedby={descriptionId}
           className="relative w-full max-w-lg rounded-lg bg-white p-5 shadow-xl"
         >
-          <h2 id={titleId} className="text-lg font-bold text-navy">
+          <h2 id={titleId} className="text-lg font-bold text-ink">
             {request.title}
           </h2>
           <p id={descriptionId} className="mt-2 text-sm text-text-light">
@@ -87,21 +88,21 @@ export default function AdminActionDialog() {
             </label>
           )}
           <div className="mt-5 flex justify-end gap-3">
-            <button
-              type="button"
-              className="btn btn-outline min-h-[44px]"
+            <Button
+              variant="outline"
+              className="min-h-[44px]"
               onClick={() => finish(false)}
             >
               Cancel
-            </button>
-            <button
-              type="button"
-              className={`btn min-h-[44px] ${request.danger ? 'bg-red-700 text-white' : 'btn-primary'}`}
+            </Button>
+            <Button
+              variant={request.danger ? 'danger' : 'primary'}
+              className="min-h-[44px]"
               disabled={!valid}
               onClick={() => finish(true)}
             >
               {request.confirmLabel || 'Continue'}
-            </button>
+            </Button>
           </div>
         </section>
       </div>

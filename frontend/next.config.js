@@ -2,7 +2,14 @@
 const nextConfig = {
   output: 'standalone',
   generateBuildId: async () => process.env.NEXT_BUILD_ID || 'development',
-  images: { unoptimized: true },
+  images: {
+    // Optimiser serves AVIF/WebP from our own origin, which stays inside the
+    // `img-src 'self' data:` CSP. Sizes match the layout's real breakpoints.
+    formats: ['image/avif', 'image/webp'],
+    deviceSizes: [420, 640, 828, 1080, 1280, 1920],
+    imageSizes: [64, 96, 128, 256, 384],
+    minimumCacheTTL: 2592000,
+  },
   turbopack: { root: __dirname },
   devIndicators: false,
   async headers() {
@@ -24,6 +31,7 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Legacy package slugs that were renamed - keep the 301s so indexed URLs survive.
       {
         source: '/packages/advance-cardiac-package',
         destination: '/packages/advanced-cardiac-package',
@@ -42,6 +50,33 @@ const nextConfig = {
       {
         source: '/packages/full-body-checkup',
         destination: '/packages/full-body-check-up-package',
+        permanent: true,
+      },
+      // Booking, payment and intake flows were removed from the public site.
+      // Send each removed URL to the page that now serves that intent.
+      {
+        source: '/book-appointment/:path*',
+        destination: '/contact',
+        permanent: true,
+      },
+      {
+        source: '/book-package/:path*',
+        destination: '/packages',
+        permanent: true,
+      },
+      {
+        source: '/build-package/:path*',
+        destination: '/packages',
+        permanent: true,
+      },
+      {
+        source: '/payment/:path*',
+        destination: '/contact',
+        permanent: true,
+      },
+      {
+        source: '/intake/:path*',
+        destination: '/contact',
         permanent: true,
       },
     ];

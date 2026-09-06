@@ -1,5 +1,10 @@
 import PackageDetailClient from './PackageDetailClient';
 
-export default function PackageDetailPage({ params }: { params: { id: string } }) {
-  return <PackageDetailClient id={params.id} />;
+export default async function PackageDetailPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const { id } = await params;
+  return <PackageDetailClient id={id} />;
 }

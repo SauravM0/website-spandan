@@ -1,14 +1,10 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "workPackage": "WP14",
   "administratorModel": "single-active-administrator",
-  "mfa": {
-    "required": true,
-    "algorithm": "TOTP-SHA1-6",
-    "challengeTtlSeconds": 300,
-    "maximumChallengeAttempts": 5,
-    "recoveryCodeCount": 8,
-    "recoveryCodesOneTime": true
+  "login": {
+    "fields": ["email", "password"],
+    "additionalFactorRequired": false
   },
   "throttling": {
     "sharedDatabaseState": true,
@@ -21,15 +17,9 @@
     "revocationObjectiveSeconds": 5,
     "listAndRevokeEnabled": true
   },
-  "stepUp": {
-    "maximumAgeMinutes": 10,
-    "actions": ["refund", "export", "pricing", "security", "password-change"]
-  },
   "auditEvents": [
     "login-failed",
     "login-success",
-    "mfa-failed",
-    "step-up-success",
     "logout",
     "session-revoked",
     "password-changed"

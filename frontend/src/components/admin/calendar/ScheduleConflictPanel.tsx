@@ -1,13 +1,13 @@
 'use client';
 
 import React from 'react';
-import Link from 'next/link';
 import {
   applyAdminScheduleConflict,
   getAdminScheduleConflict,
   resolveAdminScheduleConflict,
 } from '@/lib/api';
 import { formatShortDate, formatTime } from './CalendarUtils';
+import Button from '@/components/ui/Button';
 
 export default function ScheduleConflictPanel({
   cases,
@@ -83,13 +83,13 @@ export default function ScheduleConflictPanel({
       <p className="mt-1 text-sm text-amber-900">
         These schedule changes are not active. Review every affected appointment first.
       </p>
-      {error && <p className="mt-3 rounded-md bg-white p-3 text-sm font-semibold text-rose-800" role="alert">{error}</p>}
+      {error && <p className="mt-3 rounded-md bg-white p-3 text-sm font-semibold text-danger" role="alert">{error}</p>}
       <div className="mt-3 grid gap-2">
         {cases.map((item) => (
           <button
             key={item.id}
             type="button"
-            className="flex items-center justify-between rounded-md border border-amber-300 bg-white p-3 text-left text-sm font-bold text-navy"
+            className="flex items-center justify-between rounded-md border border-amber-300 bg-white p-3 text-left text-sm font-bold text-ink"
             onClick={() => loadCase(item.id)}
             disabled={loadingId === item.id}
           >
@@ -103,12 +103,12 @@ export default function ScheduleConflictPanel({
         <div className="mt-4 rounded-lg border border-amber-300 bg-white p-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="font-black text-navy">{selected.reason}</p>
+              <p className="font-black text-ink">{selected.reason}</p>
               <p className="text-xs font-semibold text-text-light">
                 {(selected.requested_change?.dates || []).map(formatShortDate).join(', ')}
               </p>
             </div>
-            <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelected(null)}>Close</button>
+            <Button variant="outline" size="sm" onClick={() => setSelected(null)}>Close</Button>
           </div>
 
           <div className="mt-3 grid gap-3">
@@ -116,7 +116,7 @@ export default function ScheduleConflictPanel({
               const draft = drafts[appointment.appointment_id] || { resolution: 'keep', notes: '' };
               return (
                 <div key={appointment.appointment_id} className="rounded-md border border-border p-3">
-                  <p className="font-bold text-navy">{appointment.patient_name} · {appointment.appointment_number}</p>
+                  <p className="font-bold text-ink">{appointment.patient_name} · {appointment.appointment_number}</p>
                   <p className="text-xs text-text-light">
                     {formatShortDate(String(appointment.appointment_date).slice(0, 10))} at {formatTime(appointment.start_time)} · {appointment.phone_masked} · {appointment.status}
                   </p>
@@ -150,10 +150,10 @@ export default function ScheduleConflictPanel({
                         onChange={(event) => setDrafts((current) => ({ ...current, [appointment.appointment_id]: { ...draft, notes: event.target.value } }))}
                       />
                       <div className="flex flex-wrap gap-2">
-                        <button type="button" className="btn btn-accent btn-sm" onClick={() => recordResolution(appointment)} disabled={!canResolve || savingId === appointment.appointment_id}>
+                        <Button variant="accent" size="sm" onClick={() => recordResolution(appointment)} disabled={!canResolve || savingId === appointment.appointment_id}>
                           {savingId === appointment.appointment_id ? 'Saving…' : 'Record resolution'}
-                        </button>
-                        <Link href="/admin/appointments" className="btn btn-outline btn-sm">Open appointments</Link>
+                        </Button>
+                        <Button href="/admin/appointments" variant="outline" size="sm">Open appointments</Button>
                       </div>
                     </div>
                   )}
@@ -163,9 +163,9 @@ export default function ScheduleConflictPanel({
           </div>
 
           {selected.status === 'ready' && canResolve && (
-            <button type="button" className="btn btn-accent mt-4 w-full" onClick={applyChange} disabled={savingId === selected.id}>
+            <Button variant="accent" className="mt-4 w-full" onClick={applyChange} disabled={savingId === selected.id}>
               {savingId === selected.id ? 'Applying…' : 'Apply resolved schedule change'}
-            </button>
+            </Button>
           )}
         </div>
       )}

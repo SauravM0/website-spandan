@@ -23,6 +23,7 @@ import {
   monthCells,
 } from '@/components/admin/calendar/CalendarUtils';
 import type { OverrideAction, OverrideFormState } from '@/components/admin/calendar/ScheduleForm';
+import Button from '@/components/ui/Button';
 
 export default function AdminCalendarPage() {
   const { user } = useAdminSession();
@@ -274,17 +275,17 @@ export default function AdminCalendarPage() {
         <div className="mb-5 flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.18em] text-accent">Doctor calendar</p>
-            <h1 className="mt-1 text-2xl font-black text-navy sm:text-3xl">Availability Calendar</h1>
+            <h1 className="mt-1 text-2xl font-black text-ink sm:text-3xl">Availability Calendar</h1>
             <p className="mt-2 max-w-3xl text-sm text-text-light">Select a date, review slots, then apply a clear day or time change.</p>
           </div>
           <div className="grid w-full gap-3 rounded-lg border border-border bg-white p-3 shadow-sm sm:grid-cols-2 lg:w-auto lg:grid-cols-[260px_180px]">
-            <label className="grid gap-1 text-sm font-semibold text-navy">
+            <label className="grid gap-1 text-sm font-semibold text-ink">
               Doctor
               <select className="rounded-md border border-border px-3 py-2" value={doctorId} disabled={user.role === 'doctor'} onChange={(e) => setDoctorId(e.target.value)}>
                 {doctors.map((doctor) => <option key={doctor.id} value={doctor.id}>{doctor.name}</option>)}
               </select>
             </label>
-            <label className="grid gap-1 text-sm font-semibold text-navy">
+            <label className="grid gap-1 text-sm font-semibold text-ink">
               Date
               <input className="rounded-md border border-border px-3 py-2" type="date" value={selectedDate}
                 onChange={(e) => { selectDate(e.target.value); setMonth(e.target.value); }} />
@@ -293,7 +294,7 @@ export default function AdminCalendarPage() {
         </div>
 
         {(message || error) && (
-          <div className={`mb-5 rounded-lg border p-3 text-sm font-semibold ${error ? 'border-rose-200 bg-rose-50 text-rose-800' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
+          <div className={`mb-5 rounded-lg border p-3 text-sm font-semibold ${error ? 'border-danger/30 bg-danger/10 text-danger' : 'border-emerald-200 bg-emerald-50 text-emerald-800'}`}>
             {error || message}
           </div>
         )}
@@ -302,30 +303,32 @@ export default function AdminCalendarPage() {
           <div>
             <div className="mb-3 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-white p-3 shadow-sm">
               <div>
-                <p className="text-sm font-black text-navy">Choose dates</p>
+                <p className="text-sm font-black text-ink">Choose dates</p>
                 <p className="text-xs font-semibold text-text-light">
                   {multiSelect ? `${selectedDates.length} dates selected` : 'Select one date to edit'}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2">
-                <button
-                  type="button"
-                  className={`btn btn-sm ${!multiSelect ? 'btn-accent' : 'btn-outline'}`}
+                <Button
+                  size="sm"
+                  variant={!multiSelect ? 'accent' : 'outline'}
+                  aria-pressed={!multiSelect}
                   onClick={() => { setMultiSelect(false); setSelectedDates([selectedDate]); }}
                 >
                   One date
-                </button>
-                <button
-                  type="button"
-                  className={`btn btn-sm ${multiSelect ? 'btn-accent' : 'btn-outline'}`}
+                </Button>
+                <Button
+                  size="sm"
+                  variant={multiSelect ? 'accent' : 'outline'}
+                  aria-pressed={multiSelect}
                   onClick={() => { setMultiSelect(true); setSelectedDates([selectedDate]); }}
                 >
                   Multiple dates
-                </button>
+                </Button>
                 {multiSelect && (
-                  <button type="button" className="btn btn-outline btn-sm" onClick={() => setSelectedDates([])}>
+                  <Button variant="outline" size="sm" onClick={() => setSelectedDates([])}>
                     Clear
-                  </button>
+                  </Button>
                 )}
               </div>
             </div>

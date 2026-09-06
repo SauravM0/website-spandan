@@ -20,7 +20,7 @@ export type FacilityRecord = {
   purpose: string;
   process: string;
   preparation: string;
-  bookingRequirement: string;
+  visitRequirement: string;
   media: FacilityMedia;
   published: boolean;
   verifiedAt: string;
@@ -39,9 +39,9 @@ export const facilities: FacilityRecord[] = [
     name: 'Clinic visit environment',
     publicDescription: 'Public clinic location and visit information for patients planning an in-person visit.',
     purpose: 'Helps patients confirm address, timings, and visit expectations before arriving.',
-    process: 'Use the contact, map, or booking links to plan the visit. Bring previous prescriptions and reports when relevant.',
+    process: 'Use the contact or map links to plan the visit. Bring previous prescriptions and reports when relevant.',
     preparation: 'No medical preparation is needed for general visit planning.',
-    bookingRequirement: 'Appointment booking is recommended for specialist consultation.',
+    visitRequirement: 'Call the clinic first so a specialist consultation slot can be confirmed.',
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
@@ -55,7 +55,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'Supports selected near-patient investigations so results can be considered alongside consultation and clinical history.',
     process: 'Clinic staff collect the test-specific sample and process it using the appropriate cartridge when that investigation is available.',
     preparation: 'Preparation and sample requirements depend on the selected test. Confirm instructions with the clinic before visiting.',
-    bookingRequirement: 'Call first to confirm the requested test, cartridge availability, preparation, and sample timing.',
+    visitRequirement: 'Call first to confirm the requested test, cartridge availability, preparation, and sample timing.',
     media: {
       src: '/equipment/abbott-afinion-2.png',
       alt: 'Abbott Afinion 2 point-of-care analyzer used at Spandan Clinic',
@@ -74,7 +74,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'Supports laboratory assessment of long-term glucose control and selected hemoglobin investigations when advised.',
     process: 'A trained team member collects and processes the required blood sample using the clinic\'s active assay program.',
     preparation: 'Sample and preparation requirements depend on the requested investigation. Carry previous reports when relevant.',
-    bookingRequirement: 'Confirm the exact investigation and sample timing with the clinic before arrival.',
+    visitRequirement: 'Confirm the exact investigation and sample timing with the clinic before arrival.',
     media: {
       src: '/equipment/bio-rad-d-10.png',
       alt: 'Bio-Rad D-10 hemoglobin testing system used at Spandan Clinic',
@@ -93,7 +93,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'Supports consistent processing of selected clinical chemistry and metabolic investigations.',
     process: 'The requested test is checked against the clinic\'s active laboratory menu before the appropriate sample is collected and processed.',
     preparation: 'Some investigations may require fasting or timing instructions. Confirm the exact requirement before visiting.',
-    bookingRequirement: 'Call first to confirm whether the requested investigation is processed in clinic and whether preparation is required.',
+    visitRequirement: 'Call first to confirm whether the requested investigation is processed in clinic and whether preparation is required.',
     media: {
       src: '/equipment/erba-mannheim-em-200.png',
       alt: 'Erba Mannheim EM 200 clinical chemistry analyzer used at Spandan Clinic',
@@ -112,7 +112,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'Supports selected hematology investigations requested as part of clinical assessment and follow-up.',
     process: 'A trained team member collects a blood sample and processes it according to the requested investigation and laboratory protocol.',
     preparation: 'Preparation is test-specific. Confirm instructions and bring relevant prescriptions or previous reports.',
-    bookingRequirement: 'Confirm the requested test and current sample-collection timing before travelling.',
+    visitRequirement: 'Confirm the requested test and current sample-collection timing before travelling.',
     media: {
       src: '/equipment/horiba-abx-micros-es-60.png',
       alt: 'HORIBA Medical ABX Micros ES 60 hematology analyzer used at Spandan Clinic',
@@ -131,7 +131,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'Supports selected immunoassay investigations used in specialist assessment and follow-up.',
     process: 'The clinic confirms that the requested assay is active before collecting and processing the appropriate sample.',
     preparation: 'Preparation and timing vary by investigation and medicine use. Ask the clinic for test-specific instructions.',
-    bookingRequirement: 'Call first to confirm the exact assay, preparation, sample timing, and current availability.',
+    visitRequirement: 'Call first to confirm the exact assay, preparation, sample timing, and current availability.',
     media: {
       src: '/equipment/roche-cobas-e-411.png',
       alt: 'Roche cobas e 411 immunoassay analyzer used at Spandan Clinic',
@@ -150,7 +150,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'May support discussion of body composition, metabolic risk, and follow-up planning.',
     process: 'Clinic staff guide the test when advised. Results should be interpreted with clinical context.',
     preparation: 'Ask the clinic whether food, exercise, hydration, or device-related precautions apply before your appointment.',
-    bookingRequirement: 'Book or call first so the clinic can confirm suitability and availability.',
+    visitRequirement: 'Call first so the clinic can confirm suitability and availability.',
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
@@ -164,7 +164,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'May help understand glucose trends across meals, sleep, medication, and daily activity.',
     process: 'A sensor is applied or arranged as per clinic protocol, followed by report review with the doctor.',
     preparation: 'Carry current diabetes medicines, insulin details if applicable, and recent reports.',
-    bookingRequirement: 'Requires prior booking or doctor advice.',
+    visitRequirement: 'Call the clinic first, or come with a doctor referral.',
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
@@ -178,7 +178,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'May support evaluation when clinic, home, or symptom-related BP readings need comparison.',
     process: 'The device records blood pressure readings over a defined monitoring period and is returned for review.',
     preparation: 'Wear comfortable clothing and ask about bathing, exercise, and device handling instructions.',
-    bookingRequirement: 'Requires prior booking so device availability can be confirmed.',
+    visitRequirement: 'Call the clinic first so device availability can be confirmed.',
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
@@ -192,7 +192,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'May support evaluation of palpitations, dizziness, rhythm symptoms, or rhythm follow-up.',
     process: 'A portable recorder is fitted for the advised monitoring duration and reviewed after return.',
     preparation: 'Ask about skin preparation, bathing restrictions, and how to record symptoms during monitoring.',
-    bookingRequirement: 'Requires prior booking or doctor advice.',
+    visitRequirement: 'Call the clinic first, or come with a doctor referral.',
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
@@ -206,7 +206,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'May support review of snoring, sleep quality, fatigue, or sleep breathing concerns.',
     process: 'The clinic explains the study type, setup, duration, and report review process before scheduling.',
     preparation: 'Confirm medication, caffeine, sleep routine, and device setup instructions with the clinic.',
-    bookingRequirement: 'Requires prior booking and clinic instructions.',
+    visitRequirement: 'Call the clinic first for scheduling and preparation instructions.',
     media: null,
     published: true,
     verifiedAt: '2026-07-07',
@@ -220,7 +220,7 @@ export const facilities: FacilityRecord[] = [
     purpose: 'May support selected diabetes management discussions under specialist supervision.',
     process: 'Doctor assessment and counselling determine whether this path is relevant for a patient.',
     preparation: 'Carry current insulin schedule, glucose records, CGMS reports if available, and previous prescriptions.',
-    bookingRequirement: 'Requires specialist consultation before planning.',
+    visitRequirement: 'Requires specialist consultation before planning.',
     media: null,
     published: true,
     verifiedAt: '2026-07-07',

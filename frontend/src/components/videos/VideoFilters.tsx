@@ -1,6 +1,6 @@
 import React from 'react';
-import Link from 'next/link';
 import { Search, X } from 'lucide-react';
+import Button from '@/components/ui/Button';
 
 export default function VideoFilters({
   topics,
@@ -15,14 +15,6 @@ export default function VideoFilters({
   currentLang: string;
   basePath: string;
 }) {
-  function href(topic: string, lang: string): string {
-    const params = new URLSearchParams();
-    if (topic) params.set('topic', topic);
-    if (lang) params.set('lang', lang);
-    const qs = params.toString();
-    return qs ? `${basePath}?${qs}` : basePath;
-  }
-
   const hasFilters = currentTopic || currentLang;
 
   return (
@@ -59,18 +51,19 @@ export default function VideoFilters({
           </select>
         </label>
         <div className="flex items-end gap-3">
-          <button type="submit" className="btn btn-primary flex-1 md:flex-none">
+          <Button type="submit" variant="primary" className="flex-1 md:flex-none">
             <Search className="mr-1.5 h-4 w-4" aria-hidden="true" />
             Apply
-          </button>
+          </Button>
           {hasFilters && (
-            <Link
+            <Button
               href={basePath}
-              className="btn btn-outline flex items-center gap-1.5 md:flex-none"
+              variant="outline"
+              className="flex items-center gap-1.5 md:flex-none"
             >
               <X className="h-4 w-4" aria-hidden="true" />
               Clear
-            </Link>
+            </Button>
           )}
         </div>
       </div>

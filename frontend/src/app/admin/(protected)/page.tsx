@@ -14,6 +14,7 @@ import {
 import type { DashboardData } from '@/lib/types';
 import { useAdminRealtimeRefresh } from '@/lib/adminRealtime';
 import { promptAdminAction } from '@/lib/adminDialogs';
+import Button from '@/components/ui/Button';
 
 const metricLabels: Array<[keyof DashboardData['metrics'], string]> = [
   ['appointmentsToday', 'Appointments'],
@@ -176,15 +177,15 @@ export default function AdminDashboardPage() {
               : 'Appointments, collections, payments, and action items.'
           }
           action={
-            <button
-              type="button"
-              className="btn btn-outline inline-flex items-center gap-2"
+            <Button
+              variant="outline"
+              className="inline-flex items-center gap-2"
               onClick={() => load('refresh')}
               disabled={loading || refreshing}
             >
               <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
               Refresh
-            </button>
+            </Button>
           }
         />
 
@@ -212,7 +213,7 @@ export default function AdminDashboardPage() {
                 {metricLabels.map(([key, label]) => (
                   <div key={key} className="rounded-lg border border-border bg-white p-4 shadow-sm">
                     <p className="text-xs font-semibold uppercase text-text-light">{label}</p>
-                    <p className="mt-2 text-2xl font-bold text-navy">
+                    <p className="mt-2 text-2xl font-bold text-ink">
                       {key === 'collectionsToday'
                         ? money(dashboard.metrics[key] || 0)
                         : dashboard.metrics[key] || 0}
@@ -221,7 +222,7 @@ export default function AdminDashboardPage() {
                 ))}
                 <div className="rounded-lg border border-border bg-white p-4 shadow-sm">
                   <p className="text-xs font-semibold uppercase text-text-light">Collections</p>
-                  <p className="mt-2 text-2xl font-bold text-navy">
+                  <p className="mt-2 text-2xl font-bold text-ink">
                     {money(dashboard.metrics.collectionsToday || 0)}
                   </p>
                 </div>
@@ -229,7 +230,7 @@ export default function AdminDashboardPage() {
 
               <section className="rounded-lg border border-border bg-white shadow-sm">
                 <div className="border-b border-border p-4">
-                  <h2 className="font-bold text-navy">Today Appointment Queue</h2>
+                  <h2 className="font-bold text-ink">Today Appointment Queue</h2>
                   <p className="text-sm text-text-light">
                     Limited queue for the current clinic day.
                   </p>
@@ -263,7 +264,7 @@ export default function AdminDashboardPage() {
                     <tbody>
                       {dashboard.todayAppointments.map((row) => (
                         <tr key={row.id} className="border-b border-border last:border-0">
-                          <td className="p-3 font-semibold text-navy">
+                          <td className="p-3 font-semibold text-ink">
                             {String(row.start_time || '-').slice(0, 5)}
                           </td>
                           <td className="p-3">{row.patient_name}</td>
@@ -298,7 +299,7 @@ export default function AdminDashboardPage() {
 
               <section className="rounded-lg border border-border bg-white shadow-sm">
                 <div className="border-b border-border p-4">
-                  <h2 className="font-bold text-navy">Needs Action</h2>
+                  <h2 className="font-bold text-ink">Needs Action</h2>
                   <p className="text-sm text-text-light">
                     Ordered by overdue status, risk, and due time. Every item shows its next
                     decision.
@@ -340,7 +341,7 @@ export default function AdminDashboardPage() {
               <section className="rounded-lg border border-border bg-white p-4 shadow-sm">
                 <div className="mb-3 flex items-center gap-2">
                   <AlertTriangle size={18} className="text-danger" />
-                  <h2 className="font-bold text-navy">Action Queue</h2>
+                  <h2 className="font-bold text-ink">Action Queue</h2>
                 </div>
                 <div className="grid gap-3">
                   {(activeActions.length ? activeActions : dashboard.actionItems.slice(0, 3)).map(
@@ -378,7 +379,7 @@ export default function AdminDashboardPage() {
 
               {recent.length > 0 && (
                 <section className="rounded-lg border border-border bg-white p-4 shadow-sm">
-                  <h2 className="font-bold text-navy">Recently Viewed IDs</h2>
+                  <h2 className="font-bold text-ink">Recently Viewed IDs</h2>
                   <p className="mb-3 text-xs text-text-light">
                     Session-only entity IDs; no patient names or contact details are stored locally.
                   </p>
@@ -433,7 +434,7 @@ function TaskSummary({ item }: { item: any }) {
   return (
     <div className="flex flex-wrap items-start justify-between gap-3 text-sm">
       <div>
-        <p className="font-bold text-navy">{item.title}</p>
+        <p className="font-bold text-ink">{item.title}</p>
         <p>{item.patient_name || item.request}</p>
         <p className="text-xs text-text-light">
           {item.service} - {String(item.state).replace(/_/g, ' ')} - {item.owner}
@@ -468,12 +469,12 @@ function WorkItemPanel({
     <AdminDrawer label="Unified work item detail" onClose={onClose} widthClass="max-w-xl">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h2 className="text-xl font-bold text-navy">Unified Work Item</h2>
+          <h2 className="text-xl font-bold text-ink">Unified Work Item</h2>
           <p className="text-xs text-text-light">One authoritative view for the next decision.</p>
         </div>
-        <button type="button" className="btn btn-outline btn-sm" onClick={onClose}>
+        <Button variant="outline" size="sm" onClick={onClose}>
           Close
-        </button>
+        </Button>
       </div>
       {loading || !item ? (
         <p role="status" className="mt-6">
@@ -516,14 +517,14 @@ function WorkItemPanel({
           />
           <div className="mt-2 flex flex-wrap gap-2">
             {item.links?.patient && (
-              <Link className="btn btn-outline" href={item.links.patient}>
+              <Button variant="outline" href={item.links.patient}>
                 Open patient journey
-              </Link>
+              </Button>
             )}
             {item.links?.service && (
-              <Link className="btn btn-primary" href={item.links.service}>
+              <Button variant="primary" href={item.links.service}>
                 Open service workflow
-              </Link>
+              </Button>
             )}
           </div>
         </div>
@@ -580,7 +581,7 @@ function AppointmentCard({
     <div className="rounded-lg border border-border p-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <p className="font-bold text-navy">
+          <p className="font-bold text-ink">
             {String(row.start_time || '-').slice(0, 5)} · {row.patient_name}
           </p>
           <p className="text-sm text-text-light">
@@ -614,7 +615,7 @@ function IssuePanel({
   return (
     <section className="rounded-lg border border-border bg-white p-4 shadow-sm">
       <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2 text-navy">
+        <div className="flex items-center gap-2 text-ink">
           {icon}
           <h2 className="font-bold">{title}</h2>
         </div>
@@ -625,7 +626,7 @@ function IssuePanel({
       <div className="grid gap-3">
         {rows.map((row) => (
           <div key={row.id} className="rounded-md border border-border p-3 text-sm">
-            <p className="font-semibold text-navy">
+            <p className="font-semibold text-ink">
               {row.order_number ||
                 row.appointment_number ||
                 row.receipt_number ||

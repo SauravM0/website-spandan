@@ -9,6 +9,9 @@ export const PERMISSIONS = {
   PAYMENTS_READ: 'admin.payments.read',
   PAYMENTS_RECHECK: 'admin.payments.recheck',
   PAYMENTS_REFUND: 'admin.payments.refund',
+  PAYMENTS_VERIFY: 'admin.payments.verify',
+  PAYMENT_SETTINGS_WRITE: 'admin.payment_settings.write',
+  PAYMENT_EVIDENCE_READ: 'admin.payment_evidence.read',
   PRICING_READ: 'admin.pricing.read',
   PRICING_WRITE: 'admin.pricing.write',
   NOTIFICATIONS_READ: 'admin.notifications.read',
@@ -58,6 +61,9 @@ const rolePermissions: Readonly<Record<string, readonly Permission[]>> = {
         PERMISSIONS.CONTENT_WRITE,
         PERMISSIONS.SECURITY_ADMIN,
         PERMISSIONS.PRIVACY_REQUESTS_MANAGE,
+        PERMISSIONS.PAYMENT_SETTINGS_WRITE,
+        PERMISSIONS.PAYMENTS_VERIFY,
+        PERMISSIONS.PAYMENT_EVIDENCE_READ,
       ].includes(permission as any)
   ),
   staff: [
@@ -125,6 +131,8 @@ const rolePermissions: Readonly<Record<string, readonly Permission[]>> = {
     PERMISSIONS.PAYMENTS_READ,
     PERMISSIONS.PAYMENTS_RECHECK,
     PERMISSIONS.PAYMENTS_REFUND,
+    PERMISSIONS.PAYMENTS_VERIFY,
+    PERMISSIONS.PAYMENT_EVIDENCE_READ,
     PERMISSIONS.PRICING_READ,
     PERMISSIONS.EXPORT_SENSITIVE,
   ],

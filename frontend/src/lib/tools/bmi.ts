@@ -1,7 +1,20 @@
-import type { ToolResult, FieldDefinition, ToolMeta } from './types';
+import type { ToolResult, FieldDefinition, ToolMeta, ResultBand, ResultScale } from './types';
 
 export function calculateBmi(heightCm: number, weightKg: number): number {
   return weightKg / (heightCm / 100) ** 2;
+}
+
+// Asian Indian adult cut-offs, plotted from a plausible clinical floor to a
+// ceiling where further precision stops changing the advice.
+export const BMI_BANDS: ResultBand[] = [
+  { upTo: 18.5, label: 'Under', tone: 'amber' },
+  { upTo: 23, label: 'Healthy', tone: 'green' },
+  { upTo: 25, label: 'Overweight', tone: 'amber' },
+  { upTo: 40, label: 'Obesity', tone: 'red' },
+];
+
+function bmiScale(bmi: number): ResultScale {
+  return { value: bmi, min: 14, max: 40, bands: BMI_BANDS, caption: 'BMI' };
 }
 
 export function classifyBmi(bmi: number): ToolResult {
@@ -11,6 +24,7 @@ export function classifyBmi(bmi: number): ToolResult {
       label: 'Underweight',
       detail: 'Discuss nutrition, appetite, and any recent weight loss with your clinician.',
       tone: 'amber',
+      scale: bmiScale(bmi),
     };
   }
   if (bmi < 23) {
@@ -19,6 +33,7 @@ export function classifyBmi(bmi: number): ToolResult {
       label: 'Healthy range for Asian Indian adults',
       detail: 'Keep up balanced meals, regular movement, and routine preventive checks.',
       tone: 'green',
+      scale: bmiScale(bmi),
     };
   }
   if (bmi < 25) {
@@ -27,6 +42,7 @@ export function classifyBmi(bmi: number): ToolResult {
       label: 'Overweight range',
       detail: 'Even modest weight reduction can improve blood pressure, sugar, and lipids.',
       tone: 'amber',
+      scale: bmiScale(bmi),
     };
   }
   return {
@@ -34,6 +50,7 @@ export function classifyBmi(bmi: number): ToolResult {
     label: 'Obesity range',
     detail: 'Consider a medical review for diabetes, thyroid, lipid, and cardiac risk factors.',
     tone: 'red',
+    scale: bmiScale(bmi),
   };
 }
 
