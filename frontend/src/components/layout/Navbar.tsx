@@ -16,8 +16,8 @@ const languages = [
 
 const primaryLinks = [
   { href: '/doctors', label: 'nav_doctors' },
-  { href: '/facilities', label: 'Services & Gallery' },
-  { href: '/health-resources', label: 'Health Resources' },
+  { href: '/facilities', label: 'nav_services_gallery' },
+  { href: '/health-resources', label: 'nav_health_resources' },
   { href: '/contact', label: 'nav_contact' },
 ];
 
@@ -40,12 +40,17 @@ export default function Navbar() {
   const closeRef = useRef<HTMLButtonElement>(null);
   const moreRef = useRef<HTMLDivElement>(null);
 
-  const navLabel = (key: string) => {
-    const translated = t(key);
-    if (translated === key && key === 'nav_explore') return 'Explore';
-    if (translated === key && key === 'nav_publications') return 'Publications';
-    return translated === key && key === 'nav_tools' ? 'Health Tools' : translated;
-  };
+  // Every nav key is present in all three dictionaries (guarded by
+  // src/lib/__tests__/locales.test.ts), so no English fallbacks are needed.
+  const navLabel = (key: string) => t(key);
+
+  // React re-applies the server-rendered lang attribute during hydration, so the
+  // document language has to be set from an effect rather than only from i18n's
+  // languageChanged event - otherwise a Marathi page keeps announcing lang="en".
+  useEffect(() => {
+    const active = i18n.resolvedLanguage || i18n.language;
+    if (active) document.documentElement.lang = active;
+  }, [i18n.resolvedLanguage, i18n.language]);
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
@@ -182,7 +187,7 @@ export default function Navbar() {
           </div>
           <Button href={clinicLinks.phone} variant="accent" className="ml-2 min-h-[44px] px-4 text-sm">
             <Phone size={16} />
-            Call Clinic
+            {t('nav_call_clinic')}
           </Button>
         </nav>
       </div>
