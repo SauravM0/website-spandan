@@ -3,6 +3,7 @@ import React from 'react';
 import { CheckCircle2, Clock, Languages, Stethoscope, UserRound } from 'lucide-react';
 import type { PublicDoctorSummary } from '@/lib/home';
 import { SpecialityBadge } from '@/components/icons/SpecialityBadge';
+import { getDoctorProfile } from '@/lib/doctorProfiles';
 import Button from '@/components/ui/Button';
 
 type DoctorCardProps = {
@@ -11,6 +12,10 @@ type DoctorCardProps = {
 };
 
 function patientPaths(doctor: PublicDoctorSummary) {
+  // The CV-derived clinical focus is the most specific list we have; the API's
+  // speciality-keyed expertise is the fallback for any doctor without a profile.
+  const profile = getDoctorProfile(doctor.slug);
+  if (profile?.clinicalFocus.length) return profile.clinicalFocus;
   if (doctor.expertise?.length) return doctor.expertise;
 
   const source = `${doctor.speciality} ${doctor.bio || ''}`.toLowerCase();
@@ -41,13 +46,11 @@ function isLocalAsset(src?: string): src is string {
 }
 
 function localDoctorPhoto(doctor: PublicDoctorSummary) {
-  const source = `${doctor.slug} ${doctor.name}`.toLowerCase();
-  if (source.includes('pratibha')) return '/doctors/dr-pratibha-pawal-aute.png';
-  if (source.includes('tukaram')) return '/doctors/dr-tukaram-sonaji-aute.png';
-  return undefined;
+  return getDoctorProfile(doctor.slug)?.photo;
 }
 
 function HomeDoctorCard({ doctor }: { doctor: PublicDoctorSummary }) {
+  const profile = getDoctorProfile(doctor.slug);
   const imageSrc = doctor.photo_url || doctor.image_url || localDoctorPhoto(doctor);
   const paths = patientPaths(doctor).slice(0, 3);
   const languages = doctor.languages?.length ? doctor.languages.join(', ') : 'English, Hindi, Marathi';
@@ -96,10 +99,18 @@ function HomeDoctorCard({ doctor }: { doctor: PublicDoctorSummary }) {
       <div className="flex min-w-0 flex-col p-6 sm:p-7">
         <div>
           <p className={`text-sm font-bold ${isEndocrinology ? 'text-blush-deep' : 'text-accent'}`}>
-            {doctor.speciality}
+            {profile?.role || doctor.speciality}
           </p>
-          <h3 className="mt-2 text-2xl font-extrabold leading-tight text-ink">{doctor.name}</h3>
-          <p className="mt-2 text-sm leading-relaxed text-text-light">{doctor.qualifications}</p>
+          <h3 className="mt-2 text-2xl font-extrabold leading-tight text-ink">{profile?.name || doctor.name}</h3>
+          <p className="mt-2 text-sm leading-relaxed text-text-light">
+            {profile?.qualifications || doctor.qualifications}
+          </p>
+          {profile && (
+            <p className="mt-2 text-xs font-semibold text-text-light">
+              {profile.registrationCouncil} Reg. {profile.registration} &middot; Practising since{' '}
+              {profile.practisingSince}
+            </p>
+          )}
         </div>
 
         <div className="mt-6 border-t border-primary/10 pt-5">
@@ -142,6 +153,7 @@ function HomeDoctorCard({ doctor }: { doctor: PublicDoctorSummary }) {
 export default function DoctorCard({ doctor, variant = 'list' }: DoctorCardProps) {
   if (variant === 'home') return <HomeDoctorCard doctor={doctor} />;
 
+  const profile = getDoctorProfile(doctor.slug);
   const imageSrc = doctor.photo_url || doctor.image_url || localDoctorPhoto(doctor);
   const paths = patientPaths(doctor).slice(0, 5);
   const languages = doctor.languages?.length ? doctor.languages.join(', ') : 'English, Hindi, Marathi';
@@ -170,10 +182,17 @@ export default function DoctorCard({ doctor, variant = 'list' }: DoctorCardProps
         </div>
         <div className="min-w-0">
           <h2 className="text-xl font-bold text-ink">
-            {doctor.name}
+            {profile?.name || doctor.name}
           </h2>
-          <p className="mt-1 text-sm font-semibold text-accent">{doctor.speciality}</p>
-          <p className="mt-1 text-sm leading-relaxed text-text-light">{doctor.qualifications}</p>
+          <p className="mt-1 text-sm font-semibold text-accent">{profile?.role || doctor.speciality}</p>
+          <p className="mt-1 text-sm leading-relaxed text-text-light">
+            {profile?.qualifications || doctor.qualifications}
+          </p>
+          {profile && (
+            <p className="mt-1 text-xs font-semibold text-text-light">
+              {profile.registrationCouncil} Reg. {profile.registration}
+            </p>
+          )}
           {badgeType && (
             <div className="mt-3">
               <SpecialityBadge type={badgeType} />
@@ -185,7 +204,7 @@ export default function DoctorCard({ doctor, variant = 'list' }: DoctorCardProps
       <div className="mt-5">
         <p className="mb-2 flex items-center gap-2 text-sm font-bold text-ink">
           <Stethoscope size={16} aria-hidden="true" />
-          Patient paths
+          Clinical focus
         </p>
         <ul className="grid gap-2 text-sm text-text-light">
           {paths.map((path) => (

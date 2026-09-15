@@ -5,6 +5,7 @@ import DoctorCard from '@/components/doctors/DoctorCard';
 import { clinicSettings } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
 import type { PublicDoctorSummary } from '@/lib/home';
+import { fallbackDoctorSummaries } from '@/lib/doctorProfiles';
 import Button from '@/components/ui/Button';
 
 export const metadata: Metadata = {
@@ -22,7 +23,7 @@ async function getDoctors() {
     { doctors: [] },
     { next: { revalidate: 3600, tags: ['public-doctors'] } }
   );
-  return data.doctors || [];
+  return data.doctors?.length ? data.doctors : fallbackDoctorSummaries();
 }
 
 function doctorsStructuredData(doctors: PublicDoctorSummary[]) {
@@ -57,31 +58,36 @@ export default async function DoctorsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(doctorsStructuredData(doctors)) }}
       />
 
-      <section className="soft-page-hero py-16">
+      <section className="soft-page-hero py-16 sm:py-20">
         <div className="container">
-          <div className="max-w-[760px]">
-            <h1 className="text-3xl font-bold sm:text-4xl">Choose a specialist</h1>
-            <p className="mt-4 text-base leading-relaxed text-text-light sm:text-lg">
-              Compare the currently published doctors at {clinicSettings.name}, then open a
-              verified profile, then call or WhatsApp the clinic for assistance.
+          <div className="max-w-[780px]">
+            <p className="eyebrow">Our specialists</p>
+            <h1 className="heading-display mt-4 text-ink">Two DM super-specialists, one clinic</h1>
+            <p className="lede mt-5 max-w-[62ch]">
+              An interventional cardiologist and an endocrinologist, both trained at Mumbai&rsquo;s
+              leading teaching hospitals and both on the faculty of MGM Medical College. Each profile
+              lists registration, training, appointments, and published research.
             </p>
           </div>
           <div className="mt-8 flex flex-col gap-3 min-[420px]:flex-row">
-            <Button href={`tel:${clinicSettings.phone}`} variant="outline">
+            <Button href={`tel:${clinicSettings.phone}`} variant="accent">
               <Phone size={18} aria-hidden="true" />
-              Call Clinic
+              Call to book
+            </Button>
+            <Button href="#specialists" variant="outline">
+              View profiles
             </Button>
           </div>
         </div>
       </section>
 
-      <section className="section">
+      <section id="specialists" className="section scroll-mt-24">
         <div className="container">
           <div className="mb-10 max-w-3xl">
-            <h2 className="heading-section mb-2 text-ink">Published specialists</h2>
+            <h2 className="heading-section mb-2 text-ink">Consultants</h2>
             <p className="text-text-light">
-              Public cards show verified professional information. Call the clinic for current
-              availability and visit guidance.
+              Credentials shown here are taken from each doctor&rsquo;s curriculum vitae. Call the
+              clinic for current consulting times.
             </p>
           </div>
 

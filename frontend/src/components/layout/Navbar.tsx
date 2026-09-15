@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
 import { Globe2, Menu, Phone, MessageCircle, X } from 'lucide-react';
-import '../../lib/i18n';
+import { restorePreferredLanguage } from '../../lib/i18n';
 import { clinicLinks } from '@/lib/settings';
 import Button from '@/components/ui/Button';
 
@@ -36,6 +36,10 @@ export default function Navbar() {
   // React re-applies the server-rendered lang attribute during hydration, so the
   // document language has to be set from an effect rather than only from i18n's
   // languageChanged event - otherwise a Marathi page keeps announcing lang="en".
+  useEffect(() => {
+    restorePreferredLanguage();
+  }, []);
+
   useEffect(() => {
     const active = i18n.resolvedLanguage || i18n.language;
     if (active) document.documentElement.lang = active;

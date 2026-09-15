@@ -1,5 +1,6 @@
 import { clinicSettings } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
+import { fallbackDoctorSummaries } from '@/lib/doctorProfiles';
 
 export type PublicDoctorSummary = {
   id?: string;
@@ -49,7 +50,9 @@ export async function getHomePayload(): Promise<HomePayload> {
 
   return {
     settings: clinicSettings,
-    doctors: (doctorData.doctors || []).slice(0, 2),
+    // Fall back to the curated profiles so the specialists never vanish from the
+    // home page during an API outage.
+    doctors: (doctorData.doctors?.length ? doctorData.doctors : fallbackDoctorSummaries()).slice(0, 2),
     featuredArticle,
     featuredVideo,
   };

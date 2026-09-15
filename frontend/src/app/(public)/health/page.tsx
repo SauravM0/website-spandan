@@ -12,7 +12,7 @@ import VideoPagination from '@/components/videos/VideoPagination';
 import PublicationLibrary from '@/components/publications/PublicationLibrary';
 import { serverApiGet } from '@/lib/serverApi';
 import { clinicSettings } from '@/lib/settings';
-import { publicationAuthor, researchPublications } from '@/lib/publications';
+import { publicationAuthors, researchPublications } from '@/lib/publications';
 import { filterVideos, paginateVideos, extractTopics, extractLanguages } from '@/lib/videos';
 import type { VideosResponse } from '@/lib/videos';
 import { bmiMeta } from '@/lib/tools/bmi';
@@ -101,7 +101,7 @@ function healthJsonLd() {
       })),
       {
         '@type': 'ItemList',
-        name: `${publicationAuthor.name} research publications`,
+        name: `Published research by the doctors at ${clinicSettings.name}`,
         numberOfItems: researchPublications.length,
       },
     ],
@@ -266,8 +266,9 @@ export default async function HealthPage({ searchParams }: { searchParams?: Prom
               Published research
             </h2>
             <p className="lede mt-4">
-              {researchPublications.length} peer-reviewed papers and case reports associated with{' '}
-              {publicationAuthor.name}, for clinicians, students, and researchers.
+              {researchPublications.length} peer-reviewed papers and case reports authored by{' '}
+              {Object.values(publicationAuthors).map((author) => author.name).join(' and ')}, for
+              clinicians, students, and researchers. Filter by doctor, topic, or year.
             </p>
           </div>
           <PublicationLibrary publications={researchPublications} />

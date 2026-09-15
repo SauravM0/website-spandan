@@ -35,8 +35,9 @@ async function getArticle(slug: string) {
   );
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const article = (await getArticle(params.slug)).data.article;
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const article = (await getArticle(slug)).data.article;
   if (!article) return { title: 'Article Not Found | Spandan Clinic' };
   return {
     title: `${article.title} | Health Resources | Spandan Super Speciality Clinic`,
@@ -52,8 +53,9 @@ export async function generateMetadata({ params }: { params: { slug: string } })
   };
 }
 
-export default async function ArticleDetail({ params }: { params: { slug: string } }) {
-  const result = await getArticle(params.slug);
+export default async function ArticleDetail({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const result = await getArticle(slug);
   const article = result.data.article;
 
   if (!article) {

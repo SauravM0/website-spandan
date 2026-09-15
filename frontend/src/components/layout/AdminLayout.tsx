@@ -15,7 +15,7 @@ import {
   ShieldCheck,
 } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
-import '../../lib/i18n';
+import { restorePreferredLanguage } from '../../lib/i18n';
 import { getAdminSession, logout } from '../../lib/api';
 import { AdminSessionProvider, AdminUser } from '../admin/AdminSessionContext';
 import FocusTrap from '../ui/FocusTrap';
@@ -97,6 +97,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const drawerCloseRef = useRef<HTMLButtonElement | null>(null);
   const pathname = usePathname();
   const router = useRouter();
+
+  useEffect(() => {
+    restorePreferredLanguage();
+  }, []);
 
   useEffect(() => {
     let active = true;

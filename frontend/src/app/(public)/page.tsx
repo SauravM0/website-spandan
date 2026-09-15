@@ -1,7 +1,8 @@
 import React from 'react';
 import type { Metadata } from 'next';
 import HeroSection from '@/components/home/HeroSection';
-import TrustStrip from '@/components/home/TrustStrip';
+import CredentialsBand from '@/components/home/CredentialsBand';
+import ResearchHighlight from '@/components/home/ResearchHighlight';
 import ServiceCards from '@/components/home/ServiceCards';
 import DoctorCardsSection from '@/components/home/DoctorCards';
 import ClinicGallery from '@/components/home/ClinicGallery';
@@ -56,8 +57,9 @@ export default async function HomePage() {
       />
       <HeroSection settings={payload.settings} doctors={payload.doctors} />
       <DoctorCardsSection doctors={payload.doctors} />
+      <CredentialsBand />
       <ServiceCards />
-      <TrustStrip />
+      <ResearchHighlight />
       <ClinicGallery />
       <ClinicStory />
       <ExploreBento article={payload.featuredArticle} video={payload.featuredVideo} />
