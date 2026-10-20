@@ -493,6 +493,18 @@
     line-height: 1.06;
     text-wrap: balance;
   }
+
+  /* The home hero headline steps down one size on narrow screens, so the
+     video and the visit details still clear the fold on a phone. */
+  .heading-display-hero {
+    font-size: var(--step-4);
+  }
+
+  @media (min-width: 640px) {
+    .heading-display-hero {
+      font-size: var(--step-5);
+    }
+  }
   .heading-section {
     font-family: var(--font-display), Georgia, serif;
     font-size: var(--step-4);
@@ -590,10 +602,15 @@
     .reveal-fade { animation-name: reveal-fade; }
 
     /* Children enter in sequence by shifting each one's scroll range rather
-       than using time delays, so the order holds at any scroll speed. */
+       than using time delays, so the order holds at any scroll speed.
+
+       The base rule carries an explicit range so no child can fall back to
+       `animation-range: normal`, which only completes once the element has
+       fully covered the viewport - a grid card never does. */
     .stagger > * {
       animation: reveal-up linear both;
       animation-timeline: view();
+      animation-range: entry 26% cover 46%;
     }
     .stagger > *:nth-child(1) { animation-range: entry 6% cover 26%; }
     .stagger > *:nth-child(2) { animation-range: entry 10% cover 30%; }
@@ -602,6 +619,19 @@
     .stagger > *:nth-child(5) { animation-range: entry 22% cover 42%; }
     .stagger > *:nth-child(6) { animation-range: entry 26% cover 46%; }
 
+    /* Past the sixth child the reveal is switched off entirely.
+       These grids can hold a dozen cards or more, and a view() timeline that
+       far down the page does not reliably reach the end of its range - the
+       animation stalls part-way and the card renders permanently translucent,
+       which hid half the video library. A reveal is decoration; the content
+       underneath it is not, so anything beyond the staggered opening row group
+       is simply shown. */
+    .stagger > *:nth-child(n+7) {
+      animation: none;
+      opacity: 1;
+      transform: none;
+    }
+
     /* The signature line draws itself as the section scrolls past. */
     .pulse-draw path {
       stroke-dasharray: 1;
@@ -609,6 +639,81 @@
       animation: pulse-draw linear both;
       animation-timeline: view();
       animation-range: entry 0% cover 40%;
+    }
+  }
+
+  /* Facility cards turn over to show their details.
+
+     Whichever face is showing sits in normal flow and the other is absolutely
+     placed on top of it, so the card is always exactly as tall as the side you
+     can see and grows to fit a long record without anything measuring it. That
+     keeps it correct before JavaScript runs and for anyone without it, where
+     the front simply renders as an ordinary card. */
+  .flip-card {
+    perspective: 1400px;
+  }
+
+  .flip-inner {
+    position: relative;
+    transform-style: preserve-3d;
+    transition: transform var(--duration-slow, 550ms) var(--ease-out);
+  }
+
+  .flip-card[data-flipped='true'] .flip-inner {
+    transform: rotateY(180deg);
+  }
+
+  .flip-face {
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* The faces deliberately do NOT use `.card`.
+
+     `.card:hover` lifts a card with `transform: translateY(-3px)`, which would
+     replace a face's own `rotateY(180deg)` rather than add to it: hovering a
+     turned-over card rotated its back away, `backface-visibility` hid it, and
+     the 260ms transition animated between the two states, so the card blinked
+     under the cursor. These faces carry the same surface treatment with no
+     transform of their own, and the hover response is shadow and border only. */
+  .flip-surface {
+    overflow: hidden;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-lg);
+    background: #ffffff;
+    box-shadow: var(--shadow-sm);
+    transition: box-shadow 260ms var(--ease-out), border-color 260ms var(--ease-out);
+  }
+
+  .flip-card:hover .flip-surface {
+    border-color: var(--color-border-strong);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .flip-front {
+    position: relative;
+  }
+
+  .flip-back {
+    position: absolute;
+    inset: 0;
+    transform: rotateY(180deg);
+  }
+
+  .flip-card[data-flipped='true'] .flip-front {
+    position: absolute;
+    inset: 0;
+  }
+
+  .flip-card[data-flipped='true'] .flip-back {
+    position: relative;
+    inset: auto;
+  }
+
+  /* Turning a card is decorative; the content swap still has to happen. */
+  @media (prefers-reduced-motion: reduce) {
+    .flip-inner {
+      transition: none;
     }
   }
 

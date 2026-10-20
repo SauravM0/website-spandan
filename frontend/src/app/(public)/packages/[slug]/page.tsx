@@ -13,6 +13,7 @@ import {
   packageCategoryLabel,
   type PublicPackageSummary,
 } from '@/components/packages/PackageCard';
+import { fallbackPackageDetail, fallbackPackageDetails } from '@/lib/packageCatalog';
 import { clinicSettings, whatsappLink } from '@/lib/settings';
 import { serverApiGet, serverApiTry } from '@/lib/serverApi';
 import Button from '@/components/ui/Button';
@@ -33,17 +34,18 @@ async function getPackageCatalog() {
   );
 }
 
-async function getAllPackageDetails() {
+async function getAllPackageDetails(): Promise<PublicPackageDetail[]> {
   const catalog = await getPackageCatalog();
   const results = await Promise.all(
     (catalog.packages || []).map((pkg) => getPackage(pkg.slug))
   );
-  return results.map((result) => result.data.package).filter(Boolean) as PublicPackageDetail[];
+  const live = results.map((result) => result.data.package).filter(Boolean) as PublicPackageDetail[];
+  return live.length ? live : fallbackPackageDetails();
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const pkg = (await getPackage(slug)).data.package;
+  const pkg = (await getPackage(slug)).data.package ?? fallbackPackageDetail(slug);
   if (!pkg) return { title: 'Package Not Found | Spandan Clinic' };
 
   return {
@@ -88,7 +90,9 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
     getPackage(slug),
     getAllPackageDetails(),
   ]);
-  const selected = selectedResult.data.package;
+  // A package the API cannot serve still has a published record in the curated
+  // catalogue, so fall back to that before treating the page as unavailable.
+  const selected = selectedResult.data.package ?? fallbackPackageDetail(slug);
 
   if (!selected) {
     if (!selectedResult.ok) {

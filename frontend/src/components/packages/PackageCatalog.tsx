@@ -46,7 +46,7 @@ export default function PackageCatalog({ packages }: PackageCatalogProps) {
         {showFilters && (
           <nav className="flex flex-wrap gap-2" aria-label="Package categories">
             <Button
-              href="/care"
+              href="/packages"
               size="sm"
               variant={selectedCategory ? 'outline' : 'primary'}
               aria-current={!selectedCategory ? 'page' : undefined}
@@ -96,7 +96,7 @@ export default function PackageCatalog({ packages }: PackageCatalogProps) {
             No packages found{selectedLabel ? ` for ${selectedLabel}` : ''}
           </h2>
           <p className="mt-2 text-text-light">Try another category or view all active packages.</p>
-          <Button href="/care" variant="outline" className="mt-5">
+          <Button href="/packages" variant="outline" className="mt-5">
             View All Packages
           </Button>
         </div>
@@ -120,7 +120,9 @@ export default function PackageCatalog({ packages }: PackageCatalogProps) {
               Tell the clinic what the patient needs and the team will put together a personalised
               set of tests over WhatsApp or a phone call.
             </p>
-            <p className="mt-5 text-sm font-semibold text-accent">109 unique tests available</p>
+            <p className="mt-5 text-sm font-semibold text-accent">
+              Choose from the clinic&apos;s full test list
+            </p>
             <span className={`${buttonClass({ variant: 'accent' })} mt-auto w-full justify-center`}>
               <MessageCircle size={16} aria-hidden="true" />
               Ask About Tests

@@ -7,22 +7,16 @@ export default function VideoPagination({
   totalPages,
   total,
   basePath,
-  topic,
-  lang,
 }: {
   currentPage: number;
   totalPages: number;
   total: number;
   basePath: string;
-  topic: string;
-  lang: string;
 }) {
   if (totalPages <= 1) return null;
 
   function href(page: number): string {
     const params = new URLSearchParams();
-    if (topic) params.set('topic', topic);
-    if (lang) params.set('vlang', lang);
     if (page > 1) params.set('page', String(page));
     const qs = params.toString();
     return qs ? `${basePath}?${qs}` : basePath;

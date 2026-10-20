@@ -18,8 +18,23 @@ const nextConfig = {
         source: '/:path*',
         headers: [
           {
+            // Two third parties are framed on purpose: the Google Maps embed on
+            // /contact and the YouTube player behind each video thumbnail. Both
+            // need an explicit frame-src, because without one they fall back to
+            // default-src 'self' and are blocked outright. Thumbnails come from
+            // i.ytimg.com (channel feed) and img.youtube.com (article embeds).
+            // Everything else stays first-party.
             key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none';",
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https://i.ytimg.com https://img.youtube.com",
+              "font-src 'self'",
+              "connect-src 'self'",
+              "frame-src 'self' https://www.google.com https://www.youtube-nocookie.com",
+              "frame-ancestors 'none'",
+            ].join('; ') + ';',
           },
           { key: 'X-Content-Type-Options', value: 'nosniff' },
           { key: 'X-Frame-Options', value: 'DENY' },
@@ -66,11 +81,6 @@ const nextConfig = {
       },
       {
         source: '/facilities',
-        destination: '/care',
-        permanent: true,
-      },
-      {
-        source: '/packages',
         destination: '/care',
         permanent: true,
       },

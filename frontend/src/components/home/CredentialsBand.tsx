@@ -52,9 +52,8 @@ export default function CredentialsBand() {
             </h2>
           </div>
           <p className="max-w-xl text-base leading-relaxed text-[#d7d0c3] sm:text-lg lg:justify-self-end">
-            Both consultants hold DM super-speciality degrees, teach at MGM Medical College, and
-            publish in national and international journals. Every figure on this page can be checked
-            against their published profiles.
+            Both consultants hold DM super-speciality degrees and publish in national and
+            international journals.
           </p>
         </div>
 

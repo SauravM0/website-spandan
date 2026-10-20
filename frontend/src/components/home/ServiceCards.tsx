@@ -5,6 +5,7 @@ import {
   ArrowRight,
   Baby,
   Bone,
+  FlaskConical,
   HeartPulse,
   Microscope,
   Scale,
@@ -43,6 +44,12 @@ const supportingCare: CarePath[] = [
     title: 'Thyroid',
     text: 'Symptoms, reports, and long-term monitoring.',
     icon: ShieldPlus,
+    speciality: 'endocrinology',
+  },
+  {
+    title: 'Hormone disorders',
+    text: 'Pituitary, adrenal, parathyroid, and other hormone concerns.',
+    icon: FlaskConical,
     speciality: 'endocrinology',
   },
   {

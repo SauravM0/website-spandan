@@ -8,6 +8,7 @@ import { errorHandler } from './middleware/errorHandler';
 import doctorsRoutes from './routes/doctors';
 import publicDoctorsRoutes from './routes/publicDoctors';
 import publicArticlesRoutes from './routes/publicArticles';
+import publicPackagesRoutes from './routes/publicPackages';
 import youtubeRoutes from './routes/youtube';
 import adminAuthRoutes from './routes/adminAuth';
 import adminPatientRecordRoutes from './routes/adminPatientRecords';
@@ -128,6 +129,7 @@ app.use('/api/public/doctors', publicGetLimiter, publicDoctorsRoutes);
 app.use('/api/doctors', publicGetLimiter, doctorsRoutes);
 app.use('/api/public/articles', publicGetLimiter, publicArticlesRoutes);
 app.use('/api/articles', publicGetLimiter, publicArticlesRoutes);
+app.use('/api/packages', publicGetLimiter, publicPackagesRoutes);
 app.use('/api/youtube', publicGetLimiter, youtubeRoutes);
 app.use('/api/privacy', publicPrivacyRouter);
 

@@ -1,18 +1,6 @@
 import React from 'react';
 import Link from 'next/link';
-import { BookOpen, CalendarDays, Clock, FileText, Image as ImageIcon, Languages, Search, UserCheck, Video } from 'lucide-react';
-import ResourceGallery from './ResourceGallery';
-import Button from '@/components/ui/Button';
-
-type TabKey = 'blog' | 'images' | 'events';
-
-export type ResourceFilters = {
-  tab: TabKey;
-  q: string;
-  category: string;
-  language: string;
-  format: string;
-};
+import { BookOpen, CalendarDays, Clock, Languages, UserCheck } from 'lucide-react';
 
 export type HealthResourceArticle = {
   slug: string;
@@ -32,26 +20,18 @@ export type HealthResourceArticle = {
   youtube_video_url?: string | null;
 };
 
-const tabs: Array<{ key: TabKey; label: string; icon: React.ComponentType<{ className?: string }> }> = [
-  { key: 'blog', label: 'Articles', icon: FileText },
-  { key: 'images', label: 'Images', icon: ImageIcon },
-  { key: 'events', label: 'Events', icon: CalendarDays },
-];
+const languageLabels: Record<string, string> = {
+  en: 'English',
+  hi: 'Hindi',
+  mr: 'Marathi',
+};
 
-const languageOptions = [
-  { value: '', label: 'All languages' },
-  { value: 'en', label: 'English' },
-  { value: 'hi', label: 'Hindi' },
-  { value: 'mr', label: 'Marathi' },
-];
-
-const formatOptions = [
-  { value: '', label: 'All formats' },
-  { value: 'article', label: 'Articles' },
-  { value: 'video', label: 'Videos' },
-  { value: 'tool', label: 'Tools' },
-  { value: 'download', label: 'Downloads' },
-];
+const formatLabels: Record<string, string> = {
+  article: 'Article',
+  video: 'Video',
+  tool: 'Tool',
+  download: 'Download',
+};
 
 function formatDoctorName(name?: string | null): string | null {
   if (!name) return null;
@@ -64,23 +44,11 @@ function formatDate(value?: string | null): string | null {
 }
 
 function languageLabel(value?: string | null): string {
-  return languageOptions.find((option) => option.value === value)?.label || 'English';
+  return (value && languageLabels[value]) || 'English';
 }
 
 function formatLabel(value?: string | null): string {
-  return formatOptions.find((option) => option.value === value)?.label.replace(/s$/, '') || 'Article';
-}
-
-function makeTabHref(tab: TabKey, filters: ResourceFilters): string {
-  const params = new URLSearchParams();
-  params.set('tab', tab);
-  if (tab === 'blog') {
-    if (filters.q) params.set('q', filters.q);
-    if (filters.category) params.set('category', filters.category);
-    if (filters.language) params.set('lang', filters.language);
-    if (filters.format) params.set('format', filters.format);
-  }
-  return `/health-resources?${params.toString()}`;
+  return (value && formatLabels[value]) || 'Article';
 }
 
 function ResourceCard({ article }: { article: HealthResourceArticle }) {
@@ -145,159 +113,31 @@ function ResourceCard({ article }: { article: HealthResourceArticle }) {
   );
 }
 
-export default function ResourceHub({
-  articles,
-  filters,
-  categories,
-}: {
-  articles: HealthResourceArticle[];
-  filters: ResourceFilters;
-  categories: string[];
-}) {
+/**
+ * The article cards, and nothing else.
+ *
+ * This used to carry an Articles/Images/Events tab bar and a search form with
+ * topic, language, and format filters. Both posted to /health-resources, which
+ * is a permanent redirect back to /health, and the cards below already carry
+ * the same topic, format, and language on every badge, so the controls were
+ * removed in favour of the list itself.
+ */
+export default function ResourceHub({ articles }: { articles: HealthResourceArticle[] }) {
+  // Nothing published means nothing rendered. An empty-state card here only told
+  // the reader the clinic had no articles, which is noise on a page that already
+  // carries calculators, videos, and research.
+  if (articles.length === 0) return null;
+
   return (
-    <>
-      <section className="border-b border-border bg-white">
-        <div className="container">
-          <nav className="flex gap-2 overflow-x-auto py-4" aria-label="Health resource sections">
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = tab.key === filters.tab;
-              return (
-                <Link
-                  key={tab.key}
-                  href={makeTabHref(tab.key, filters)}
-                  className={`inline-flex min-h-[44px] items-center gap-2 rounded-full px-4 py-2 text-sm font-semibold transition-all duration-300 ${
-                    isActive
-                      ? 'bg-gradient-to-r from-accent to-primary text-white shadow-md'
-                      : 'bg-white/80 text-text shadow-md hover:-translate-y-0.5 hover:bg-wash-sage'
-                  }`}
-                  aria-current={isActive ? 'page' : undefined}
-                >
-                  <Icon className="h-4 w-4" aria-hidden="true" />
-                  {tab.label}
-                </Link>
-              );
-            })}
-          </nav>
+    <section className="section">
+      <div className="container">
+        <p className="sr-only" role="status">{articles.length} resources found.</p>
+        <div className="grid-3">
+          {articles.map((article) => (
+            <ResourceCard key={article.slug} article={article} />
+          ))}
         </div>
-      </section>
-
-      <section className="section">
-        <div className="container">
-          {filters.tab === 'blog' && (
-            <>
-              <div className="mb-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px] lg:items-end">
-                <div className="max-w-[760px]">
-                  <p className="text-sm font-semibold uppercase tracking-[0.08em] text-accent">Reviewed education</p>
-                  <h2 className="mt-2 text-2xl font-bold text-ink">Find resources by topic, language, or format</h2>
-                  <p className="mt-3 leading-relaxed text-text-light">
-                    These resources are for general education. They do not replace a consultation or advice based on your medical history.
-                  </p>
-                </div>
-                <div className="flex flex-wrap gap-3 lg:justify-end">
-                  <Button href="/health#videos" variant="outline">
-                    <Video className="h-4 w-4" aria-hidden="true" />
-                    Videos
-                  </Button>
-                  <Button href="/health#calculators" variant="outline">
-                    <Clock className="h-4 w-4" aria-hidden="true" />
-                    Tools
-                  </Button>
-                </div>
-              </div>
-
-              <form action="/health-resources" className="soft-card mb-8 p-4 md:p-5">
-                <input type="hidden" name="tab" value="blog" />
-                <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[minmax(0,1.4fr)_1fr_1fr_1fr_auto]">
-                  <label className="block">
-                    <span className="mb-1.5 block text-sm font-semibold">Search</span>
-                    <span className="relative block">
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-light" aria-hidden="true" />
-                      <input
-                        name="q"
-                        defaultValue={filters.q}
-                        className="min-h-[44px] w-full rounded-2xl border border-border bg-white py-2 pl-10 pr-3"
-                        placeholder="Search topics"
-                      />
-                    </span>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1.5 block text-sm font-semibold">Topic</span>
-                    <select name="category" defaultValue={filters.category} className="min-h-[44px] w-full rounded-2xl border border-border bg-white px-3 py-2">
-                      <option value="">All topics</option>
-                      {categories.map((category) => (
-                        <option key={category} value={category}>{category}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1.5 block text-sm font-semibold">Language</span>
-                    <select name="lang" defaultValue={filters.language} className="min-h-[44px] w-full rounded-2xl border border-border bg-white px-3 py-2">
-                      {languageOptions.map((option) => (
-                        <option key={option.value || 'all'} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <label className="block">
-                    <span className="mb-1.5 block text-sm font-semibold">Format</span>
-                    <select name="format" defaultValue={filters.format} className="min-h-[44px] w-full rounded-2xl border border-border bg-white px-3 py-2">
-                      {formatOptions.map((option) => (
-                        <option key={option.value || 'all'} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </label>
-                  <div className="flex items-end gap-3">
-                    <Button type="submit" variant="primary" className="w-full md:w-auto">Apply</Button>
-                    <Button href="/health-resources?tab=blog" variant="outline">Reset</Button>
-                  </div>
-                </div>
-              </form>
-
-              <p className="sr-only" role="status">{articles.length} resources found.</p>
-              {articles.length > 0 ? (
-                <div className="grid-3">
-                  {articles.map((article) => (
-                    <ResourceCard key={article.slug} article={article} />
-                  ))}
-                </div>
-              ) : (
-                <div className="soft-card p-8 text-center">
-                  <h3 className="text-xl font-bold text-ink">No resources match these filters</h3>
-                  <p className="mx-auto mt-3 max-w-[560px] text-text-light">
-                    Try a broader topic, language, or format. For personal symptoms or treatment decisions, contact the clinic directly.
-                  </p>
-                  <Button href="/contact" variant="primary" className="mt-6">Contact Clinic</Button>
-                </div>
-              )}
-            </>
-          )}
-
-          {filters.tab === 'images' && (
-            <div>
-              <div className="mb-8 max-w-[720px]">
-                <h2 className="text-2xl font-bold text-ink">Resource Images</h2>
-                <p className="mt-2 text-text-light">
-                  Clinic education and patient support visuals. Image failures leave the captions available.
-                </p>
-              </div>
-              <ResourceGallery />
-            </div>
-          )}
-
-          {filters.tab === 'events' && (
-            <div className="soft-card mx-auto max-w-[720px] p-8 text-center">
-              <CalendarDays className="mx-auto h-10 w-10 text-ink" aria-hidden="true" />
-              <h2 className="mt-4 text-2xl font-bold text-ink">Events</h2>
-              <p className="mt-3 text-text-light">
-                No public events are scheduled at this time. Check back for future clinic updates.
-              </p>
-              <Button href="/contact" variant="primary" className="mt-6">
-                Contact Clinic
-              </Button>
-            </div>
-          )}
-        </div>
-      </section>
-    </>
+      </div>
+    </section>
   );
 }

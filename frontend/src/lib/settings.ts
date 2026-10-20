@@ -12,9 +12,15 @@ export const clinicSettings = {
   state: 'Maharashtra',
   pincode: '431009',
   phone: '+917798095795',
-  email: 'info@spandanclinic.com',
+  email: 'spandansuperclinic@gmail.com',
   whatsapp: '917798095795',
-  timings: 'Monday to Saturday, 7:00 AM to 8:00 PM',
+  timings: 'Monday to Saturday, 8:00 AM to 8:00 PM',
+  closedDay: 'Sunday closed',
+  /** Both consultants hold their own consulting window inside the clinic's opening hours. */
+  consultingHours: 'Doctors consult 1:00 PM to 7:00 PM, Monday to Saturday',
+  /** The clinic posts short-notice closures on its WhatsApp status rather than here. */
+  holidayNote: 'For holidays and short-notice closures, check the clinic number’s WhatsApp status.',
+  appointmentNote: 'Please take a prior appointment for a smooth consultation.',
   mapQuery: 'Spandan%20Super%20Speciality%20Clinic%20Garkheda%20Chhatrapati%20Sambhajinagar',
   googleMapsUrl: 'https://www.google.com/maps/search/?api=1&query=Spandan%20Super%20Speciality%20Clinic%20Garkheda%20Chhatrapati%20Sambhajinagar',
   emergencyNote: 'For emergencies, call local emergency services first.',
@@ -23,9 +29,16 @@ export const clinicSettings = {
   consultationFee: 700,
   social: {
     whatsapp: 'https://wa.me/917798095795',
-    instagram: process.env.NEXT_PUBLIC_INSTAGRAM_URL || '',
-    linkedin: process.env.NEXT_PUBLIC_LINKEDIN_URL || '',
-    facebook: process.env.NEXT_PUBLIC_FACEBOOK_URL || '',
+    instagram:
+      process.env.NEXT_PUBLIC_INSTAGRAM_URL ||
+      'https://www.instagram.com/spandan_clinic_sambhaji_nagar',
+    linkedin:
+      process.env.NEXT_PUBLIC_LINKEDIN_URL ||
+      'https://www.linkedin.com/in/dr-pratibha-pawal-aute',
+    facebook:
+      process.env.NEXT_PUBLIC_FACEBOOK_URL ||
+      'https://www.facebook.com/people/Spandan-Superspeciality-Clinic',
+    youtube: process.env.NEXT_PUBLIC_YOUTUBE_URL || 'https://www.youtube.com/@Pratibhapawal',
   },
 };
 

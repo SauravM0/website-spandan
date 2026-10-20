@@ -62,6 +62,8 @@ export type DoctorProfile = {
   summary: string;
   /** Year the primary super-speciality qualification was completed. */
   practisingSince: number;
+  /** Consulting window at Spandan, inside the clinic's wider opening hours. */
+  consultingHours: string;
   education: EducationEntry[];
   appointments: AppointmentEntry[];
   pastAppointments: AppointmentEntry[];
@@ -87,8 +89,9 @@ export const doctorProfiles: Record<string, DoctorProfile> = {
     registrationCouncil: 'Maharashtra Medical Council',
     photo: '/doctors/dr-tukaram-sonaji-aute.png',
     summary:
-      'Dr. Tukaram Aute is a Consultant Interventional Cardiologist who completed his DM in Cardiology at Grant Medical College and Sir J.J. Hospital, Mumbai, where he trained in both adult and paediatric cardiology and later served as Assistant Professor. He has consulted at Spandan Super Speciality Clinic since 2015 and teaches DM Cardiology students at MGM Medical College, Chhatrapati Sambhajinagar.',
+      'Dr. Tukaram Aute is a Consultant Interventional Cardiologist who completed his DM in Cardiology at Grant Medical College and Sir J.J. Hospital, Mumbai, where he trained in both adult and paediatric cardiology and later served as Assistant Professor. He has consulted at Spandan Super Speciality Clinic since July 2015 and is a Senior Consultant Cardiologist with the Medicover group of hospitals.',
     practisingSince: 2014,
+    consultingHours: '1:00 PM to 7:00 PM, Monday to Saturday',
     education: [
       {
         year: '2014',
@@ -113,13 +116,13 @@ export const doctorProfiles: Record<string, DoctorProfile> = {
       {
         role: 'Consultant Interventional Cardiologist',
         organisation: 'Spandan Super Speciality Clinic, Chhatrapati Sambhajinagar',
-        period: 'Since 2015',
+        period: 'July 2015 to date',
         current: true,
       },
       {
-        role: 'Consultant Interventional Cardiologist',
-        organisation: 'MGM Medical College, Chhatrapati Sambhajinagar',
-        period: 'Since July 2015',
+        role: 'Senior Consultant Cardiologist',
+        organisation: 'Medicover Group of Hospitals',
+        period: '2023 to date',
         current: true,
       },
       {
@@ -199,11 +202,6 @@ export const doctorProfiles: Record<string, DoctorProfile> = {
         topic: 'Management of acute coronary syndrome',
         forum: 'Chalisgaon IMA & MGM Medical College Conclave',
       },
-      {
-        year: 'Ongoing',
-        topic: 'Teaching for DM Cardiology and BPMT students',
-        forum: 'MGM Medical College',
-      },
     ],
     books: [],
     languages: ['English', 'Hindi', 'Marathi'],
@@ -222,6 +220,7 @@ export const doctorProfiles: Record<string, DoctorProfile> = {
     summary:
       'Dr. Pratibha Pawal-Aute is a Consultant Endocrinologist with dual training in paediatrics and endocrinology, completing her MD (Paediatrics) at Seth G.S. Medical College and KEM Hospital and her DM (Endocrinology) at T.N. Medical College and B.Y.L. Nair Hospital, Mumbai. She has consulted at Spandan Super Speciality Clinic since 2015, teaches at MGM Medical College, serves as Joint Treasurer of the Maharashtra Endocrine Society, and has published widely on bone and mineral disease, thyroid disorders, and paediatric endocrinology.',
     practisingSince: 2013,
+    consultingHours: '1:00 PM to 7:00 PM, Monday to Saturday',
     education: [
       {
         year: '2013',
@@ -314,6 +313,16 @@ export const doctorProfiles: Record<string, DoctorProfile> = {
       },
     ],
     courses: [
+      {
+        year: '2026',
+        title: 'Goldman Sachs 10,000 Women entrepreneurship training programme',
+        organisation: 'IIM Lucknow, Noida campus',
+      },
+      {
+        year: '2025',
+        title: 'Clinical training programme, October 2025',
+        organisation: 'Zion Hospital, Ahmedabad',
+      },
       {
         year: '2018',
         title: 'AIAARO National Obesity Conference — Chairperson and Scientific Committee member',

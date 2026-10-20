@@ -701,7 +701,25 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
               <Clock size={20} className="mt-0.5 shrink-0 text-[#b9d3c2]" aria-hidden="true" />
               <div>
                 <dt className="text-sm font-semibold text-[#fbf8f2]">Clinic hours</dt>
-                <dd className="mt-1 text-sm leading-relaxed text-[#d7d0c3]">{clinicSettings.timings}</dd>
+                <dd className="mt-1 text-sm leading-relaxed text-[#d7d0c3]">
+                  {clinicSettings.timings}. {clinicSettings.closedDay}.
+                </dd>
+                {profile?.consultingHours && (
+                  <>
+                    <dt className="mt-4 text-sm font-semibold text-[#fbf8f2]">
+                      Consulting hours
+                    </dt>
+                    <dd className="mt-1 text-sm leading-relaxed text-[#d7d0c3]">
+                      {profile.consultingHours}
+                    </dd>
+                  </>
+                )}
+                <dd className="mt-3 text-sm leading-relaxed text-[#b9d3c2]">
+                  {clinicSettings.appointmentNote}
+                </dd>
+                <dd className="mt-1 text-sm leading-relaxed text-[#b9d3c2]">
+                  {clinicSettings.holidayNote}
+                </dd>
               </div>
             </div>
           </dl>

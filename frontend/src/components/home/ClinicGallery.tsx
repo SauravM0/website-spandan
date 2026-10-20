@@ -8,25 +8,22 @@ type GalleryItem = {
   alt: string;
   title: string;
   caption: string;
-  span?: 'wide' | 'tall';
 };
 
-// Editorial grid: two anchor images carry the section, the rest form a quiet
-// supporting row. Order matters more than count here.
+// One tile per machine, all the same size. The source photographs are square,
+// so a uniform square frame shows each one whole instead of cropping it.
 const items: GalleryItem[] = [
   {
     src: '/Services/ecg-machine.png',
     alt: 'ECG machine used for cardiac assessment at Spandan Clinic',
     title: 'ECG',
     caption: 'Resting cardiac rhythm and conduction, reviewed the same visit.',
-    span: 'wide',
   },
   {
     src: '/Services/cgms.png',
     alt: 'Continuous glucose monitoring sensor and reader',
     title: 'CGMS',
     caption: 'Continuous glucose monitoring for pattern-led diabetes care.',
-    span: 'tall',
   },
   {
     src: '/Services/2d-echo.png',
@@ -74,28 +71,19 @@ export default function ClinicGallery() {
           </Button>
         </div>
 
-        <div className="stagger grid auto-rows-[minmax(0,1fr)] gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="stagger grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
-            <figure
-              key={item.title}
-              className={`group card flex flex-col ${
-                item.span === 'wide' ? 'lg:col-span-2' : ''
-              } ${item.span === 'tall' ? 'lg:row-span-2' : ''}`}
-            >
-              <div
-                className={`relative overflow-hidden bg-wash-sage ${
-                  item.span === 'tall' ? 'aspect-[4/5] lg:aspect-auto lg:flex-1' : 'aspect-[4/3]'
-                }`}
-              >
+            <figure key={item.title} className="group card flex flex-col">
+              <div className="relative aspect-square overflow-hidden bg-wash-sage">
                 <Image
                   src={item.src}
                   alt={item.alt}
                   fill
-                  sizes="(min-width: 1024px) 25vw, (min-width: 640px) 50vw, 100vw"
-                  className="object-cover transition-transform duration-500 ease-out group-hover:scale-[1.03]"
+                  sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+                  className="object-contain p-4 transition-transform duration-500 ease-out group-hover:scale-[1.03]"
                 />
               </div>
-              <figcaption className="flex flex-col gap-1 p-5">
+              <figcaption className="flex flex-col gap-1 border-t border-border p-5">
                 <span className="heading-card text-ink">{item.title}</span>
                 <span className="text-sm leading-relaxed text-text-light">{item.caption}</span>
               </figcaption>

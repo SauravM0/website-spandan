@@ -3,20 +3,21 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { useTranslation } from 'react-i18next';
-import { Globe2, Menu, Phone, MessageCircle, X } from 'lucide-react';
+import { ChevronDown, Globe2, Menu, Phone, MessageCircle, X } from 'lucide-react';
 import { restorePreferredLanguage } from '../../lib/i18n';
 import { clinicLinks } from '@/lib/settings';
 import Button from '@/components/ui/Button';
 
 const languages = [
-  { code: 'en', label: 'English' },
-  { code: 'hi', label: 'हिन्दी' },
-  { code: 'mr', label: 'मराठी' },
+  { code: 'en', label: 'English', short: 'EN' },
+  { code: 'hi', label: 'हिन्दी', short: 'हिं' },
+  { code: 'mr', label: 'मराठी', short: 'मरा' },
 ];
 
 const primaryLinks = [
   { href: '/doctors', label: 'nav_doctors' },
   { href: '/care', label: 'nav_care' },
+  { href: '/packages', label: 'nav_packages' },
   { href: '/health', label: 'nav_health' },
   { href: '/contact', label: 'nav_contact' },
 ];
@@ -44,6 +45,9 @@ export default function Navbar() {
     const active = i18n.resolvedLanguage || i18n.language;
     if (active) document.documentElement.lang = active;
   }, [i18n.resolvedLanguage, i18n.language]);
+
+  const resolved = i18n.resolvedLanguage || i18n.language || 'en';
+  const activeLanguage = languages.find((lang) => lang.code === resolved) || languages[0];
 
   const closeDrawer = useCallback(() => {
     setDrawerOpen(false);
@@ -114,11 +118,19 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => setLanguageOpen((v) => !v)}
-              className="flex min-h-[44px] min-w-[44px] items-center justify-center rounded-2xl text-text transition-all duration-300 hover:bg-bg-alt hover:text-accent"
-              aria-label="Change language"
+              className="flex min-h-[44px] items-center gap-1.5 rounded-2xl border border-primary/25 px-3 text-sm font-semibold text-text transition-all duration-300 hover:border-accent hover:bg-bg-alt hover:text-accent"
+              aria-label={t('nav_change_language')}
               aria-expanded={languageOpen}
+              aria-haspopup="menu"
+              title={t('nav_change_language')}
             >
-              <Globe2 size={18} />
+              <Globe2 size={17} aria-hidden="true" />
+              <span>{activeLanguage.short}</span>
+              <ChevronDown
+                size={15}
+                aria-hidden="true"
+                className={`transition-transform duration-200 ${languageOpen ? 'rotate-180' : ''}`}
+              />
             </button>
             {languageOpen && (
               <>
@@ -192,7 +204,7 @@ export default function Navbar() {
 
               <div className="mt-4 pt-4">
                 <p className="mb-2 px-3 text-xs font-semibold uppercase tracking-wider text-text-light">
-                  Language
+                  {t('footer_language')} / Language
                 </p>
                 <div className="grid gap-1 px-3">
                   {languages.map((lang) => (

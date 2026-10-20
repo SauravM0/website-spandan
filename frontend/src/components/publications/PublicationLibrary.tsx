@@ -2,7 +2,7 @@
 
 import React, { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { CalendarDays, ExternalLink, FileText, Search, UserRound, X } from 'lucide-react';
+import { CalendarDays, ExternalLink, FileText, UserRound, X } from 'lucide-react';
 import {
   publicationAuthors,
   publicationTopics,
@@ -70,7 +70,6 @@ function PublicationCard({ publication }: { publication: ResearchPublication }) 
 }
 
 export default function PublicationLibrary({ publications }: { publications: ResearchPublication[] }) {
-  const [query, setQuery] = useState('');
   const [topic, setTopic] = useState('');
   const [year, setYear] = useState('');
   const [author, setAuthor] = useState('');
@@ -83,22 +82,15 @@ export default function PublicationLibrary({ publications }: { publications: Res
   }, []);
 
   const filtered = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
     return publications.filter((publication) => {
-      const searchable = [publication.title, publication.journal, publication.description, ...publication.topics]
-        .filter(Boolean)
-        .join(' ')
-        .toLowerCase();
-      if (normalizedQuery && !searchable.includes(normalizedQuery)) return false;
       if (topic && !publication.topics.includes(topic as ResearchPublication['topics'][number])) return false;
       if (year && publication.year !== Number(year)) return false;
       if (author && !(publication.authorSlugs as readonly string[]).includes(author)) return false;
       return true;
     });
-  }, [publications, query, topic, year, author]);
+  }, [publications, topic, year, author]);
 
   const clearFilters = () => {
-    setQuery('');
     setTopic('');
     setYear('');
     setAuthor('');
@@ -108,20 +100,7 @@ export default function PublicationLibrary({ publications }: { publications: Res
     <>
       <section className="border-b border-primary/10 bg-white py-8">
         <div className="container">
-          <div className="soft-card grid gap-4 p-4 sm:p-5 lg:grid-cols-[minmax(0,1.3fr)_1fr_1fr_0.7fr_auto] lg:items-end">
-            <label className="block">
-              <span className="mb-1.5 block text-sm font-semibold text-ink">Search publications</span>
-              <span className="relative block">
-                <Search className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-text-light" size={17} aria-hidden="true" />
-                <input
-                  type="search"
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Title, journal, topic, or keyword"
-                  className="min-h-[44px] w-full rounded-2xl border border-border bg-white py-2 pl-10 pr-3"
-                />
-              </span>
-            </label>
+          <div className="soft-card grid gap-4 p-4 sm:p-5 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_0.7fr_auto] lg:items-end">
             <label className="block">
               <span className="mb-1.5 block text-sm font-semibold text-ink">Research topic</span>
               <select value={topic} onChange={(event) => setTopic(event.target.value)} className="min-h-[44px] w-full rounded-2xl border border-border bg-white px-3 py-2">
@@ -143,7 +122,7 @@ export default function PublicationLibrary({ publications }: { publications: Res
                 {publicationYears.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>
-            <Button onClick={clearFilters} variant="outline" disabled={!query && !topic && !year && !author}>
+            <Button onClick={clearFilters} variant="outline" disabled={!topic && !year && !author}>
               <X size={16} aria-hidden="true" /> Clear
             </Button>
           </div>

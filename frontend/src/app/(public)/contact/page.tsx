@@ -34,7 +34,7 @@ const structuredData = {
   openingHoursSpecification: {
     '@type': 'OpeningHoursSpecification',
     dayOfWeek: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
-    opens: '07:00',
+    opens: '08:00',
     closes: '20:00',
   },
 };
@@ -134,18 +134,17 @@ export default function ContactPage() {
                 </h3>
                 <table className="text-sm text-text-light" aria-label="Clinic working hours">
                   <tbody>
-                    <tr><td className="pr-6 py-1 font-medium">Monday - Saturday</td><td>7:00 AM - 8:00 PM</td></tr>
+                    <tr><td className="pr-6 py-1 font-medium">Clinic, Monday - Saturday</td><td>8:00 AM - 8:00 PM</td></tr>
+                    <tr><td className="pr-6 py-1 font-medium">Doctor consultations</td><td>1:00 PM - 7:00 PM</td></tr>
                     <tr><td className="pr-6 py-1 font-medium">Sunday</td><td>Closed</td></tr>
                   </tbody>
                 </table>
+                <p className="mt-3 text-sm text-text-light">{clinicSettings.holidayNote}</p>
+                <p className="mt-1 text-sm font-semibold text-accent">{clinicSettings.appointmentNote}</p>
               </div>
 
               <div className="soft-card mb-8 p-5">
                 <p className="text-sm text-text-light flex items-start gap-2">
-                  <MapPin size={16} className="text-text-light mt-0.5 shrink-0" aria-hidden="true" />
-                  <span>Free parking available for patients.</span>
-                </p>
-                <p className="text-sm text-text-light flex items-start gap-2 mt-2">
                   <MapPin size={16} className="text-text-light mt-0.5 shrink-0" aria-hidden="true" />
                   <span>Wheelchair-accessible entrance available.</span>
                 </p>

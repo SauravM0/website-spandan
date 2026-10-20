@@ -3,17 +3,15 @@ import type { Metadata } from 'next';
 import { Activity, BookOpen, GraduationCap, Video } from 'lucide-react';
 import ResourceHub, {
   type HealthResourceArticle,
-  type ResourceFilters,
 } from '@/components/health-resources/resource-gallery/ResourceHub';
 import MedicalCalculators from '@/components/tools/MedicalCalculators';
 import VideoCard from '@/components/videos/VideoCard';
-import VideoFilters from '@/components/videos/VideoFilters';
 import VideoPagination from '@/components/videos/VideoPagination';
 import PublicationLibrary from '@/components/publications/PublicationLibrary';
 import { serverApiGet } from '@/lib/serverApi';
 import { clinicSettings } from '@/lib/settings';
 import { publicationAuthors, researchPublications } from '@/lib/publications';
-import { filterVideos, paginateVideos, extractTopics, extractLanguages } from '@/lib/videos';
+import { paginateVideos } from '@/lib/videos';
 import type { VideosResponse } from '@/lib/videos';
 import { bmiMeta } from '@/lib/tools/bmi';
 import { bpMeta } from '@/lib/tools/blood-pressure';
@@ -39,36 +37,7 @@ function singleValue(value: string | string[] | undefined): string {
   return Array.isArray(value) ? value[0] || '' : value || '';
 }
 
-function getFilters(searchParams?: SearchParams): ResourceFilters {
-  const tab = singleValue(searchParams?.tab);
-  return {
-    tab: tab === 'images' || tab === 'events' ? tab : 'blog',
-    q: singleValue(searchParams?.q).trim(),
-    category: singleValue(searchParams?.category).trim(),
-    language: singleValue(searchParams?.lang).trim(),
-    format: singleValue(searchParams?.format).trim(),
-  };
-}
-
-function buildArticleEndpoint(filters: ResourceFilters): string {
-  const params = new URLSearchParams();
-  if (filters.q) params.set('q', filters.q);
-  if (filters.category) params.set('category', filters.category);
-  if (filters.language) params.set('lang', filters.language);
-  if (filters.format) params.set('format', filters.format);
-  const query = params.toString();
-  return `/articles${query ? `?${query}` : ''}`;
-}
-
-async function getArticles(filters: ResourceFilters) {
-  return serverApiGet<{ articles: HealthResourceArticle[] }>(
-    buildArticleEndpoint(filters),
-    { articles: [] },
-    { next: { revalidate: 3600, tags: ['public-articles'] } }
-  );
-}
-
-async function getAllArticles() {
+async function getArticles() {
   return serverApiGet<{ articles: HealthResourceArticle[] }>(
     '/articles',
     { articles: [] },
@@ -110,28 +79,15 @@ function healthJsonLd() {
 
 export default async function HealthPage({ searchParams }: { searchParams?: Promise<SearchParams> }) {
   const params = await searchParams;
-  const filters = getFilters(params);
 
-  const [articleData, allArticles, videoData] = await Promise.all([
-    getArticles(filters),
-    getAllArticles(),
-    getVideos(),
-  ]);
+  const [articleData, videoData] = await Promise.all([getArticles(), getVideos()]);
 
   const articles = articleData.articles || [];
-  const categories = Array.from(
-    new Set((allArticles.articles || []).map((article) => article.category).filter(Boolean) as string[])
-  ).sort();
 
-  const videoTopic = singleValue(params?.topic).trim();
-  const videoLang = singleValue(params?.vlang).trim();
   const videoPage = Math.max(1, Number(singleValue(params?.page)) || 1);
 
   const allVideos = videoData.videos || [];
-  const filteredVideos = filterVideos(allVideos, { topic: videoTopic, lang: videoLang });
-  const paged = paginateVideos(filteredVideos, videoPage, 12);
-  const topics = extractTopics(allVideos);
-  const languages = extractLanguages(allVideos);
+  const paged = paginateVideos(allVideos, videoPage, 12);
 
   return (
     <>
@@ -159,10 +115,12 @@ export default async function HealthPage({ searchParams }: { searchParams?: Prom
               <Activity size={15} aria-hidden="true" />
               Calculators
             </Button>
-            <Button href="#articles" variant="outline" size="sm">
-              <BookOpen size={15} aria-hidden="true" />
-              Articles
-            </Button>
+            {articles.length > 0 && (
+              <Button href="#articles" variant="outline" size="sm">
+                <BookOpen size={15} aria-hidden="true" />
+                Articles
+              </Button>
+            )}
             <Button href="#videos" variant="outline" size="sm">
               <Video size={15} aria-hidden="true" />
               Videos
@@ -192,18 +150,7 @@ export default async function HealthPage({ searchParams }: { searchParams?: Prom
       </div>
 
       <div id="articles" className="scroll-mt-24">
-        <section className="section">
-          <div className="container">
-            <div className="reveal measure">
-              <p className="eyebrow">Read</p>
-              <h2 className="heading-section mt-3 text-ink">Health articles and resources</h2>
-              <p className="lede mt-4">
-                Reviewed health education by topic, language, and format.
-              </p>
-            </div>
-          </div>
-        </section>
-        <ResourceHub articles={articles} filters={filters} categories={categories} />
+        <ResourceHub articles={articles} />
       </div>
 
       <section id="videos" className="section section-alt scroll-mt-24" aria-labelledby="videos-title">
@@ -220,34 +167,17 @@ export default async function HealthPage({ searchParams }: { searchParams?: Prom
 
           {allVideos.length > 0 ? (
             <>
-              <VideoFilters
-                topics={topics}
-                languages={languages}
-                currentTopic={videoTopic}
-                currentLang={videoLang}
+              <div className="stagger grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {paged.items.map((video) => (
+                  <VideoCard key={video.id} video={video} />
+                ))}
+              </div>
+              <VideoPagination
+                currentPage={paged.page}
+                totalPages={paged.totalPages}
+                total={allVideos.length}
                 basePath="/health"
               />
-              {paged.items.length > 0 ? (
-                <>
-                  <div className="stagger grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-                    {paged.items.map((video) => (
-                      <VideoCard key={video.id} video={video} />
-                    ))}
-                  </div>
-                  <VideoPagination
-                    currentPage={paged.page}
-                    totalPages={paged.totalPages}
-                    total={filteredVideos.length}
-                    basePath="/health"
-                    topic={videoTopic}
-                    lang={videoLang}
-                  />
-                </>
-              ) : (
-                <p className="card p-6 text-sm text-text-light">
-                  No videos match those filters. Clear them to see the full library.
-                </p>
-              )}
             </>
           ) : (
             <p className="card p-6 text-sm text-text-light">

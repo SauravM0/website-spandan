@@ -47,7 +47,6 @@
   "contact_call_now": "आता कॉल करा",
   "contact_whatsapp": "WhatsApp",
   "contact_emergency_note": "वैद्यकीय आणीबाणीसाठी कृपया स्थानिक आपत्कालीन सेवांना (108) कॉल करा किंवा जवळच्या रुग्णालयात जा.",
-  "contact_parking": "रुग्णांसाठी मोफत पार्किंग उपलब्ध.",
   "contact_accessibility": "व्हीलचेअर-सुलभ प्रवेश उपलब्ध.",
   "articles_title": "आरोग्य आणि कल्याण लेख",
   "read_more": "अधिक वाचा",
@@ -78,5 +77,17 @@
   "footer_timings": "वेळ",
   "nav_call_clinic": "क्लिनिकला कॉल करा",
   "nav_care": "काळजी आणि सुविधा",
-  "nav_health": "आरोग्य केंद्र"
+  "nav_health": "आरोग्य केंद्र",
+  "contact_doctor_hours": "डॉक्टर सल्ला वेळ",
+  "contact_holiday_note": "सुट्ट्या आणि अचानक बंद असल्यास क्लिनिक नंबरचे WhatsApp स्टेटस पाहा.",
+  "contact_appointment_note": "सुरळीत सल्ल्यासाठी कृपया आधी अपॉइंटमेंट घ्या.",
+  "footer_follow": "आम्हाला फॉलो करा",
+  "footer_social_facebook": "फेसबुक",
+  "footer_social_instagram": "इन्स्टाग्राम",
+  "footer_social_youtube": "यूट्यूब",
+  "footer_social_linkedin": "लिंक्डइन",
+  "nav_language_label": "भाषा",
+  "nav_change_language": "भाषा बदला",
+  "packages_title": "हेल्थ पॅकेज",
+  "packages_subtitle": "हृदय, मधुमेह, थायरॉइड आणि संपूर्ण शरीर तपासणीसाठी क्लिनिकने तयार केलेली पॅकेजेस."
 }

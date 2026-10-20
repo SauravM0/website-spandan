@@ -1,14 +1,15 @@
 import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
-import { Car, Clock, HelpCircle, Info, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { CalendarCheck, Clock, HelpCircle, Info, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { fallbackPackageSummaries } from '@/lib/packageCatalog';
 import { clinicSettings } from '@/lib/settings';
 import { facilityReview, publishedFacilities, type FacilityCategory } from '@/lib/facilities';
 import { serverApiGet } from '@/lib/serverApi';
 import PackageCatalog from '@/components/packages/PackageCatalog';
 import { formatPackageMoney, type PublicPackageSummary } from '@/components/packages/PackageCard';
-import FacilityFeature from '@/components/care/FacilityFeature';
 import FacilityFilter from '@/components/facilities/FacilityFilter';
+import FacilityGrid from '@/components/facilities/FacilityGrid';
 import Button from '@/components/ui/Button';
 
 export const metadata: Metadata = {
@@ -61,10 +62,16 @@ function careJsonLd(packages: PublicPackageSummary[]) {
       postalCode: clinicSettings.pincode,
       addressCountry: 'IN',
     },
+    // The per-facility detail now lives behind a dialog rather than in the
+    // initial markup, so the same text is published here as structured data and
+    // stays available to crawlers and assistive tooling.
     availableService: publishedFacilities().map((facility) => ({
       '@type': 'MedicalProcedure',
       name: facility.name,
+      category: facility.category,
       description: facility.publicDescription,
+      howPerformed: facility.process,
+      preparation: facility.preparation,
     })),
     makesOffer: packages.map((pkg) => ({
       '@type': 'Offer',
@@ -77,7 +84,9 @@ function careJsonLd(packages: PublicPackageSummary[]) {
 
 export default async function CarePage() {
   const packageData = await getPackages();
-  const packages = packageData.packages || [];
+  const packages = packageData.packages?.length
+    ? packageData.packages
+    : fallbackPackageSummaries();
   const records = publishedFacilities();
 
   const lowestPrice = packages
@@ -85,9 +94,10 @@ export default async function CarePage() {
     .filter((price) => Number.isFinite(price) && price > 0)
     .sort((a, b) => a - b)[0];
 
-  const grouped = categoryOrder
-    .map((category) => ({ category, records: records.filter((f) => f.category === category) }))
-    .filter((group) => group.records.length > 0);
+  // Only offer a filter chip for a category that actually has facilities.
+  const activeCategories = categoryOrder.filter((category) =>
+    records.some((facility) => facility.category === category)
+  );
 
   return (
     <>
@@ -190,32 +200,25 @@ export default async function CarePage() {
           <div className="measure mb-10">
             <p className="eyebrow">Diagnostics</p>
             <h2 id="diagnostics-title" className="heading-section mt-3 text-ink">
-              Facilities by category
+              Everything in the clinic, at a glance
             </h2>
             <p className="lede mt-4">
-              Each record lists purpose, process, preparation, and when to call the clinic first.
+              Best-in-class machines for blood tests, cardiac and endocrine diagnostics, run in
+              clinic so reports can be discussed during the same consultation. Filter by category,
+              and tap any facility for its purpose, process, preparation, and what to confirm
+              before you travel.
             </p>
           </div>
 
-          <FacilityFilter categories={grouped.map((group) => group.category)} />
+          {/*
+            One flat grid rather than a stack of per-category sections: the
+            filter chips above already narrow by category, and each tile carries
+            its own category label, so the headings only added height to a page
+            whose whole point was to stop being a long scroll.
+          */}
+          <FacilityFilter categories={activeCategories} />
 
-          <div className="grid gap-10">
-            {grouped.map((group) => (
-              <div
-                key={group.category}
-                id={group.category.toLowerCase().replace(/\s+/g, '-')}
-                data-facility-category={group.category}
-                className="scroll-mt-28"
-              >
-                <h3 className="heading-card mb-4 text-ink">{group.category}</h3>
-                <div className="grid gap-6">
-                  {group.records.map((facility) => (
-                    <FacilityFeature key={facility.id} facility={facility} />
-                  ))}
-                </div>
-              </div>
-            ))}
-          </div>
+          <FacilityGrid facilities={records} />
         </div>
       </section>
 
@@ -236,6 +239,9 @@ export default async function CarePage() {
               <Clock className="mb-4 text-accent" size={24} aria-hidden="true" />
               <h3 className="heading-card text-ink">Timings</h3>
               <p className="mt-2 text-sm leading-relaxed text-text-light">{clinicSettings.timings}</p>
+              <p className="mt-1 text-sm leading-relaxed text-text-light">
+                {clinicSettings.consultingHours}. {clinicSettings.closedDay}.
+              </p>
             </article>
             <article className="card p-6">
               <MapPin className="mb-4 text-accent" size={24} aria-hidden="true" />
@@ -246,10 +252,13 @@ export default async function CarePage() {
               </p>
             </article>
             <article className="card p-6">
-              <Car className="mb-4 text-accent" size={24} aria-hidden="true" />
-              <h3 className="heading-card text-ink">Parking and access</h3>
+              <CalendarCheck className="mb-4 text-accent" size={24} aria-hidden="true" />
+              <h3 className="heading-card text-ink">Before you come</h3>
               <p className="mt-2 text-sm leading-relaxed text-text-light">
-                Call before arrival to confirm current parking, lift, or accessibility support.
+                {clinicSettings.appointmentNote}
+              </p>
+              <p className="mt-2 text-sm leading-relaxed text-text-light">
+                {clinicSettings.holidayNote}
               </p>
             </article>
           </div>
