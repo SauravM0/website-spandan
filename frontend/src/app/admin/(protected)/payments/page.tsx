@@ -873,7 +873,7 @@ function PaymentsInner() {
 
                 {selectedPayment.provider === 'direct_upi' &&
                   ['verification_pending', 'clarification_requested', 'amount_mismatch'].includes(selectedPayment.status) && (
-                    <section className="mt-6 rounded-lg border border-border-strong bg-wash-sage p-4">
+                    <section className="mt-6 rounded-lg border border-border-strong bg-wash-pink p-4">
                       <h3 className="font-bold text-ink">Manual verification</h3>
                       <p className="mt-1 text-sm text-text-light">
                         Compare the frozen reference, exact amount, and UTR with the clinic bank or merchant UPI application.

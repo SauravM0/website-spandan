@@ -40,7 +40,7 @@ export default function PackageDetailSection({
     <article
       id={`package-${pkg.slug}`}
       className={`scroll-mt-48 rounded-[28px] border bg-white p-5 shadow-xl sm:p-7 ${
-        selected ? 'border-accent/50 ring-4 ring-wash-sage' : 'border-primary/15'
+        selected ? 'border-accent/50 ring-4 ring-wash-pink' : 'border-primary/15'
       }`}
     >
       <div className="grid gap-6 border-b border-primary/10 pb-6 lg:grid-cols-[1fr_auto] lg:items-start">
@@ -59,7 +59,7 @@ export default function PackageDetailSection({
           </p>
         </div>
 
-        <div className="min-w-[250px] rounded-2xl bg-wash-sage/70 p-4">
+        <div className="min-w-[250px] rounded-2xl bg-wash-pink/70 p-4">
           <div className="flex flex-wrap items-end gap-3">
             <p className="text-3xl font-extrabold text-ink">{formatPackageMoney(currentPrice)}</p>
             {hasOffer && (

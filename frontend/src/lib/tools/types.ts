@@ -4,7 +4,7 @@ export const TONE_CLASSES: Record<Tone, string> = {
   green: 'bg-success/10 text-success border-success/25',
   amber: 'bg-warm/10 text-warm border-warm/30',
   red: 'bg-danger/10 text-danger border-danger/25',
-  navy: 'bg-wash-sage text-ink border-border-strong',
+  navy: 'bg-wash-pink text-ink border-border-strong',
 };
 
 /** Marker colour for the band the reading falls into. */

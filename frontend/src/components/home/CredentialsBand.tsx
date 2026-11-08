@@ -26,14 +26,14 @@ export default function CredentialsBand() {
 
   return (
     <section
-      className="relative overflow-hidden bg-[#1f3529] py-20 text-[#f3efe6] sm:py-24"
+      className="relative overflow-hidden bg-[#3A0E26] py-20 text-[#f3efe6] sm:py-24"
       aria-labelledby="credentials-title"
     >
       <div
         className="pointer-events-none absolute inset-0 opacity-[0.07]"
         style={{
           backgroundImage:
-            'radial-gradient(circle at 18% 20%, #f6e7e4 0, transparent 38%), radial-gradient(circle at 85% 90%, #8db29b 0, transparent 42%)',
+            'radial-gradient(circle at 18% 20%, #f6e7e4 0, transparent 38%), radial-gradient(circle at 85% 90%, #E05FA0 0, transparent 42%)',
         }}
         aria-hidden="true"
       />
@@ -41,7 +41,7 @@ export default function CredentialsBand() {
       <div className="container relative">
         <div className="grid gap-12 lg:grid-cols-[1fr_1.1fr] lg:items-end">
           <div className="max-w-xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#b9d3c2]">
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#F2A8CE]">
               Credentials, not claims
             </p>
             <h2
@@ -81,13 +81,13 @@ export default function CredentialsBand() {
         </dl>
 
         <div className="mt-12 grid gap-8 lg:grid-cols-[auto_1fr] lg:items-start lg:gap-14">
-          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#b9d3c2]">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.16em] text-[#F2A8CE]">
             <GraduationCap size={16} aria-hidden="true" />
             Post-graduate training
           </p>
           <ul className="grid gap-x-10 gap-y-3 sm:grid-cols-2">
             {institutions.map((institution) => (
-              <li key={institution} className="border-l border-[#8db29b]/50 pl-4 text-sm leading-relaxed text-[#e9e3d8]">
+              <li key={institution} className="border-l border-[#E05FA0]/50 pl-4 text-sm leading-relaxed text-[#e9e3d8]">
                 {institution}
               </li>
             ))}

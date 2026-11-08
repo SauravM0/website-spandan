@@ -37,7 +37,7 @@ const facilityIcons: Record<string, LucideIcon> = {
  */
 const categoryAccent: Record<FacilityCategory, { chip: string; dot: string }> = {
   Environment: { chip: 'bg-bg-alt text-text-light', dot: 'bg-text-light' },
-  'Laboratory diagnostics': { chip: 'bg-wash-sage text-accent', dot: 'bg-accent' },
+  'Laboratory diagnostics': { chip: 'bg-wash-pink text-accent', dot: 'bg-accent' },
   'Cardiac diagnostics': { chip: 'bg-wash-blush text-blush-deep', dot: 'bg-blush-deep' },
   'Diabetes and endocrine diagnostics': { chip: 'bg-primary/15 text-accent', dot: 'bg-primary' },
   'Sleep and therapy support': { chip: 'bg-ink/10 text-ink', dot: 'bg-ink' },
@@ -81,7 +81,7 @@ function FacilityThumb({ facility }: { facility: FacilityRecord }) {
 
 function DetailRow({ term, detail }: { term: string; detail: string }) {
   return (
-    <div className="rounded-xl bg-wash-sage/60 p-2.5">
+    <div className="rounded-xl bg-wash-pink/60 p-2.5">
       <dt className="text-[10px] font-bold uppercase tracking-wide text-text-light">{term}</dt>
       <dd className="mt-0.5 text-xs leading-relaxed text-ink">{detail}</dd>
     </div>
@@ -111,7 +111,7 @@ function FacilityFlipCard({
           className="flip-face flip-front flip-surface group flex w-full flex-col text-left focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
         >
           <div className="flex flex-col">
-            <span className="relative block aspect-[4/3] overflow-hidden bg-wash-sage">
+            <span className="relative block aspect-[4/3] overflow-hidden bg-wash-pink">
               <FacilityThumb facility={facility} />
               <span
                 className={`absolute left-3 top-3 h-2 w-2 rounded-full ${accent.dot}`}
@@ -154,7 +154,7 @@ function FacilityFlipCard({
             <button
               type="button"
               onClick={onToggle}
-              className="mt-3 inline-flex min-h-[44px] items-center gap-2 self-start rounded-2xl px-3 text-xs font-semibold text-accent transition hover:bg-wash-sage focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
+              className="mt-3 inline-flex min-h-[44px] items-center gap-2 self-start rounded-2xl px-3 text-xs font-semibold text-accent transition hover:bg-wash-pink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent"
             >
               <ArrowLeft size={15} aria-hidden="true" />
               Back

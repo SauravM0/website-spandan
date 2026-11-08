@@ -5,6 +5,7 @@ export default function HeroVideo() {
     <video
       className="h-full w-full object-cover"
       src="/video_spandan.mp4"
+      poster="/video_spandan_poster.jpg"
       autoPlay
       loop
       muted

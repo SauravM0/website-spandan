@@ -13,6 +13,7 @@ import {
   packageCategoryLabel,
   type PublicPackageSummary,
 } from '@/components/packages/PackageCard';
+import { PACKAGE_CACHE } from '@/lib/cache';
 import { fallbackPackageDetail, fallbackPackageDetails } from '@/lib/packageCatalog';
 import { clinicSettings, whatsappLink } from '@/lib/settings';
 import { serverApiGet, serverApiTry } from '@/lib/serverApi';
@@ -22,24 +23,24 @@ async function getPackage(slug: string) {
   return serverApiTry<{ package: PublicPackageDetail | null }>(
     `/packages/${slug}`,
     { package: null },
-    { cache: 'no-store' }
+    PACKAGE_CACHE
   );
 }
 
-async function getPackageCatalog() {
-  return serverApiGet<{ packages: PublicPackageSummary[] }>(
-    '/packages',
-    { packages: [] },
-    { cache: 'no-store' }
-  );
-}
-
+/**
+ * Every package, expanded, in a single request.
+ *
+ * This page lists the whole catalogue with each test list open. It used to read
+ * the catalogue and then call the detail endpoint once per package, so showing
+ * five packages cost six uncached round trips on every view.
+ */
 async function getAllPackageDetails(): Promise<PublicPackageDetail[]> {
-  const catalog = await getPackageCatalog();
-  const results = await Promise.all(
-    (catalog.packages || []).map((pkg) => getPackage(pkg.slug))
+  const catalog = await serverApiGet<{ packages: PublicPackageDetail[] }>(
+    '/packages?include=tests',
+    { packages: [] },
+    PACKAGE_CACHE
   );
-  const live = results.map((result) => result.data.package).filter(Boolean) as PublicPackageDetail[];
+  const live = catalog.packages || [];
   return live.length ? live : fallbackPackageDetails();
 }
 
@@ -183,7 +184,7 @@ export default async function PackageDetail({ params }: { params: Promise<{ slug
               href={`#package-${pkg.slug}`}
               className={`shrink-0 rounded-full border px-4 py-2 text-sm font-semibold transition hover:border-accent hover:text-accent ${
                 pkg.slug === selected.slug
-                  ? 'border-accent bg-wash-sage text-accent'
+                  ? 'border-accent bg-wash-pink text-accent'
                   : 'border-primary/20 bg-white text-ink'
               }`}
             >

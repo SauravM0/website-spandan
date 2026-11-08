@@ -27,7 +27,7 @@ export default function VideoCard({ video }: { video: Video }) {
 
   return (
     <article className="card overflow-hidden flex flex-col">
-      <div className="relative aspect-video bg-wash-sage">
+      <div className="relative aspect-video bg-wash-pink">
         {!loaded ? (
           <button
             onClick={() => setLoaded(true)}
@@ -42,7 +42,7 @@ export default function VideoCard({ video }: { video: Video }) {
                 loading="lazy"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center bg-wash-sage">
+              <div className="flex h-full w-full items-center justify-center bg-wash-pink">
                 <span className="text-sm text-text-light">No thumbnail</span>
               </div>
             )}

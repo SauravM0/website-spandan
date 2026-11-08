@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { Article, PublicArticle } from '../domain/entities';
 import { buildInsert, buildUpdate } from '../persistence/sqlBuilders';
 import { normalizePublicArticleFilters, type PublicArticleFilters, SUPPORTED_ARTICLE_LANGUAGES } from '../utils/articleFilters';
+import { containsPattern } from '../utils/likePattern';
 
 const PUBLIC_ARTICLE_FIELDS = `
   SELECT a.*,
@@ -14,8 +15,8 @@ const PUBLIC_ARTICLE_FIELDS = `
 
 export async function getArticles(publishedOnly = true): Promise<Article[]> {
   const sql = publishedOnly
-    ? 'SELECT * FROM articles WHERE published_at IS NOT NULL ORDER BY published_at DESC'
-    : 'SELECT * FROM articles ORDER BY created_at DESC';
+    ? 'SELECT * FROM articles WHERE published_at IS NOT NULL ORDER BY published_at DESC LIMIT 500'
+    : 'SELECT * FROM articles ORDER BY created_at DESC LIMIT 500';
   const result = await query(sql);
   return result.rows;
 }
@@ -78,7 +79,7 @@ export async function getArticlesByLanguage(
   }
 
   if (filters.q) {
-    values.push(`%${filters.q}%`);
+    values.push(containsPattern(filters.q));
     where.push(`(a.title ILIKE $${values.length} OR a.excerpt ILIKE $${values.length} OR array_to_string(a.tags, ' ') ILIKE $${values.length})`);
   }
 

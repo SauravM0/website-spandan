@@ -56,7 +56,7 @@ const resource = z.object({
   code_system: z.string().url().max(120).optional(),
   code: z.string().max(120).optional(),
   display: z.string().min(1).max(500),
-  value: z.record(z.unknown()).default({}),
+  value: z.record(z.string(), z.unknown()).default({}),
   original_text: z.string().max(4000).optional(),
   source: z.enum(['patient', 'guardian', 'clinician', 'device', 'import']),
   confidentiality: z.enum(['normal', 'restricted']).default('normal'),

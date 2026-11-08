@@ -64,7 +64,7 @@ export default function HeroSection({ settings, doctors }: HeroSectionProps) {
                     ) : null}
                   </div>
                 )) : (
-                  <div className="rounded-2xl border border-primary/10 bg-wash-sage/70 p-3 shadow-md sm:col-span-2">
+                  <div className="rounded-2xl border border-primary/10 bg-wash-pink/70 p-3 shadow-md sm:col-span-2">
                     <span className="block text-sm font-bold">{settings.name}</span>
                     <span className="mt-1 block text-xs text-text-light">{settings.address}</span>
                   </div>

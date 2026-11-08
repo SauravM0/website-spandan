@@ -14,7 +14,7 @@ router.use(auditSensitiveAccess('patient.observation.access', 'patient'));
 const patient = z.object({ patientId: z.string().uuid() }),
   item = patient.extend({ id: z.string().uuid() });
 const provenance = z
-  .record(z.union([z.string().max(500), z.number(), z.boolean(), z.null()]))
+  .record(z.string(), z.union([z.string().max(500), z.number(), z.boolean(), z.null()]))
   .default({});
 const values = {
   numeric_value: z.number().finite().optional(),

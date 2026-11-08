@@ -1,6 +1,10 @@
+const isDev = process.env.NODE_ENV !== 'production';
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
+  // Do not advertise the framework and version to every scanner that asks.
+  poweredByHeader: false,
   generateBuildId: async () => process.env.NEXT_BUILD_ID || 'development',
   images: {
     // Optimiser serves AVIF/WebP from our own origin, which stays inside the
@@ -27,7 +31,14 @@ const nextConfig = {
             key: 'Content-Security-Policy',
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
+              // 'unsafe-eval' is only needed by the dev toolchain (React Refresh
+              // and eval source maps), so production drops it outright.
+              //
+              // 'unsafe-inline' stays: the App Router emits inline bootstrap and
+              // streaming scripts, and removing it requires per-request nonces
+              // threaded through middleware. Until that exists, leaving this out
+              // would simply break the site.
+              `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ''}`,
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https://i.ytimg.com https://img.youtube.com",
               "font-src 'self'",

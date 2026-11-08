@@ -134,11 +134,25 @@ export function publicPackageDetail(pkg: Package, tests: PackageTest[]): PublicP
   };
 }
 
-export async function listPackages(_req: Request, res: Response): Promise<void> {
+/**
+ * The catalogue, optionally with every package's full test list.
+ *
+ * `?include=tests` exists so a page that shows all packages expanded can do it
+ * in one request. Without it the package detail page fetched the catalogue and
+ * then one detail endpoint per package, so a five-package catalogue cost six
+ * round trips on every view. The tests are already read in a single batched
+ * query, so the richer response costs the same two queries as the summary.
+ */
+export async function listPackages(req: Request, res: Response): Promise<void> {
+  const withTests = req.query.include === 'tests';
   const packages = await getPublicPackages();
   const testsByPackage = await getTestsForPackages(packages.map((pkg) => pkg.id));
+
   res.json({
-    packages: packages.map((pkg) => publicPackageSummary(pkg, testsByPackage.get(pkg.id) || [])),
+    packages: packages.map((pkg) => {
+      const tests = testsByPackage.get(pkg.id) || [];
+      return withTests ? publicPackageDetail(pkg, tests) : publicPackageSummary(pkg, tests);
+    }),
   });
 }
 

@@ -81,15 +81,27 @@ async function resolveDoctor(slug: string) {
   return { doctor: null, profile, ok: result.ok };
 }
 
-async function getRelatedArticles(doctor: PublicDoctorDetail) {
-  const articleData = await serverApiGet<{ articles: PublicArticleSummary[] }>(
+/**
+ * Published articles, fetched without reference to any doctor.
+ *
+ * The request does not depend on which doctor is being shown, so it is started
+ * alongside the doctor lookup rather than after it. Filtering to the doctor
+ * happens in memory afterwards.
+ */
+async function getPublishedArticles() {
+  return serverApiGet<{ articles: PublicArticleSummary[] }>(
     '/articles',
     { articles: [] },
     { next: { revalidate: 3600, tags: ['public-articles'] } }
   );
+}
 
+function relatedArticlesFor(
+  articles: PublicArticleSummary[],
+  doctor: PublicDoctorDetail
+): PublicArticleSummary[] {
   const keyword = doctor.speciality.toLowerCase().includes('cardio') ? 'heart' : 'diabetes';
-  return (articleData.articles || [])
+  return articles
     .filter(
       (article) =>
         article.author_doctor_slug === doctor.slug ||
@@ -258,7 +270,12 @@ function Row({
 
 export default async function DoctorDetail({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const { doctor, profile, ok } = await resolveDoctor(slug);
+  // Both backend reads are independent, so they run concurrently. Awaiting them
+  // in sequence made a slow backend cost two full timeouts on every view.
+  const [{ doctor, profile, ok }, articleData] = await Promise.all([
+    resolveDoctor(slug),
+    getPublishedArticles(),
+  ]);
 
   // Only a genuine "the backend answered and has no such doctor" is a 404.
   if (!doctor) {
@@ -274,7 +291,7 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
     notFound();
   }
 
-  const relatedArticles = await getRelatedArticles(doctor);
+  const relatedArticles = relatedArticlesFor(articleData.articles || [], doctor);
   const publications = publicationsForDoctor(doctor.slug);
   const name = cleanDoctorTitle(profile?.name || doctor.name);
   const shortName = name.replace(/^Dr\.\s*/, 'Dr ').split(' ').slice(0, 2).join(' ');
@@ -330,11 +347,11 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
             <div className="relative mx-auto w-full max-w-[360px] lg:mx-0 lg:max-w-none">
               <div
                 className={`absolute -inset-3 -z-10 rounded-[32px] ${
-                  isEndocrinology ? 'bg-[#f6e7e4]' : 'bg-[#e3ede6]'
+                  isEndocrinology ? 'bg-[#f6e7e4]' : 'bg-[#FBE4F0]'
                 }`}
                 aria-hidden="true"
               />
-              <div className="relative aspect-[4/5] overflow-hidden rounded-[26px] bg-[#eef4ef] shadow-[0_30px_60px_-30px_rgba(43,38,33,0.45)]">
+              <div className="relative aspect-[4/5] overflow-hidden rounded-[26px] bg-[#FDEFF7] shadow-[0_30px_60px_-30px_rgba(43,38,33,0.45)]">
                 {imageSrc && isLocalAsset(imageSrc) ? (
                   <Image
                     src={imageSrc}
@@ -413,7 +430,7 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
               <li key={item.id} className="shrink-0">
                 <a
                   href={`#${item.id}`}
-                  className="inline-flex min-h-[40px] items-center rounded-full px-4 text-sm font-semibold text-text-light transition hover:bg-[#eef4ef] hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
+                  className="inline-flex min-h-[40px] items-center rounded-full px-4 text-sm font-semibold text-text-light transition hover:bg-[#FDEFF7] hover:text-accent focus-visible:outline focus-visible:outline-2 focus-visible:outline-accent"
                 >
                   {item.label}
                 </a>
@@ -450,7 +467,7 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
             intro="Degrees in the order they were earned, most recent first."
             tone="alt"
           >
-            <ol className="relative grid gap-8 border-l border-[#c9d8cd] pl-8">
+            <ol className="relative grid gap-8 border-l border-[#F3C9E0] pl-8">
               {profile.education.map((entry) => (
                 <li key={`${entry.year}-${entry.degree}`} className="relative">
                   <span
@@ -651,10 +668,10 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
       )}
 
       {/* -------------------------------------------------------------- visit */}
-      <section id="visit" aria-labelledby="visit-title" className="scroll-mt-36 bg-[#1f3529] py-16 text-[#f3efe6] sm:py-20">
+      <section id="visit" aria-labelledby="visit-title" className="scroll-mt-36 bg-[#3A0E26] py-16 text-[#f3efe6] sm:py-20">
         <div className="container grid gap-10 lg:grid-cols-[1.2fr_1fr] lg:items-center">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#b9d3c2]">Consult</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-[#F2A8CE]">Consult</p>
             <h2 id="visit-title" className="heading-section mt-3 text-[#fbf8f2]">
               See {shortName} at Spandan
             </h2>
@@ -681,7 +698,7 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
 
           <dl className="grid gap-6 border-t border-white/15 pt-8 lg:border-l lg:border-t-0 lg:pl-12 lg:pt-0">
             <div className="flex gap-4">
-              <MapPin size={20} className="mt-0.5 shrink-0 text-[#b9d3c2]" aria-hidden="true" />
+              <MapPin size={20} className="mt-0.5 shrink-0 text-[#F2A8CE]" aria-hidden="true" />
               <div>
                 <dt className="text-sm font-semibold text-[#fbf8f2]">Address</dt>
                 <dd className="mt-1 text-sm leading-relaxed text-[#d7d0c3]">
@@ -698,7 +715,7 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
               </div>
             </div>
             <div className="flex gap-4">
-              <Clock size={20} className="mt-0.5 shrink-0 text-[#b9d3c2]" aria-hidden="true" />
+              <Clock size={20} className="mt-0.5 shrink-0 text-[#F2A8CE]" aria-hidden="true" />
               <div>
                 <dt className="text-sm font-semibold text-[#fbf8f2]">Clinic hours</dt>
                 <dd className="mt-1 text-sm leading-relaxed text-[#d7d0c3]">
@@ -714,10 +731,10 @@ export default async function DoctorDetail({ params }: { params: Promise<{ slug:
                     </dd>
                   </>
                 )}
-                <dd className="mt-3 text-sm leading-relaxed text-[#b9d3c2]">
+                <dd className="mt-3 text-sm leading-relaxed text-[#F2A8CE]">
                   {clinicSettings.appointmentNote}
                 </dd>
-                <dd className="mt-1 text-sm leading-relaxed text-[#b9d3c2]">
+                <dd className="mt-1 text-sm leading-relaxed text-[#F2A8CE]">
                   {clinicSettings.holidayNote}
                 </dd>
               </div>

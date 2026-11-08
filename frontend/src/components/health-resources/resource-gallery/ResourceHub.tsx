@@ -62,7 +62,7 @@ function ResourceCard({ article }: { article: HealthResourceArticle }) {
       <Link href={`/health-resources/${article.slug}`} className="block flex-1 p-6 focus:outline-none focus:ring-2 focus:ring-accent focus:ring-offset-2">
         <div className="flex flex-wrap items-start gap-2">
           {article.category && <span className="badge badge-new">{article.category}</span>}
-          <span className="badge bg-wash-sage text-accent">{format}</span>
+          <span className="badge bg-wash-pink text-accent">{format}</span>
           <span className="badge bg-blush/15 text-blush-deep">{languageLabel(article.language)}</span>
         </div>
 

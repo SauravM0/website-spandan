@@ -74,7 +74,7 @@ export default function ClinicGallery() {
         <div className="stagger grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((item) => (
             <figure key={item.title} className="group card flex flex-col">
-              <div className="relative aspect-square overflow-hidden bg-wash-sage">
+              <div className="relative aspect-square overflow-hidden bg-wash-pink">
                 <Image
                   src={item.src}
                   alt={item.alt}

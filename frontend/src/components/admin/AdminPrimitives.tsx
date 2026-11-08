@@ -106,7 +106,7 @@ export function AdminFeedback({ message, error = false }: { message?: string; er
     <div
       role={error ? 'alert' : 'status'}
       aria-live={error ? 'assertive' : 'polite'}
-      className={`rounded-md p-3 text-sm ${error ? 'bg-red-50 text-red-900' : 'bg-wash-sage text-ink'}`}
+      className={`rounded-md p-3 text-sm ${error ? 'bg-red-50 text-red-900' : 'bg-wash-pink text-ink'}`}
     >
       {message}
     </div>

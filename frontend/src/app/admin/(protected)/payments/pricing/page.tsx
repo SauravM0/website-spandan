@@ -172,7 +172,7 @@ export default function ServicePricingPage() {
           </p>
         )}
         {!canWrite && (
-          <p className="mb-4 rounded-lg bg-wash-sage p-3 text-sm text-ink">
+          <p className="mb-4 rounded-lg bg-wash-pink p-3 text-sm text-ink">
             You have read-only access. An administrator or manager must publish price changes.
           </p>
         )}
@@ -416,7 +416,7 @@ export default function ServicePricingPage() {
                     />
                     <span className="text-sm font-semibold text-ink">Visible to patients</span>
                   </label>
-                  <div className="sm:col-span-2 rounded-lg bg-wash-sage p-3 text-sm text-ink">
+                  <div className="sm:col-span-2 rounded-lg bg-wash-pink p-3 text-sm text-ink">
                     Saving creates a new audited version. It does not change an existing booking or
                     transaction.
                   </div>

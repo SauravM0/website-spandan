@@ -164,7 +164,7 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
             <dl className="mt-4 divide-y divide-primary/10">
               {overviewStats.map(([value, label, Icon]) => (
                 <div key={String(label)} className="grid grid-cols-[36px_30px_1fr] items-center gap-2 py-3 first:pt-1">
-                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-wash-sage text-accent">
+                  <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-wash-pink text-accent">
                     <Icon size={17} aria-hidden="true" />
                   </span>
                   <dt className="order-3 text-xs font-medium text-text-light">{String(label)}</dt>
@@ -222,9 +222,9 @@ export default function ExploreBento({ article, video }: ExploreBentoProps) {
               <Gauge size={48} strokeWidth={1.5} className="text-primary/30" aria-hidden="true" />
             </div>
             <div className="mt-3 flex flex-wrap gap-1.5 text-[10px] font-bold text-accent">
-              <span className="rounded-full bg-wash-sage px-2 py-1">BMI</span>
-              <span className="rounded-full bg-wash-sage px-2 py-1">Blood pressure</span>
-              <span className="rounded-full bg-wash-sage px-2 py-1">Diabetes risk</span>
+              <span className="rounded-full bg-wash-pink px-2 py-1">BMI</span>
+              <span className="rounded-full bg-wash-pink px-2 py-1">Blood pressure</span>
+              <span className="rounded-full bg-wash-pink px-2 py-1">Diabetes risk</span>
             </div>
             <CardArrow>Try a tool</CardArrow>
           </Link>

@@ -1,4 +1,5 @@
 import nodemailer from 'nodemailer';
+import type { SendMailOptions, Transporter } from 'nodemailer';
 import { config } from '../config';
 import { query } from '../config/database';
 import { requireApprovedVendor } from '../security/vendorGate';
@@ -31,8 +32,8 @@ export interface EnquiryNotification {
 }
 
 async function sendWithRetry(
-  transporter: nodemailer.Transporter,
-  mailOptions: nodemailer.SendMailOptions,
+  transporter: Transporter,
+  mailOptions: SendMailOptions,
   enquiryId: string | null,
   retries = 3,
   backoffMs = 1000

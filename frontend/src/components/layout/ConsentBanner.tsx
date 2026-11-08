@@ -24,11 +24,11 @@ export default function ConsentBanner() {
         <p className="text-xs leading-relaxed md:text-sm">
           This site uses only essential storage for session and preferences. No tracking cookies are used.
           By continuing, you agree to our{' '}
-          <a href="/legal#privacy" className="underline text-accent hover:text-white">Privacy Policy</a>.
+          <a href="/legal#privacy" className="inline-flex min-h-[44px] items-center underline text-accent hover:text-white">Privacy Policy</a>.
         </p>
         <button
           onClick={dismiss}
-          className="inline-flex min-h-[36px] min-w-[36px] shrink-0 items-center justify-center rounded-md bg-white/10 text-white hover:bg-white/20"
+          className="inline-flex min-h-[44px] min-w-[44px] shrink-0 items-center justify-center rounded-md bg-white/10 text-white hover:bg-white/20"
           aria-label="Dismiss notice"
         >
           <X size={16} />

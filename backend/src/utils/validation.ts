@@ -5,7 +5,7 @@ const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}
 const slugRegex = /^[a-z0-9-]+$/;
 const languageSchema = z.preprocess(
   (value) => (typeof value === 'string' ? value.split('-')[0] : value),
-  z.enum(['en', 'hi', 'mr'], { errorMap: () => ({ message: 'Language must be en, hi, or mr' }) })
+  z.enum(['en', 'hi', 'mr'], { message: 'Language must be en, hi, or mr' })
 );
 
 export function stripHtml(input: string): string {
@@ -47,7 +47,7 @@ export const enquirySchema = z.object({
     }, 'Date must be today or in the future'),
   preferred_time_window: z.string().max(50).nullable().optional(),
   message: z.string().max(1000).transform(stripHtml).nullable().optional(),
-  consent: z.literal(true, { errorMap: () => ({ message: 'Consent must be exactly true' }) }),
+  consent: z.literal(true, { message: 'Consent must be exactly true' }),
   language: languageSchema.optional(),
   source_language: languageSchema.optional(),
 });
@@ -195,7 +195,7 @@ export const customTestOrderSchema = z.object({
   preferred_date: dateSchema.optional(),
   clinical_notes: z.string().max(1000).transform(stripHtml).optional(),
   source_language: languageSchema.optional(),
-  consent: z.literal(true, { errorMap: () => ({ message: 'Consent must be exactly true' }) }),
+  consent: z.literal(true, { message: 'Consent must be exactly true' }),
   test_ids: z
     .array(z.string().regex(uuidRegex, 'Must be a valid UUID'))
     .min(1, 'Select at least one diagnostic test')

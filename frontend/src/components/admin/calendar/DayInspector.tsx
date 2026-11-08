@@ -37,7 +37,7 @@ export default function DayInspector({
     danger: 'bg-danger/15 text-danger',
     warm: 'bg-amber-100 text-amber-900',
     success: 'bg-emerald-100 text-emerald-800',
-    info: 'bg-wash-sage text-accent',
+    info: 'bg-wash-pink text-accent',
     muted: 'bg-bg-alt text-text-light',
   };
 

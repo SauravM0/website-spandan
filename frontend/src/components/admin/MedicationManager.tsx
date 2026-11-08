@@ -102,7 +102,7 @@ export default function MedicationManager({
         History only. Nothing here creates a prescription or changes treatment.
       </p>
       {message && (
-        <p role="status" className="my-3 rounded-md bg-wash-sage p-3">
+        <p role="status" className="my-3 rounded-md bg-wash-pink p-3">
           {message}
         </p>
       )}

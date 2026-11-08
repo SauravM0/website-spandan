@@ -1,10 +1,35 @@
 import { Request, Response } from 'express';
 import { getDoctors, getDoctorBySlug, getDoctorById, createDoctor, updateDoctor, deleteDoctor } from '../models';
+import type { AuthenticatedRequest } from '../middleware/auth';
+import { PERMISSIONS, roleHasPermission } from '../security/permissions';
+import { forbidden, unauthorized } from '../utils/errors';
 
-export async function list(req: Request, res: Response): Promise<void> {
-  const activeOnly = req.query.all !== 'true';
-  const doctors = await getDoctors(activeOnly);
-  res.json({ doctors });
+/**
+ * Lists doctors. The public site calls this with no credentials and only ever
+ * receives published profiles.
+ *
+ * `?all=true` returns unpublished doctors too, which the staff calendar needs.
+ * That previously ran on this same unauthenticated route, so anyone could ask
+ * for the inactive list. It now requires a signed-in staff member who can read
+ * appointments; an anonymous or unauthorised request is refused rather than
+ * silently downgraded, so a caller cannot mistake a partial list for the full one.
+ */
+export async function list(req: AuthenticatedRequest, res: Response): Promise<void> {
+  if (req.query.all !== 'true') {
+    res.json({ doctors: await getDoctors(true) });
+    return;
+  }
+
+  if (!req.user) {
+    unauthorized(res);
+    return;
+  }
+  if (!roleHasPermission(req.user.role, PERMISSIONS.APPOINTMENTS_READ)) {
+    forbidden(res);
+    return;
+  }
+
+  res.json({ doctors: await getDoctors(false) });
 }
 
 export async function getBySlug(req: Request, res: Response): Promise<void> {

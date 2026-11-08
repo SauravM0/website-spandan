@@ -3,6 +3,7 @@ import type { Metadata } from 'next';
 import { CalendarCheck, Clock, MessageCircle, Phone } from 'lucide-react';
 import PackageCatalog from '@/components/packages/PackageCatalog';
 import { formatPackageMoney, type PublicPackageSummary } from '@/components/packages/PackageCard';
+import { PACKAGE_CACHE } from '@/lib/cache';
 import { fallbackPackageSummaries } from '@/lib/packageCatalog';
 import { clinicSettings, whatsappLink } from '@/lib/settings';
 import { serverApiGet } from '@/lib/serverApi';
@@ -23,7 +24,7 @@ async function getPackages() {
   return serverApiGet<{ packages: PublicPackageSummary[] }>(
     '/packages',
     { packages: [] },
-    { cache: 'no-store' }
+    PACKAGE_CACHE
   );
 }
 

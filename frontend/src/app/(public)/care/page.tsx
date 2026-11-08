@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import type { Metadata } from 'next';
 import Image from 'next/image';
 import { CalendarCheck, Clock, HelpCircle, Info, MapPin, Phone, ShieldCheck } from 'lucide-react';
+import { FACILITY_CACHE } from '@/lib/cache';
 import { fallbackPackageSummaries } from '@/lib/packageCatalog';
 import { clinicSettings } from '@/lib/settings';
 import { facilityReview, publishedFacilities, type FacilityCategory } from '@/lib/facilities';
@@ -44,7 +45,7 @@ async function getPackages() {
   return serverApiGet<{ packages: PublicPackageSummary[] }>(
     '/packages',
     { packages: [] },
-    { cache: 'no-store' }
+    FACILITY_CACHE
   );
 }
 
@@ -178,7 +179,7 @@ export default async function CarePage() {
             <div className="stagger grid gap-4 sm:grid-cols-3">
               {galleryItems.map((item) => (
                 <figure key={item.src} className="card overflow-hidden">
-                  <div className="relative aspect-[4/3] bg-wash-sage">
+                  <div className="relative aspect-[4/3] bg-wash-pink">
                     <Image
                       src={item.src}
                       alt={item.alt}

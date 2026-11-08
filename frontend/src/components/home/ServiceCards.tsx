@@ -89,16 +89,16 @@ function DiabetesVisual() {
       <svg viewBox="0 0 360 180" className="h-full w-full overflow-visible">
         <defs>
           <linearGradient id="diabetes-area" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor="#8DB29B" stopOpacity=".24" />
-            <stop offset="1" stopColor="#E4ECE6" stopOpacity="0" />
+            <stop offset="0" stopColor="#F078C0" stopOpacity=".24" />
+            <stop offset="1" stopColor="#FBE4F0" stopOpacity="0" />
           </linearGradient>
         </defs>
         <path d="M10 145 L50 100 L82 116 L122 40 L158 126 L202 26 L247 119 L297 78 L348 90 L348 170 L10 170 Z" fill="url(#diabetes-area)" />
-        <path d="M10 145 L50 100 L82 116 L122 40 L158 126 L202 26 L247 119 L297 78 L348 90" fill="none" stroke="#3D644F" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M10 145 L50 100 L82 116 L122 40 L158 126 L202 26 L247 119 L297 78 L348 90" fill="none" stroke="#C0006F" strokeWidth="4" strokeLinecap="round" strokeLinejoin="round" />
         {[['10','140'],['50','100'],['82','115'],['122','42'],['156','124'],['202','28'],['248','118'],['298','82']].map(([cx, cy]) => (
-          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="5" fill="#fff" stroke="#3D644F" strokeWidth="3" />
+          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="5" fill="#fff" stroke="#C0006F" strokeWidth="3" />
         ))}
-        <path d="M10 165 H350 M10 120 H350 M10 75 H350" stroke="#CDE0D2" strokeWidth="1" strokeDasharray="4 6" />
+        <path d="M10 165 H350 M10 120 H350 M10 75 H350" stroke="#F3C9E0" strokeWidth="1" strokeDasharray="4 6" />
       </svg>
     </div>
   );
@@ -110,8 +110,8 @@ function HeartVisual() {
       <svg viewBox="0 0 430 170" className="h-full w-full overflow-visible">
         <defs>
           <linearGradient id="heart-line" x1="0" x2="1">
-            <stop offset="0" stopColor="#3D644F" stopOpacity=".3" />
-            <stop offset=".48" stopColor="#8DB29B" />
+            <stop offset="0" stopColor="#C0006F" stopOpacity=".3" />
+            <stop offset=".48" stopColor="#F078C0" />
             <stop offset="1" stopColor="#C17570" />
           </linearGradient>
           <filter id="heart-glow" x="-30%" y="-30%" width="160%" height="160%">
@@ -156,7 +156,7 @@ export default function ServiceCards() {
                 className={`group relative flex min-h-[330px] flex-col overflow-hidden rounded-[28px] border p-7 transition duration-300 hover:-translate-y-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-accent lg:p-8 ${
                   dark
                     ? 'border-ink bg-ink text-white shadow-xl'
-                    : 'border-primary/30 bg-gradient-to-br from-white via-wash-sage/70 to-white text-ink shadow-xl'
+                    : 'border-primary/30 bg-gradient-to-br from-white via-wash-pink/70 to-white text-ink shadow-xl'
                 }`}
                 aria-label={`Learn about ${care.title} and meet our specialists`}
               >
@@ -200,14 +200,14 @@ export default function ServiceCards() {
                 className="group relative flex min-h-[230px] flex-col overflow-hidden rounded-[22px] border border-primary/25 bg-white p-6 shadow-lg transition duration-300 hover:-translate-y-1 hover:border-accent/50 hover:shadow-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-3 focus-visible:outline-accent sm:aspect-square sm:min-h-0"
                 aria-label={`${care.title}: ${care.text}`}
               >
-                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-wash-sage text-accent transition group-hover:bg-primary/15">
+                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-wash-pink text-accent transition group-hover:bg-primary/15">
                   <Icon size={24} aria-hidden="true" />
                 </span>
                 <span className="mt-4 min-w-0 pr-6">
                   <strong className="block text-lg font-extrabold leading-snug text-ink">{care.title}</strong>
                   <span className="mt-2 block text-sm leading-relaxed text-text-light">{care.text}</span>
                 </span>
-                <span className="absolute bottom-4 right-4 flex h-8 w-8 items-center justify-center rounded-full border border-primary/25 text-accent transition group-hover:border-accent group-hover:bg-wash-sage" aria-hidden="true">
+                <span className="absolute bottom-4 right-4 flex h-8 w-8 items-center justify-center rounded-full border border-primary/25 text-accent transition group-hover:border-accent group-hover:bg-wash-pink" aria-hidden="true">
                   <ArrowRight size={15} />
                 </span>
               </Link>

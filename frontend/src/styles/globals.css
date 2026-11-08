@@ -10,12 +10,14 @@
        opacity modifiers (bg-danger/10) keep working.
        ------------------------------------------------------------------ */
 
-    /* Sage — the brand green. `accent` is the action colour and is dark
-       enough for white text at body sizes; `primary` is decorative. */
-    --color-accent: 61 100 79;           /* #3D644F */
-    --color-accent-light: 78 117 97;     /* #4E7561 */
-    --color-primary: 92 138 112;         /* #5C8A70 */
-    --color-primary-light: 141 178 155;  /* #8DB29B */
+    /* Pink — the brand colour, taken from the clinic's own logo (#E80088).
+       `primary` is that exact pink and is decorative; `accent` is a darkened
+       version used for actions, because the logo pink only reaches 4.39:1 on
+       white and white button text needs 4.5:1. */
+    --color-accent: 192 0 111;           /* #C0006F - 6.05:1 on white */
+    --color-accent-light: 209 0 122;     /* #D1007A - 5.26:1 on white */
+    --color-primary: 232 0 136;          /* #E80088 - the logo pink */
+    --color-primary-light: 240 120 192;  /* #F078C0 - the logo's light pink */
 
     /* Blush — the warm secondary. `blush-deep` is the text-safe variant. */
     --color-blush: 193 117 112;          /* #C17570 */
@@ -38,8 +40,8 @@
     --color-sand: rgb(250 247 242);
     --color-bg-alt: rgba(246, 242, 235, 0.78);
     --color-border: rgba(120, 108, 94, 0.22);
-    --color-border-strong: rgba(61, 100, 79, 0.26);
-    --color-wash-sage: rgba(238, 244, 239, 0.9);
+    --color-border-strong: rgba(192, 0, 111, 0.26);
+    --color-wash-pink: rgba(253, 236, 245, 0.9);
     --color-wash-blush: rgba(250, 240, 237, 0.82);
 
     /* Radius scale */
@@ -107,7 +109,7 @@
     color: rgb(var(--color-text));
     background-color: var(--color-sand);
     background-image:
-      radial-gradient(120% 70% at 50% -10%, rgba(224, 236, 227, 0.75) 0%, rgba(250, 247, 242, 0) 60%);
+      radial-gradient(120% 70% at 50% -10%, rgba(250, 223, 238, 0.75) 0%, rgba(250, 247, 242, 0) 60%);
     background-repeat: no-repeat;
     -webkit-font-smoothing: antialiased;
   }
@@ -149,7 +151,7 @@
   }
   .btn-outline:hover {
     border-color: rgba(193, 117, 112, 0.28);
-    background: rgba(240, 246, 241, 0.92);
+    background: rgba(253, 237, 246, 0.92);
     color: rgb(var(--color-accent));
     box-shadow: var(--shadow-md);
   }
@@ -162,7 +164,7 @@
   }
   .btn-ghost:hover {
     color: rgb(var(--color-accent));
-    background: var(--color-wash-sage);
+    background: var(--color-wash-pink);
   }
 
   .btn-danger {
@@ -215,7 +217,7 @@
      paper with occasional warm panels, which is what makes it feel calm. */
   .section-alt,
   .section.bg-bg-alt {
-    background: linear-gradient(180deg, rgba(240, 246, 241, 0.7), rgba(250, 247, 242, 0.95));
+    background: linear-gradient(180deg, rgba(253, 237, 246, 0.7), rgba(250, 247, 242, 0.95));
   }
   .section-paper { background: #ffffff; }
 
@@ -246,16 +248,19 @@
   .badge {
     @apply inline-block px-3 py-1 rounded-full text-xs font-semibold;
   }
-  .badge-new { @apply bg-pink-100 text-pink-700; }
-  .badge-featured { @apply bg-blue-100 text-blue-700; }
+  /* Both badges come from the logo's own two colours rather than Tailwind's
+     stock palette, so a category chip never reads as an unrelated colour next
+     to the brand pink. Contrast is 5.01:1 and 6.46:1. */
+  .badge-new { background: #FCE3F0; color: #C0006F; }
+  .badge-featured { background: #DFF3FC; color: #075C7E; }
 
   .soft-page-hero {
     position: relative;
     overflow: hidden;
     color: rgb(var(--color-ink));
     background:
-      linear-gradient(145deg, #ffffff 0%, rgba(248, 233, 229, 0.73) 42%, rgba(224, 236, 227, 0.77) 100%),
-      linear-gradient(35deg, rgba(255, 255, 255, 0) 0%, rgba(92, 138, 112, 0.126) 54%, rgba(193, 117, 112, 0.104) 100%);
+      linear-gradient(145deg, #ffffff 0%, rgba(248, 233, 229, 0.73) 42%, rgba(250, 223, 238, 0.77) 100%),
+      linear-gradient(35deg, rgba(255, 255, 255, 0) 0%, rgba(232, 0, 136, 0.126) 54%, rgba(193, 117, 112, 0.104) 100%);
   }
 
   .soft-page-hero::before,
@@ -265,7 +270,7 @@
     inset: 0;
     pointer-events: none;
     background-image:
-      linear-gradient(rgba(92, 138, 112, 0.055) 1px, transparent 1px),
+      linear-gradient(rgba(232, 0, 136, 0.055) 1px, transparent 1px),
       linear-gradient(90deg, rgba(193, 117, 112, 0.05) 1px, transparent 1px);
     background-size: 72px 72px;
     mask-image: linear-gradient(120deg, rgba(0, 0, 0, 0.62), transparent 72%);
@@ -280,7 +285,7 @@
     opacity: 0.55;
     background:
       linear-gradient(120deg, transparent 0 32%, rgba(193, 117, 112, 0.086) 32% 33%, transparent 33% 100%),
-      linear-gradient(35deg, transparent 0 66%, rgba(92, 138, 112, 0.086) 66% 67%, transparent 67% 100%);
+      linear-gradient(35deg, transparent 0 66%, rgba(232, 0, 136, 0.086) 66% 67%, transparent 67% 100%);
   }
 
   .section-alt {
@@ -300,12 +305,12 @@
     overflow: hidden;
     color: rgb(var(--color-ink));
     background:
-      linear-gradient(135deg, #ffffff, rgba(224, 236, 227, 0.71)),
+      linear-gradient(135deg, #ffffff, rgba(250, 223, 238, 0.71)),
       linear-gradient(45deg, rgba(248, 233, 229, 0.57), #ffffff);
   }
 
   .soft-card {
-    border: 1px solid rgba(61, 100, 79, 0.26);
+    border: 1px solid rgba(192, 0, 111, 0.26);
     border-radius: 20px;
     background: #ffffff;
     box-shadow: 0 12px 32px rgba(43, 38, 33, 0.08);
@@ -321,8 +326,8 @@
   .trust-card {
     background:
       linear-gradient(180deg, #ffffff, #ffffff),
-      linear-gradient(135deg, rgba(240, 246, 241, 0.5), rgba(250, 240, 237, 0.34));
-    border-color: rgba(61, 100, 79, 0.28);
+      linear-gradient(135deg, rgba(253, 237, 246, 0.5), rgba(250, 240, 237, 0.34));
+    border-color: rgba(192, 0, 111, 0.28);
   }
 
   .trust-card:hover {
@@ -334,7 +339,7 @@
     overflow: hidden;
     background:
       radial-gradient(circle at 9% 13%, rgba(248, 233, 229, 0.82), transparent 28%),
-      radial-gradient(circle at 91% 8%, rgba(224, 236, 227, 0.88), transparent 30%),
+      radial-gradient(circle at 91% 8%, rgba(250, 223, 238, 0.88), transparent 30%),
       linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(246, 242, 235, 0.86));
   }
 
@@ -353,15 +358,15 @@
 
   .home-bento-card {
     @apply relative block min-h-[210px] overflow-hidden bg-white transition duration-300;
-    border: 1px solid rgba(61, 100, 79, 0.25);
+    border: 1px solid rgba(192, 0, 111, 0.25);
     border-radius: 22px;
     box-shadow: 0 12px 34px rgba(43, 38, 33, 0.075);
   }
 
   .home-bento-card:hover {
-    border-color: rgba(61, 100, 79, 0.48);
+    border-color: rgba(192, 0, 111, 0.48);
     transform: translateY(-4px);
-    box-shadow: 0 22px 48px rgba(61, 100, 79, 0.15);
+    box-shadow: 0 22px 48px rgba(192, 0, 111, 0.15);
   }
 
   .home-bento-card:focus-visible,
@@ -395,7 +400,7 @@
   .home-bento-facilities {
     min-height: 440px;
     background:
-      linear-gradient(145deg, rgba(240, 246, 241, 0.98), rgba(255, 255, 255, 0.96)),
+      linear-gradient(145deg, rgba(253, 237, 246, 0.98), rgba(255, 255, 255, 0.96)),
       #ffffff;
   }
 
@@ -404,7 +409,7 @@
     inset: 38% -12% auto 12%;
     height: 150px;
     opacity: 0.32;
-    background: repeating-radial-gradient(ellipse at 80% 100%, transparent 0 11px, rgba(92, 138, 112, 0.18) 12px 13px);
+    background: repeating-radial-gradient(ellipse at 80% 100%, transparent 0 11px, rgba(232, 0, 136, 0.18) 12px 13px);
     transform: rotate(-6deg);
   }
 
@@ -415,18 +420,18 @@
 
   .home-bento-video-fallback {
     background:
-      linear-gradient(120deg, rgba(61, 100, 79, 0.42), transparent),
+      linear-gradient(120deg, rgba(192, 0, 111, 0.42), transparent),
       radial-gradient(circle at 85% 20%, rgba(193, 117, 112, 0.34), transparent 32%),
       rgb(var(--color-ink));
   }
 
   .home-bento-small-machine {
-    background: linear-gradient(145deg, rgba(240, 246, 241, 0.84), #ffffff 58%);
+    background: linear-gradient(145deg, rgba(253, 237, 246, 0.84), #ffffff 58%);
   }
 
   .home-bento-gallery {
     min-height: 230px;
-    background: linear-gradient(120deg, #ffffff 0 47%, rgba(240, 246, 241, 0.85));
+    background: linear-gradient(120deg, #ffffff 0 47%, rgba(253, 237, 246, 0.85));
   }
 
   .home-bento-posters {
@@ -449,21 +454,21 @@
   .icon-chip {
     @apply inline-flex items-center justify-center text-accent;
     border-radius: 16px;
-    background: linear-gradient(135deg, rgba(248, 233, 229, 0.92), rgba(240, 246, 241, 0.92));
+    background: linear-gradient(135deg, rgba(248, 233, 229, 0.92), rgba(253, 237, 246, 0.92));
   }
 
   .clinical-pill {
     @apply inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-bold;
     color: rgb(var(--color-accent));
-    background: linear-gradient(135deg, rgba(240, 246, 241, 0.94), rgba(248, 233, 229, 0.82));
-    border: 1px solid rgba(61, 100, 79, 0.16);
+    background: linear-gradient(135deg, rgba(253, 237, 246, 0.94), rgba(248, 233, 229, 0.82));
+    border: 1px solid rgba(192, 0, 111, 0.16);
   }
 
   .form-group { @apply mb-5; }
   .form-group label { @apply block font-semibold text-sm mb-1.5; }
   .form-group input, .form-group textarea, .form-group select {
     @apply w-full px-4 py-3 border text-base transition-all duration-300;
-    border-color: rgba(61, 100, 79, 0.14);
+    border-color: rgba(192, 0, 111, 0.14);
     border-radius: 18px;
     background: #ffffff;
     box-shadow: 0 8px 22px rgba(43, 38, 33, 0.04);

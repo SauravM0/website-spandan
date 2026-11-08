@@ -45,7 +45,7 @@ module.exports = {
         'bg-alt': 'var(--color-bg-alt)',
         border: 'var(--color-border)',
         'border-strong': 'var(--color-border-strong)',
-        'wash-sage': 'var(--color-wash-sage)',
+        'wash-pink': 'var(--color-wash-pink)',
         'wash-blush': 'var(--color-wash-blush)',
       },
       borderRadius: {

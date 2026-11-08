@@ -131,7 +131,7 @@ export default function ObservationManager({
         diagnostic or treatment conclusions are generated.
       </p>
       {message && (
-        <p role="status" className="my-3 rounded bg-wash-sage p-3">
+        <p role="status" className="my-3 rounded bg-wash-pink p-3">
           {message}
         </p>
       )}

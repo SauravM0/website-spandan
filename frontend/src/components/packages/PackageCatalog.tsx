@@ -106,9 +106,9 @@ export default function PackageCatalog({ packages }: PackageCatalogProps) {
             href={whatsappLink('Hello, I would like help choosing the right tests for me.')}
             target="_blank"
             rel="noopener noreferrer"
-            className="group relative flex min-h-[390px] flex-col overflow-hidden rounded-3xl border border-accent/50 bg-gradient-to-br from-wash-sage via-white to-wash-blush p-7 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-accent hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
+            className="group relative flex min-h-[390px] flex-col overflow-hidden rounded-3xl border border-accent/50 bg-gradient-to-br from-wash-pink via-white to-wash-blush p-7 shadow-lg transition-all duration-300 hover:-translate-y-1 hover:border-accent hover:shadow-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2"
           >
-            <div className="absolute right-5 top-5 flex items-center gap-1 rounded-full bg-wash-sage px-3 py-1 text-xs font-bold text-accent">
+            <div className="absolute right-5 top-5 flex items-center gap-1 rounded-full bg-wash-pink px-3 py-1 text-xs font-bold text-accent">
               <Sparkles size={13} aria-hidden="true" /> Flexible
             </div>
             <p className="text-xs font-bold uppercase tracking-wide text-accent">Personalised testing</p>

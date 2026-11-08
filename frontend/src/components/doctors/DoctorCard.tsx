@@ -66,8 +66,8 @@ function HomeDoctorCard({ doctor }: { doctor: PublicDoctorSummary }) {
       <div
         className={`relative min-h-[320px] overflow-hidden sm:h-full sm:min-h-[520px] ${
           isEndocrinology
-            ? 'bg-gradient-to-br from-wash-blush via-white to-wash-sage'
-            : 'bg-gradient-to-br from-wash-sage via-white to-bg-alt'
+            ? 'bg-gradient-to-br from-wash-blush via-white to-wash-pink'
+            : 'bg-gradient-to-br from-wash-pink via-white to-bg-alt'
         }`}
       >
         <div className="absolute inset-3 flex items-center justify-center overflow-hidden rounded-[22px]">
@@ -216,11 +216,11 @@ export default function DoctorCard({ doctor, variant = 'list' }: DoctorCardProps
       </div>
 
       <div className="mt-5 grid gap-2 text-sm text-text-light">
-        <p className="flex items-start gap-2 rounded-2xl bg-wash-sage/60 px-3 py-2">
+        <p className="flex items-start gap-2 rounded-2xl bg-wash-pink/60 px-3 py-2">
           <Languages size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
           <span>{languages}</span>
         </p>
-        <p className="flex items-start gap-2 rounded-2xl bg-wash-sage/60 px-3 py-2">
+        <p className="flex items-start gap-2 rounded-2xl bg-wash-pink/60 px-3 py-2">
           <Clock size={16} className="mt-0.5 shrink-0 text-accent" aria-hidden="true" />
           <span>{availabilityText(doctor)}</span>
         </p>

@@ -23,7 +23,7 @@ export default function ContentUnavailable({
     <section className="section">
       <div className="container">
         <div className="card measure mx-auto p-8 text-center sm:p-10">
-          <span className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-pill bg-wash-sage text-accent">
+          <span className="mx-auto mb-5 flex h-12 w-12 items-center justify-center rounded-pill bg-wash-pink text-accent">
             <RefreshCw size={22} aria-hidden="true" />
           </span>
           <h1 className="heading-card text-ink">{title}</h1>

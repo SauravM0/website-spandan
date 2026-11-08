@@ -1,6 +1,6 @@
 export function HeartIcon({
   size = 24,
-  color = '#0F766E',
+  color = '#C0006F',
   opacity = 1,
   className = '',
 }: {

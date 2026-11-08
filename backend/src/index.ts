@@ -59,10 +59,29 @@ app.use(
 app.use(express.json({ limit: '1mb' }));
 app.use(validateCsrfToken);
 
+/*
+ * Rate limits are per replica, not per cluster.
+ *
+ * express-rate-limit keeps its counters in this process's memory, so each
+ * replica allows the full budget and a client's effective allowance is the
+ * limit multiplied by the replica count. The budgets below are therefore
+ * expressed cluster-wide and divided by `API_REPLICA_COUNT`, which keeps the
+ * intended ceiling honest as the deployment scales.
+ *
+ * This is an approximation: requests are not evenly distributed across
+ * replicas, so a client can still exceed the cluster budget by landing on one
+ * replica repeatedly. An exact limit needs a shared store (Redis or similar)
+ * behind `express-rate-limit`'s store interface, which is infrastructure this
+ * service does not yet have. Caching, not this limiter, is what protects the
+ * database from ordinary traffic.
+ */
+const replicaCount = Math.max(1, parseInt(process.env.API_REPLICA_COUNT || '1', 10) || 1);
+const perReplica = (clusterBudget: number) => Math.max(1, Math.floor(clusterBudget / replicaCount));
+
 // Global rate limit for all /api routes (backstop)
 const globalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 200,
+  max: perReplica(parseInt(process.env.RATE_LIMIT_API_MAX || '200', 10) || 200),
   message: (_req: Request, res: Response) => ({
     error: {
       code: 'RATE_LIMITED',
@@ -77,7 +96,7 @@ const globalLimiter = rateLimit({
 // Stricter rate limit for public GET routes (Section 3.1 - 100 req/min)
 const publicGetLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 100,
+  max: perReplica(parseInt(process.env.RATE_LIMIT_PUBLIC_GET_MAX || '100', 10) || 100),
   message: (_req: Request, res: Response) => ({
     error: {
       code: 'RATE_LIMITED',

@@ -72,7 +72,7 @@ export default function PackageCard({ pkg, variant = 'list' }: PackageCardProps)
     <article className="card trust-card flex h-full flex-col overflow-hidden p-5 sm:p-6">
       <div className="mb-5 flex items-start justify-between gap-3">
         <div className="flex min-w-0 items-center gap-3">
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-wash-sage text-accent">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-wash-pink text-accent">
             <HeartPulse size={22} aria-hidden="true" />
           </span>
           <span className="badge badge-featured capitalize">{packageCategoryLabel(pkg)}</span>
@@ -144,7 +144,7 @@ export default function PackageCard({ pkg, variant = 'list' }: PackageCardProps)
               Enquire on WhatsApp
             </Button>
           ) : (
-            <span className="btn btn-sm flex-1 cursor-not-allowed bg-wash-sage text-text-light shadow-none">
+            <span className="btn btn-sm flex-1 cursor-not-allowed bg-wash-pink text-text-light shadow-none">
               Unavailable
             </span>
           )}

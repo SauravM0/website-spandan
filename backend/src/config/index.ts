@@ -20,7 +20,33 @@ const supabaseProjectRef = process.env.SUPABASE_PROJECT_REF || '';
 const dataPolicy =
   process.env.DATA_POLICY ||
   (deploymentEnvironment === 'production' ? 'production-patient-data' : 'synthetic-only');
-const jwtSecret = process.env.JWT_SECRET || 'CHANGE_ME_IN_PRODUCTION_MUST_BE_AT_LEAST_32_CHARS';
+/**
+ * The development placeholder, kept so a local checkout runs without a .env.
+ *
+ * `validateEnvironmentIsolation` already rejects a weak secret on any *hosted*
+ * environment, but that check keys off DEPLOYMENT_ENV. A deployment that runs
+ * with NODE_ENV=production and forgets DEPLOYMENT_ENV would slip past it and
+ * sign real sessions with a secret published in this file, so the placeholder
+ * is refused outright whenever the process thinks it is in production.
+ */
+const DEVELOPMENT_JWT_PLACEHOLDER = 'CHANGE_ME_IN_PRODUCTION_MUST_BE_AT_LEAST_32_CHARS';
+
+export function resolveJwtSecret(
+  environment: NodeJS.ProcessEnv = process.env
+): string {
+  const configured = environment.JWT_SECRET?.trim();
+  const isProduction = environment.NODE_ENV === 'production';
+
+  if (isProduction && (!configured || configured === DEVELOPMENT_JWT_PLACEHOLDER)) {
+    throw new Error(
+      'JWT_SECRET must be set to a strong, non-placeholder value when NODE_ENV=production.'
+    );
+  }
+
+  return configured || DEVELOPMENT_JWT_PLACEHOLDER;
+}
+
+const jwtSecret = resolveJwtSecret();
 const frontendUrl = normalizeOrigin(process.env.FRONTEND_URL || 'http://localhost:3000');
 validateEnvironmentIsolation({
   runtimeEnvironment: env,

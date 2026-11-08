@@ -2,10 +2,17 @@ import { query } from '../config/database';
 import { Doctor } from '../domain/entities';
 import { buildInsert, buildUpdate } from '../persistence/sqlBuilders';
 
+/**
+ * Upper bound on any unpaginated doctor listing. A clinic has a handful of
+ * doctors, so this is never reached in practice; it stops an unexpectedly large
+ * table from being read whole into memory on every request.
+ */
+export const MAX_DOCTOR_ROWS = 500;
+
 export async function getDoctors(activeOnly = true): Promise<Doctor[]> {
   const sql = activeOnly
-    ? 'SELECT * FROM doctors WHERE is_active = true ORDER BY name ASC'
-    : 'SELECT * FROM doctors ORDER BY name ASC';
+    ? `SELECT * FROM doctors WHERE is_active = true ORDER BY name ASC LIMIT ${MAX_DOCTOR_ROWS}`
+    : `SELECT * FROM doctors ORDER BY name ASC LIMIT ${MAX_DOCTOR_ROWS}`;
   const result = await query(sql);
   return result.rows;
 }

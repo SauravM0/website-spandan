@@ -48,12 +48,12 @@ export default function Footer() {
           <div>
             <h4 className="mb-4 text-lg font-semibold text-ink">{t('footer_quick_links')}</h4>
             <div className="flex flex-col gap-2 text-sm">
-              <Link href="/doctors" className="transition-colors duration-300 hover:text-accent">{t('nav_doctors')}</Link>
-              <Link href="/care" className="transition-colors duration-300 hover:text-accent">{t('nav_care')}</Link>
-              <Link href="/packages" className="transition-colors duration-300 hover:text-accent">{t('nav_packages')}</Link>
-              <Link href="/health" className="transition-colors duration-300 hover:text-accent">{t('nav_health')}</Link>
-              <Link href="/legal#privacy" className="transition-colors duration-300 hover:text-accent">{t('footer_privacy')}</Link>
-              <Link href="/legal#terms" className="transition-colors duration-300 hover:text-accent">{t('footer_terms')}</Link>
+              <Link href="/doctors" className="inline-flex min-h-[44px] items-center transition-colors duration-300 hover:text-accent">{t('nav_doctors')}</Link>
+              <Link href="/care" className="inline-flex min-h-[44px] items-center transition-colors duration-300 hover:text-accent">{t('nav_care')}</Link>
+              <Link href="/packages" className="inline-flex min-h-[44px] items-center transition-colors duration-300 hover:text-accent">{t('nav_packages')}</Link>
+              <Link href="/health" className="inline-flex min-h-[44px] items-center transition-colors duration-300 hover:text-accent">{t('nav_health')}</Link>
+              <Link href="/legal#privacy" className="inline-flex min-h-[44px] items-center transition-colors duration-300 hover:text-accent">{t('footer_privacy')}</Link>
+              <Link href="/legal#terms" className="inline-flex min-h-[44px] items-center transition-colors duration-300 hover:text-accent">{t('footer_terms')}</Link>
             </div>
 
             {socialLinks.length > 0 && (
@@ -98,7 +98,7 @@ export default function Footer() {
                 href={clinicSettings.googleMapsUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="font-semibold text-accent transition-colors duration-300 hover:text-primary"
+                className="inline-flex min-h-[44px] items-center font-semibold text-accent transition-colors duration-300 hover:text-primary"
               >
                 Open map
               </a>

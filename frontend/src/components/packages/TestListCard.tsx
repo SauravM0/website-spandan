@@ -46,7 +46,7 @@ export default function TestListCard({ tests }: TestListCardProps) {
             <h4 className="text-sm font-bold uppercase capitalize text-text-light">{category}</h4>
             <ul className="mt-3 grid gap-2 sm:grid-cols-2">
               {items.map((test) => (
-                <li key={test.id || test.test_name} className="flex items-start gap-2 rounded-2xl bg-wash-sage/70 px-3 py-2 text-sm text-text-light">
+                <li key={test.id || test.test_name} className="flex items-start gap-2 rounded-2xl bg-wash-pink/70 px-3 py-2 text-sm text-text-light">
                   <CheckCircle2 className="mt-0.5 shrink-0 text-accent" size={16} aria-hidden="true" />
                   <span>
                     <span className="font-semibold text-ink">{test.test_name}</span>

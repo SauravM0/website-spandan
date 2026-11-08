@@ -4,10 +4,30 @@ import { buildInternalApiUrl } from '@/lib/apiUrl';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const REQUEST_HEADERS_TO_REMOVE = ['connection', 'content-length', 'host'];
+/**
+ * Forwarding-trust headers are stripped from client requests.
+ *
+ * The backend runs behind `trust proxy` and keys rate limiting and audit
+ * records off the forwarded address, so letting a caller supply its own
+ * `x-forwarded-*` would let it choose the identity it is limited and logged
+ * under. This route sets the ones the backend should see, just below.
+ */
+const REQUEST_HEADERS_TO_REMOVE = [
+  'connection',
+  'content-length',
+  'host',
+  'x-forwarded-for',
+  'x-forwarded-host',
+  'x-forwarded-proto',
+  'x-real-ip',
+  'forwarded',
+];
 const RESPONSE_HEADERS_TO_REMOVE = ['connection', 'content-encoding', 'content-length', 'transfer-encoding'];
 
 type RouteContext = { params: Promise<{ path: string[] }> };
+
+/** Matches the server-render deadline in `lib/serverApi.ts`. */
+const UPSTREAM_TIMEOUT_MS = 4000;
 
 async function proxy(request: NextRequest, context: RouteContext): Promise<Response> {
   const { path } = await context.params;
@@ -22,6 +42,9 @@ async function proxy(request: NextRequest, context: RouteContext): Promise<Respo
     headers,
     redirect: 'manual',
     cache: 'no-store',
+    // Without a deadline a hung backend holds this route handler open and, under
+    // load, exhausts the server's request workers.
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
   };
   if (!['GET', 'HEAD'].includes(request.method)) {
     init.body = request.body;

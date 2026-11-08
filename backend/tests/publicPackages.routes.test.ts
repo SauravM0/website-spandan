@@ -124,6 +124,34 @@ test('the catalogue reads its tests in one batched query, not one per package', 
   assert.ok(testQueries.some((sql) => /= ANY\(\$1::uuid\[\]\)/.test(sql)));
 });
 
+test('GET /api/packages?include=tests returns every package with its tests in one call', async () => {
+  const before = seenSql.length;
+  const res = await fetch(`${baseUrl}/api/packages?include=tests`);
+  assert.equal(res.status, 200);
+
+  const body = (await res.json()) as { packages: Record<string, unknown>[] };
+  assert.equal(body.packages.length, 1);
+  assert.deepEqual(
+    (body.packages[0].tests as { test_name: string }[]).map((t) => t.test_name),
+    ['HbA1c', 'Lipid Profile']
+  );
+  assert.equal(body.packages[0].description, 'Full diabetes evaluation.');
+
+  // The whole catalogue, tests included, must cost one packages query plus one
+  // batched tests query - never one request per package.
+  const queries = seenSql.slice(before);
+  assert.equal(queries.filter((sql) => /FROM packages/i.test(sql)).length, 1);
+  assert.equal(queries.filter((sql) => /FROM package_tests/i.test(sql)).length, 1);
+  assert.equal(queries.length, 2);
+});
+
+test('the plain listing stays a summary and does not ship test lists', async () => {
+  const res = await fetch(`${baseUrl}/api/packages`);
+  const body = (await res.json()) as { packages: Record<string, unknown>[] };
+  assert.equal(body.packages[0].tests, undefined);
+  assert.equal(body.packages[0].inclusion_count, 2);
+});
+
 test('GET /api/packages/:slug returns the full test list', async () => {
   const res = await fetch(`${baseUrl}/api/packages/diabetic-package`);
   assert.equal(res.status, 200);

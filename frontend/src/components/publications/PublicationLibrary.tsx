@@ -18,7 +18,7 @@ function PublicationCard({ publication }: { publication: ResearchPublication }) 
     <article id={publication.id} className="soft-card flex h-full scroll-mt-28 flex-col p-5 sm:p-6">
       <div className="flex flex-wrap gap-2">
         {publication.topics.slice(0, 2).map((topic) => (
-          <span key={topic} className="rounded-full bg-wash-sage px-3 py-1 text-xs font-semibold text-accent">
+          <span key={topic} className="rounded-full bg-wash-pink px-3 py-1 text-xs font-semibold text-accent">
             {topic}
           </span>
         ))}
