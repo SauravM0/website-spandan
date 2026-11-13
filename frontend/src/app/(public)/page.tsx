@@ -5,6 +5,7 @@ import CredentialsBand from '@/components/home/CredentialsBand';
 import ResearchHighlight from '@/components/home/ResearchHighlight';
 import ServiceCards from '@/components/home/ServiceCards';
 import DoctorCardsSection from '@/components/home/DoctorCards';
+import BeyondConsultation from '@/components/home/BeyondConsultation';
 import ClinicGallery from '@/components/home/ClinicGallery';
 import ClinicStory from '@/components/home/ClinicStory';
 import ExploreBento from '@/components/home/ExploreBento';
@@ -57,6 +58,7 @@ export default async function HomePage() {
       />
       <HeroSection settings={payload.settings} doctors={payload.doctors} />
       <DoctorCardsSection doctors={payload.doctors} />
+      <BeyondConsultation lowestPackagePrice={payload.lowestPackagePrice} />
       <CredentialsBand />
       <ServiceCards />
       <ResearchHighlight />
